@@ -60,12 +60,13 @@ function Welcome() {
       <T size={14} color={colors.muted} center>
         No account needed. Got an invite link? Open it and you will land in the group.
       </T>
+      <Button label="I already have an account" kind="ghost" small onPress={() => router.push('/account?mode=signin' as never)} />
     </Screen>
   );
 }
 
 function Home() {
-  const { profile } = useSession();
+  const { profile, email } = useSession();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,14 @@ function Home() {
     <Screen footer={<Button label="Start a new group" onPress={() => router.push('/new-group')} />}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Brand />
-        {profile ? <Avatar name={profile.name} color={profile.color} size={44} /> : null}
+        {profile ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={email ? 'Your account' : 'Save your account'}
+            onPress={() => router.push('/account' as never)}>
+            <Avatar name={profile.name} color={profile.color} size={44} />
+          </Pressable>
+        ) : null}
       </View>
       <View style={{ gap: 4 }}>
         <T size={32} weight="black" style={{ lineHeight: 36 }}>
@@ -130,6 +138,17 @@ function Home() {
           </Card>
         </Pressable>
       ))}
+      {!email && groups && groups.length > 0 ? (
+        <Card style={{ padding: 18, backgroundColor: colors.today }}>
+          <T size={17} weight="extra">
+            Keep your groups
+          </T>
+          <T size={14} weight="medium" color={colors.muted}>
+            You are a guest, so your groups live only on this device. Add your email to get back to them anywhere.
+          </T>
+          <Button label="Add my email" small onPress={() => router.push('/account' as never)} />
+        </Card>
+      ) : null}
     </Screen>
   );
 }

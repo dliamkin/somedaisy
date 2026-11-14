@@ -8,6 +8,7 @@ the "Everyone's in" moment, and live updates between members.
 
 Phase 2 so far: plans. Any idea can be given a day and a time of day, planned ideas show under
 "Coming up" at the top of the group, and marking a plan as done takes it off the lists.
+And accounts: a guest can add an email to keep their groups and sign in on other devices.
 
 ## First-time setup
 
@@ -16,6 +17,24 @@ Phase 2 so far: plans. Any idea can be given a day and a time of day, planned id
 3. **Settings.** Copy `.env.example` to `.env` and fill in the project URL and the publishable key.
    (If `.env` is already present, this is done.)
 4. **Install.** `npm install`
+
+### Email accounts
+
+Everyone starts as a guest. Adding an email turns that guest into an account, so their groups can be
+reached from any device. Sign-in is by a code sent to the email, with no passwords. This needs four
+things set in the Supabase dashboard under Authentication:
+
+1. **Email provider.** Under Sign In / Providers, turn on **Email**, and turn on **Manual linking**
+   (this is what lets a guest gain an email).
+2. **Codes in the emails.** Under Emails, edit the **Magic link or OTP** template and the
+   **Change email address** template so each shows the code, for example
+   `<p>Your SomeDaisy code is {{ .Token }}</p>`. Without this the emails contain a link, which the
+   app does not use.
+3. **Your own email service.** Under Emails > SMTP Settings, connect an email provider. Supabase's
+   built-in sender only delivers to the project's own team members, at two emails an hour, so
+   nobody else can receive a code until this is done.
+4. **Rate limit.** With your own email service connected, raise the emails-per-hour limit under
+   Rate Limits to suit the number of people signing in.
 
 ## Run it
 
@@ -34,6 +53,7 @@ private browser window or on another device.
 | `src/app/` | Screens. Each file is a page (Expo Router). |
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
+| `src/app/account.tsx` | Add an email, sign in, sign out |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |

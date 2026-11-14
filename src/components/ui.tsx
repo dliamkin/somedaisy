@@ -195,6 +195,7 @@ export function Field({
   autoFocus,
   maxLength,
   onSubmit,
+  kind,
 }: {
   label: string;
   value: string;
@@ -204,6 +205,8 @@ export function Field({
   autoFocus?: boolean;
   maxLength?: number;
   onSubmit?: () => void;
+  /** Picks the right keyboard and autofill for an email address or an emailed code. */
+  kind?: 'email' | 'code';
 }) {
   return (
     <View style={{ gap: 6 }}>
@@ -220,6 +223,11 @@ export function Field({
         autoFocus={autoFocus}
         maxLength={maxLength}
         onSubmitEditing={onSubmit}
+        keyboardType={kind === 'email' ? 'email-address' : kind === 'code' ? 'number-pad' : 'default'}
+        autoCapitalize={kind ? 'none' : undefined}
+        autoCorrect={kind ? false : undefined}
+        autoComplete={kind === 'email' ? 'email' : kind === 'code' ? 'one-time-code' : undefined}
+        textContentType={kind === 'email' ? 'emailAddress' : kind === 'code' ? 'oneTimeCode' : undefined}
         returnKeyType={multiline ? 'default' : 'done'}
         style={{
           minHeight: multiline ? 88 : 52,
