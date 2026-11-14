@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Daisy } from '@/components/daisy';
+import { Logo } from '@/components/logo';
 import { NameForm } from '@/components/name-form';
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { fetchGroups, type GroupSummary } from '@/lib/data';
@@ -10,14 +11,7 @@ import { useSession } from '@/lib/session';
 import { colors, covers } from '@/lib/theme';
 
 function Brand() {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Daisy />
-      <T size={24} weight="black">
-        SomeDaisy
-      </T>
-    </View>
-  );
+  return <Logo />;
 }
 
 export default function Index() {

@@ -21,7 +21,7 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/icon/rounded/somedaisy-icon-512.png"
     },
     "plugins": [
       "expo-router",
