@@ -22,16 +22,14 @@ const SessionContext = createContext<SessionValue>({
 });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
+  // Without a Supabase client there is nothing to load, so the session is ready immediately.
+  const [ready, setReady] = useState(!supabase);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
-    if (!supabase) {
-      setReady(true);
-      return;
-    }
+    if (!supabase) return;
     const client = supabase;
     let alive = true;
     (async () => {
