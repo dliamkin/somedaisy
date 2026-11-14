@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { NotificationsCard } from '@/components/notifications-card';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import {
   AccountError,
@@ -14,6 +15,7 @@ import {
   requestSignIn,
   signOut,
 } from '@/lib/account';
+import { forgetDevice } from '@/lib/push';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -36,6 +38,8 @@ function SignedIn({ email }: { email: string }) {
     setBusy(true);
     setError(null);
     try {
+      // Must happen while still signed in: it removes this phone from this account's notifications.
+      await forgetDevice();
       await signOut();
       await refresh();
       router.replace('/');
@@ -64,6 +68,7 @@ function SignedIn({ email }: { email: string }) {
           Your groups are saved to this email. Sign in with it on any phone or browser to see them.
         </T>
       </Card>
+      <NotificationsCard showStatus />
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18 }}>

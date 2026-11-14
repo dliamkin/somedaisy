@@ -10,10 +10,13 @@ Phase 2 so far: plans. Any idea can be given a day and a time of day, planned id
 "Coming up" at the top of the group, and marking a plan as done moves it from the lists to
 "Things we did", where it can be put back.
 And accounts: a guest can add an email to keep their groups and sign in on other devices.
+And push notifications on phones for new ideas, dates, and plans that are about to start.
 
 ## First-time setup
 
 1. **Database.** In your Supabase project, open the SQL editor, paste in `supabase/schema.sql`, and run it once.
+   Then run each file in `supabase/updates/` in number order. Each says at the top what it needs,
+   and is safe to run again.
 2. **Guest sign-in.** In Supabase under Authentication, turn on **Anonymous sign-ins**.
 3. **Settings.** Copy `.env.example` to `.env` and fill in the project URL and the publishable key.
    (If `.env` is already present, this is done.)
@@ -36,6 +39,33 @@ things set in the Supabase dashboard under Authentication:
    nobody else can receive a code until this is done.
 4. **Rate limit.** With your own email service connected, raise the emails-per-hour limit under
    Rate Limits to suit the number of people signing in.
+
+### Push notifications
+
+Phones get a notification when someone else in the group adds an idea, picks a date, or gives the
+thumbs up that makes it "everyone's in", plus a reminder about two hours before a plan. The database
+sends them through Expo's push service; there is no separate server to run.
+
+Notifications only work in a built copy of the app on Android or iPhone. They do not work on the
+web or inside Expo Go; there the app simply does not offer them.
+
+1. **Database.** In Supabase under Database > Extensions, turn on **pg_net** and **pg_cron**. Then
+   run `supabase/updates/001-push-notifications.sql` in the SQL editor.
+2. **Expo project.** Run `npx eas-cli@latest init` and sign in to (or create) an Expo account. This
+   adds a project ID to `app.json`, which the app needs to get a phone's push address. Commit that change.
+3. **Android.** Create a Firebase project and add an Android app to it with the same package name
+   the build uses. Download its `google-services.json` into this folder and point
+   `expo.android.googleServicesFile` in `app.json` at it. Then, in Firebase under Project settings >
+   Service accounts, generate a private key and upload it with `npx eas-cli@latest credentials`
+   (Android > Google Service Account > FCM V1). Keep that key file out of git.
+4. **iPhone.** Needs a paid Apple Developer account. The first `eas build` for iOS offers to set up
+   push notifications and create the key; say yes to both.
+5. **Build.** `npx eas-cli@latest build --profile preview --platform android` (or `ios`) makes an
+   installable app. The first run asks a few questions and creates `eas.json`.
+
+To check it end to end: install the build on two phones, join the same group, turn on notifications
+on both from the home screen, and add an idea on one. Expo's push tool at
+https://expo.dev/notifications can also send a test to a single phone.
 
 ## Run it
 
