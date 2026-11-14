@@ -127,6 +127,7 @@ export default function GroupScreen() {
   };
 
   const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
+  const openComments = (idea: Idea) => router.push(`/group/${group.id}/comments?idea=${idea.id}` as never);
 
   const plans = plannedIdeas(group.ideas);
   const ideas = activeList ? group.ideas.filter((i) => i.list_id === activeList.id) : [];
@@ -238,6 +239,7 @@ export default function GroupScreen() {
           const allIn = everyoneIn(idea.id, group.members, group.reactions);
           const waiting = group.members.filter((m) => !rs.some((r) => r.user_id === m.user_id && (r.emoji === '👍' || r.emoji === '👎')));
           const extras = REACTIONS.filter((e) => e !== '👍' && e !== '👎' && count(e) > 0);
+          const comments = group.commentCounts[idea.id] ?? 0;
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
@@ -276,6 +278,11 @@ export default function GroupScreen() {
                   <Chip key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
                 ))}
                 <Chip label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
+                <Chip
+                  label={comments ? `💬 ${comments}` : '💬'}
+                  accessibilityLabel={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
+                  onPress={() => openComments(idea)}
+                />
                 {idea.planned_for ? (
                   <Chip
                     label={`📅 ${formatPlan(idea.planned_for, now)}`}

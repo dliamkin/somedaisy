@@ -1,3 +1,4 @@
+import { countByIdea } from './comments';
 import { db } from './supabase';
 
 export type Profile = { id: string; name: string; color: string };
@@ -24,6 +25,8 @@ export type GroupData = {
   lists: List[];
   ideas: Idea[];
   reactions: Reaction[];
+  /** How many comments each idea has, by idea id. Ideas with none are left out. */
+  commentCounts: Record<string, number>;
 };
 
 type MemberRow = { user_id: string; profiles: { name: string; color: string } | { name: string; color: string }[] | null };
@@ -55,7 +58,7 @@ export async function fetchGroups(): Promise<GroupSummary[]> {
 
 export async function fetchGroup(id: string): Promise<GroupData | null> {
   const client = db();
-  const [g, m, l, i, r] = await Promise.all([
+  const [g, m, l, i, r, c] = await Promise.all([
     client.from('groups').select('id, name, cover, invite_code').eq('id', id).maybeSingle(),
     client.from('group_members').select('user_id, profiles(name, color)').eq('group_id', id).order('joined_at'),
     client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
@@ -66,6 +69,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
       .is('done_at', null)
       .order('created_at', { ascending: false }),
     client.from('reactions').select('idea_id, user_id, emoji').eq('group_id', id),
+    client.from('comments').select('idea_id').eq('group_id', id),
   ]);
   fail(g.error ?? m.error ?? l.error ?? i.error ?? r.error);
   if (!g.data) return null;
@@ -78,6 +82,8 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     lists: (l.data ?? []) as List[],
     ideas: (i.data ?? []) as Idea[],
     reactions: (r.data ?? []) as Reaction[],
+    // A failure here (comments not set up in the database yet) must not hide the whole group.
+    commentCounts: c.error ? {} : countByIdea(c.data as { idea_id: string }[] | null),
   };
 }
 

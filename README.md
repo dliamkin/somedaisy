@@ -10,8 +10,9 @@ Phase 2 so far: plans. Any idea can be given a day and a time of day, planned id
 "Coming up" at the top of the group, and marking a plan as done moves it from the lists to
 "Things we did", where it can be put back.
 And accounts: a guest can add an email to keep their groups and sign in on other devices.
-And push notifications on phones, kept deliberately few: a reaction to an idea you added, and a
-reminder before a plan. Each person can switch either off.
+And push notifications on phones, kept deliberately few: a reaction to or comment on an idea you
+added, and a reminder before a plan. Each person can switch any of them off.
+And comments: every idea has a conversation any member of the group can add to.
 
 ## First-time setup
 
@@ -48,9 +49,11 @@ the guest's groups stay behind and the app says so.
 
 ### Push notifications
 
-Only two things send a notification: someone else reacting to an idea you added (one per person
-per ten minutes, however many emoji they tap), and a reminder to the group about two hours before a
-plan. Adding ideas and picking dates stay quiet. Each person can switch either kind off under
+Only three things send a notification: someone else reacting to an idea you added (one per person
+per ten minutes, however many emoji they tap), someone else commenting on an idea you added (again
+one per person per ten minutes, unless you have answered in between), and a reminder to the group
+about two hours before a plan. Adding ideas and picking dates stay quiet. Comments need
+`supabase/updates/003-comments.sql`. Each person can switch any kind off under
 Notification settings, reached from the home screen or the account screen; the choice follows them
 to every phone. The database sends the notifications through Expo's push service; there is no
 separate server to run.
@@ -100,6 +103,7 @@ private browser window or on another device.
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
+| `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: done ideas, with a way to put one back |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |

@@ -16,15 +16,20 @@ function stored(result: { data?: unknown; error?: { message: string } | null }) 
 describe('getNotificationSettings', () => {
   it('has everything on for someone who never chose', async () => {
     stored({ data: null });
-    expect(await getNotificationSettings()).toEqual({ reactions: true, reminders: true });
+    expect(await getNotificationSettings()).toEqual({ reactions: true, comments: true, reminders: true });
     expect(client.from).toHaveBeenCalledWith('notification_settings');
   });
 
   it('returns what the person chose', async () => {
-    stored({ data: { reactions: false, reminders: true } });
-    expect(await getNotificationSettings()).toEqual({ reactions: false, reminders: true });
+    stored({ data: { reactions: false, comments: true, reminders: true } });
+    expect(await getNotificationSettings()).toEqual({ reactions: false, comments: true, reminders: true });
+    stored({ data: { reactions: true, comments: false, reminders: false } });
+    expect(await getNotificationSettings()).toEqual({ reactions: true, comments: false, reminders: false });
+  });
+
+  it('treats comments as on when the database does not have that choice yet', async () => {
     stored({ data: { reactions: true, reminders: false } });
-    expect(await getNotificationSettings()).toEqual({ reactions: true, reminders: false });
+    expect(await getNotificationSettings()).toEqual({ reactions: true, comments: true, reminders: false });
   });
 
   it('fails with the database message, so the screen can show it', async () => {
@@ -34,14 +39,14 @@ describe('getNotificationSettings', () => {
 });
 
 describe('saveNotificationSettings', () => {
-  it('saves both choices for the signed-in person', async () => {
+  it('saves every choice for the signed-in person', async () => {
     client.rpc.mockResolvedValue({ error: null });
-    await saveNotificationSettings({ reactions: false, reminders: true });
-    expect(client.rpc).toHaveBeenCalledWith('set_notification_settings', { p_reactions: false, p_reminders: true });
+    await saveNotificationSettings({ reactions: false, comments: true, reminders: true });
+    expect(client.rpc).toHaveBeenCalledWith('set_notification_settings', { p_reactions: false, p_reminders: true, p_comments: true });
   });
 
   it('fails when the database refuses, so the switch can flip back', async () => {
     client.rpc.mockResolvedValue({ error: { message: 'Set your name first' } });
-    await expect(saveNotificationSettings({ reactions: true, reminders: true })).rejects.toThrow('Set your name first');
+    await expect(saveNotificationSettings({ reactions: true, comments: true, reminders: true })).rejects.toThrow('Set your name first');
   });
 });

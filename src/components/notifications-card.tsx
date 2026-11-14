@@ -48,10 +48,10 @@ export function NotificationsCard({ showStatus }: { showStatus?: boolean }) {
       </T>
       <T size={14} weight="medium" color={colors.muted}>
         {state === 'on'
-          ? 'This phone can hear when a friend reacts to an idea you added, and shortly before a plan.'
+          ? 'This phone can hear when a friend reacts to or comments on an idea you added, and shortly before a plan.'
           : state === 'blocked'
             ? "They are switched off for SomeDaisy in this phone's settings."
-            : 'Hear when a friend reacts to an idea you added, and get a reminder before a plan. Nothing else, and you choose which.'}
+            : 'Hear when a friend reacts to or comments on an idea you added, and get a reminder before a plan. Nothing else, and you choose which.'}
       </T>
       <ErrorNote message={error} />
       {state === 'ask' ? <Button label="Turn on notifications" small onPress={turnOn} busy={busy} /> : null}
