@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Profile } from './data';
+import { syncPush } from './push';
 import { isConfigured, supabase } from './supabase';
 
 type SessionValue = {
@@ -68,6 +69,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setProfile(who.profile);
     setError(null);
     setReady(true);
+    // If this phone already allows notifications, make sure they go to whoever is signed in now.
+    if (who.profile) void syncPush();
   }, []);
 
   const showError = useCallback((e: unknown) => {
@@ -96,6 +99,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { error: err } = await supabase.from('profiles').upsert(row);
       if (err) throw new Error(err.message);
       setProfile(row);
+      void syncPush();
     },
     [userId],
   );

@@ -18,11 +18,14 @@ npx expo start              # start the dev server
 npx expo lint               # lint
 npx tsc --noEmit            # typecheck
 npm test                    # unit tests (Jest, files named *-test.ts(x) in __tests__ folders)
+npm run test:db             # database tests: runs supabase/*.sql in an in-memory Postgres (supabase/tests/)
 npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
 ```
 
-Run lint, typecheck and tests before declaring any task done. CI runs the same three on every pull request.
+Run lint, typecheck and both test commands before declaring any task done. CI runs the same four on every pull request.
+
+Database changes go in a new numbered file in `supabase/updates/` (safe to run twice), never by editing `supabase/schema.sql`, with tests in `supabase/tests/`.
 
 ## Navigation & Routing
 
