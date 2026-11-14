@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { NotificationsCard } from '@/components/notifications-card';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import {
   AccountError,
@@ -68,7 +67,7 @@ function SignedIn({ email }: { email: string }) {
           Your groups are saved to this email. Sign in with it on any phone or browser to see them.
         </T>
       </Card>
-      <NotificationsCard showStatus />
+      <Button label="Notification settings" kind="outline" small onPress={() => router.push('/notifications' as never)} />
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18 }}>

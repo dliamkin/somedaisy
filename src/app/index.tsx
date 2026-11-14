@@ -140,6 +140,9 @@ function Home() {
         </Pressable>
       ))}
       {groups && groups.length > 0 ? <NotificationsCard /> : null}
+      {groups && groups.length > 0 ? (
+        <Button label="Notification settings" kind="ghost" small onPress={() => router.push('/notifications' as never)} />
+      ) : null}
       {!email && groups && groups.length > 0 ? (
         <Card style={{ padding: 18, backgroundColor: colors.today }}>
           <T size={17} weight="extra">

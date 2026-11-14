@@ -118,6 +118,36 @@ export async function forgetDevice(): Promise<void> {
   }
 }
 
+/** Which notifications a person wants. These follow the person, not the phone. */
+export type NotificationSettings = {
+  /** Someone reacted to an idea I added. */
+  reactions: boolean;
+  /** A plan is about two hours away. */
+  reminders: boolean;
+};
+
+export const defaultNotificationSettings: NotificationSettings = { reactions: true, reminders: true };
+
+/** The signed-in person's choices. Someone who never chose has everything on. */
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  if (!supabase) return defaultNotificationSettings;
+  const { data, error } = await supabase.from('notification_settings').select('reactions, reminders').maybeSingle();
+  if (error) throw new Error(error.message);
+  return {
+    reactions: data?.reactions !== false,
+    reminders: data?.reminders !== false,
+  };
+}
+
+export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+  if (!supabase) throw new Error('Not connected.');
+  const { error } = await supabase.rpc('set_notification_settings', {
+    p_reactions: settings.reactions,
+    p_reminders: settings.reminders,
+  });
+  if (error) throw new Error(error.message);
+}
+
 /** Show pushes that arrive while the app is open, instead of swallowing them. Call once at start-up. */
 export async function showPushesWhileOpen(): Promise<void> {
   if (!pushAvailable) return;

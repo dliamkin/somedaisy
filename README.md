@@ -10,7 +10,8 @@ Phase 2 so far: plans. Any idea can be given a day and a time of day, planned id
 "Coming up" at the top of the group, and marking a plan as done moves it from the lists to
 "Things we did", where it can be put back.
 And accounts: a guest can add an email to keep their groups and sign in on other devices.
-And push notifications on phones for new ideas, dates, and plans that are about to start.
+And push notifications on phones, kept deliberately few: a reaction to an idea you added, and a
+reminder before a plan. Each person can switch either off.
 
 ## First-time setup
 
@@ -42,9 +43,12 @@ things set in the Supabase dashboard under Authentication:
 
 ### Push notifications
 
-Phones get a notification when someone else in the group adds an idea, picks a date, or gives the
-thumbs up that makes it "everyone's in", plus a reminder about two hours before a plan. The database
-sends them through Expo's push service; there is no separate server to run.
+Only two things send a notification: someone else reacting to an idea you added (one per person
+per ten minutes, however many emoji they tap), and a reminder to the group about two hours before a
+plan. Adding ideas and picking dates stay quiet. Each person can switch either kind off under
+Notification settings, reached from the home screen or the account screen; the choice follows them
+to every phone. The database sends the notifications through Expo's push service; there is no
+separate server to run.
 
 Notifications only work in a built copy of the app on Android or iPhone. They do not work on the
 web or inside Expo Go; there the app simply does not offer them.
@@ -64,7 +68,7 @@ web or inside Expo Go; there the app simply does not offer them.
    installable app. The first run asks a few questions and creates `eas.json`.
 
 To check it end to end: install the build on two phones, join the same group, turn on notifications
-on both from the home screen, and add an idea on one. Expo's push tool at
+on both from the home screen, add an idea on one and react to it on the other. Expo's push tool at
 https://expo.dev/notifications can also send a test to a single phone.
 
 ## Run it
@@ -85,6 +89,7 @@ private browser window or on another device.
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
 | `src/app/account.tsx` | Add an email, sign in, sign out |
+| `src/app/notifications.tsx` | Choose which notifications to get |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |

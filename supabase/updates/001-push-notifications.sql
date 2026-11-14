@@ -6,11 +6,12 @@
 --
 -- What it adds:
 --   * a table of the phones that asked for notifications
---   * a push to the rest of the group when someone adds an idea, picks a date,
---     or gives the thumbs up that makes it "everyone's in"
---   * a reminder to the whole group about two hours before a plan
+--   * each person's choice of which notifications they want
+--   * a push to the person who added an idea when someone else reacts to it
+--   * a reminder to the group about two hours before a plan
 --
--- Sending never blocks the app: if a push cannot be queued, the idea, date or reaction is still saved.
+-- Nothing else sends a push. Sending never blocks the app: if a push cannot be queued,
+-- the reaction is still saved.
 
 -- ---------- Devices ----------
 
@@ -80,19 +81,52 @@ revoke all on function public.unregister_push_token(text) from public, anon;
 grant execute on function public.register_push_token(text, text, text) to authenticated;
 grant execute on function public.unregister_push_token(text) to authenticated;
 
--- ---------- Sending ----------
+-- ---------- Each person's choices ----------
 
--- A date as a person would say it, in the given time zone: "Sat 21 Nov, 7:00 PM".
-create or replace function public.push_when(p_at timestamptz, p_timezone text)
-returns text
-language sql
-stable
+-- Which notifications a person wants. No row means the defaults: everything on.
+create table if not exists public.notification_settings (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  reactions boolean not null default true,   -- someone reacted to an idea I added
+  reminders boolean not null default true,   -- a plan is about two hours away
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notification_settings enable row level security;
+
+drop policy if exists "notification_settings_select" on public.notification_settings;
+create policy "notification_settings_select" on public.notification_settings for select to authenticated
+  using (user_id = auth.uid());
+
+-- Save the signed-in person's choices.
+create or replace function public.set_notification_settings(p_reactions boolean, p_reminders boolean)
+returns void
+language plpgsql
+security definer
 set search_path = public
 as $$
-  select to_char(p_at at time zone p_timezone, 'Dy FMDD Mon, FMHH12:MI AM');
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  if not exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Set your name first';
+  end if;
+
+  insert into notification_settings (user_id, reactions, reminders, updated_at)
+  values (auth.uid(), coalesce(p_reactions, true), coalesce(p_reminders, true), now())
+  on conflict (user_id) do update
+    set reactions = excluded.reactions,
+        reminders = excluded.reminders,
+        updated_at = now();
+end;
 $$;
 
--- Just the time: "7:00 PM".
+revoke all on function public.set_notification_settings(boolean, boolean) from public, anon;
+grant execute on function public.set_notification_settings(boolean, boolean) to authenticated;
+
+-- ---------- Sending ----------
+
+-- A time as a person would say it, in the given time zone: "7:00 PM".
 create or replace function public.push_time(p_at timestamptz, p_timezone text)
 returns text
 language sql
@@ -102,13 +136,13 @@ as $$
   select to_char(p_at at time zone p_timezone, 'FMHH12:MI AM');
 $$;
 
--- Send one push to every phone of every member of a group, except the person who caused it.
--- In p_body, "{when}" becomes the date and "{time}" the time of p_at, in each phone's time zone.
+-- Send one push to every phone of the given people. Tapping it opens p_group.
+-- In p_body, "{time}" becomes the time of p_at in each phone's time zone.
 -- Returns how many pushes were queued. Never raises: a failure to send must not undo the change
 -- that triggered it.
-create or replace function public.push_to_group(
+create or replace function public.push_send(
+  p_users uuid[],
   p_group uuid,
-  p_except uuid,
   p_title text,
   p_body text,
   p_at timestamptz default null
@@ -128,9 +162,7 @@ begin
            'to', t.token,
            'title', left(p_title, 120),
            'body', left(
-             replace(
-               replace(p_body, '{when}', coalesce(push_when(p_at, t.timezone), '')),
-               '{time}', coalesce(push_time(p_at, t.timezone), '')),
+             replace(p_body, '{time}', coalesce(push_time(p_at, t.timezone), '')),
              240),
            'sound', 'default',
            'channelId', 'default',
@@ -138,9 +170,7 @@ begin
          ) order by t.token), '[]'::jsonb)
     into messages
     from push_tokens t
-    join group_members m on m.user_id = t.user_id
-   where m.group_id = p_group
-     and (p_except is null or t.user_id <> p_except);
+   where t.user_id = any (p_users);
 
   total := jsonb_array_length(messages);
 
@@ -167,47 +197,62 @@ end;
 $$;
 
 -- Only the database itself sends pushes; the app cannot call this.
-revoke all on function public.push_to_group(uuid, uuid, text, text, timestamptz) from public, anon, authenticated;
-
--- The name to show for whoever made the change.
-create or replace function public.push_actor_name()
-returns text
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select coalesce((select name from profiles where id = auth.uid()), 'Someone');
-$$;
-
-revoke all on function public.push_actor_name() from public, anon, authenticated;
+revoke all on function public.push_send(uuid[], uuid, text, text, timestamptz) from public, anon, authenticated;
 
 -- ---------- What triggers a push ----------
 
--- A new idea.
-create or replace function public.push_on_idea_added()
+-- Someone reacted to an idea. Only the person who added the idea hears about it, and only if
+-- they are still in the group, want these, and it was not their own reaction.
+create or replace function public.push_on_reaction()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  idea record;
 begin
-  perform push_to_group(
+  select i.title, i.added_by into idea from ideas i where i.id = new.idea_id;
+
+  if idea.added_by is null or idea.added_by = new.user_id then
+    return new;
+  end if;
+  if not exists (select 1 from group_members where group_id = new.group_id and user_id = idea.added_by) then
+    return new;
+  end if;
+  if exists (select 1 from notification_settings where user_id = idea.added_by and not reactions) then
+    return new;
+  end if;
+  -- One push per burst: a second emoji on the same idea within ten minutes stays quiet.
+  if exists (
+    select 1 from reactions
+     where idea_id = new.idea_id
+       and user_id = new.user_id
+       and emoji <> new.emoji
+       and created_at > now() - interval '10 minutes'
+  ) then
+    return new;
+  end if;
+
+  perform push_send(
+    array[idea.added_by],
     new.group_id,
-    auth.uid(),
     (select name from groups where id = new.group_id),
-    push_actor_name() || ' added an idea: ' || new.title
+    coalesce((select name from profiles where id = new.user_id), 'Someone')
+      || ' reacted ' || new.emoji || ' to your idea: ' || idea.title
   );
   return new;
 end;
 $$;
 
-drop trigger if exists push_idea_added on public.ideas;
-create trigger push_idea_added
-  after insert on public.ideas
-  for each row execute function public.push_on_idea_added();
+drop trigger if exists push_reaction on public.reactions;
+create trigger push_reaction
+  after insert on public.reactions
+  for each row execute function public.push_on_reaction();
 
--- A date being set or changed keeps the reminder in step with it.
+-- ---------- Reminders ----------
+
+-- A date being set or changed arms the reminder again.
 create or replace function public.ideas_reset_reminder()
 returns trigger
 language plpgsql
@@ -215,12 +260,7 @@ set search_path = public
 as $$
 begin
   if new.planned_for is distinct from old.planned_for then
-    -- A plan less than two hours away needs no reminder: the group has just been told about it.
-    if new.planned_for is not null and new.planned_for <= now() + interval '2 hours' then
-      new.reminded_at := now();
-    else
-      new.reminded_at := null;
-    end if;
+    new.reminded_at := null;
   end if;
   return new;
 end;
@@ -231,90 +271,8 @@ create trigger ideas_reset_reminder
   before update on public.ideas
   for each row execute function public.ideas_reset_reminder();
 
--- A date in the future picked or changed for an idea that is not done.
-create or replace function public.push_on_idea_planned()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if new.planned_for is not null
-     and new.planned_for > now()
-     and new.planned_for is distinct from old.planned_for
-     and new.done_at is null then
-    perform push_to_group(
-      new.group_id,
-      auth.uid(),
-      (select name from groups where id = new.group_id),
-      push_actor_name() || ' picked a date for ' || new.title || ': {when}',
-      new.planned_for
-    );
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists push_idea_planned on public.ideas;
-create trigger push_idea_planned
-  after update on public.ideas
-  for each row execute function public.push_on_idea_planned();
-
--- The thumbs up that makes an idea "everyone's in": two or more members, all thumbs up.
-create or replace function public.push_on_everyone_in()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  members int;
-  ups int;
-  idea record;
-begin
-  if new.emoji <> '👍' then
-    return new;
-  end if;
-
-  select count(*) into members from group_members where group_id = new.group_id;
-  if members < 2 then
-    return new;
-  end if;
-
-  select count(*) into ups
-    from reactions r
-    join group_members m on m.group_id = r.group_id and m.user_id = r.user_id
-   where r.idea_id = new.idea_id and r.emoji = '👍';
-  if ups < members then
-    return new;
-  end if;
-
-  select title, planned_for, done_at into idea from ideas where id = new.idea_id;
-  if idea.done_at is not null then
-    return new;
-  end if;
-
-  perform push_to_group(
-    new.group_id,
-    auth.uid(),
-    (select name from groups where id = new.group_id),
-    case when members = 2 then 'You are both in for ' else 'Everyone''s in for ' end
-      || idea.title
-      || case when idea.planned_for is null then '. Pick a date!' else '!' end
-  );
-  return new;
-end;
-$$;
-
-drop trigger if exists push_everyone_in on public.reactions;
-create trigger push_everyone_in
-  after insert on public.reactions
-  for each row execute function public.push_on_everyone_in();
-
--- ---------- Reminders ----------
-
--- Remind every member of plans starting within the next two hours. Each plan is reminded once.
--- Returns how many plans were reminded.
+-- Remind the members who want reminders of plans starting within the next two hours.
+-- Each plan is reminded once. Returns how many plans were reminded.
 create or replace function public.send_plan_reminders()
 returns int
 language plpgsql
@@ -336,7 +294,18 @@ begin
      order by i.planned_for
      for update of i skip locked
   loop
-    perform push_to_group(plan.group_id, null, plan.group_name, plan.title || ' is coming up at {time}', plan.planned_for);
+    perform push_send(
+      array(
+        select m.user_id
+          from group_members m
+         where m.group_id = plan.group_id
+           and not exists (select 1 from notification_settings s where s.user_id = m.user_id and not s.reminders)
+      ),
+      plan.group_id,
+      plan.group_name,
+      plan.title || ' is coming up at {time}',
+      plan.planned_for
+    );
     update ideas set reminded_at = now() where id = plan.id;
     sent := sent + 1;
   end loop;
