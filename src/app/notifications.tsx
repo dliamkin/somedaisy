@@ -67,6 +67,13 @@ export default function Notifications() {
           />
           <View style={{ height: 1, backgroundColor: colors.line }} />
           <Choice
+            title="Comments on your ideas"
+            detail="When a friend comments on an idea you added."
+            value={settings.comments}
+            onChange={(comments) => change({ ...settings, comments })}
+          />
+          <View style={{ height: 1, backgroundColor: colors.line }} />
+          <Choice
             title="Plan reminders"
             detail="About two hours before a plan starts."
             value={settings.reminders}

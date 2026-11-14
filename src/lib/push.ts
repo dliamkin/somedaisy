@@ -122,19 +122,22 @@ export async function forgetDevice(): Promise<void> {
 export type NotificationSettings = {
   /** Someone reacted to an idea I added. */
   reactions: boolean;
+  /** Someone commented on an idea I added. */
+  comments: boolean;
   /** A plan is about two hours away. */
   reminders: boolean;
 };
 
-export const defaultNotificationSettings: NotificationSettings = { reactions: true, reminders: true };
+export const defaultNotificationSettings: NotificationSettings = { reactions: true, comments: true, reminders: true };
 
 /** The signed-in person's choices. Someone who never chose has everything on. */
 export async function getNotificationSettings(): Promise<NotificationSettings> {
   if (!supabase) return defaultNotificationSettings;
-  const { data, error } = await supabase.from('notification_settings').select('reactions, reminders').maybeSingle();
+  const { data, error } = await supabase.from('notification_settings').select('*').maybeSingle();
   if (error) throw new Error(error.message);
   return {
     reactions: data?.reactions !== false,
+    comments: data?.comments !== false,
     reminders: data?.reminders !== false,
   };
 }
@@ -144,6 +147,7 @@ export async function saveNotificationSettings(settings: NotificationSettings): 
   const { error } = await supabase.rpc('set_notification_settings', {
     p_reactions: settings.reactions,
     p_reminders: settings.reminders,
+    p_comments: settings.comments,
   });
   if (error) throw new Error(error.message);
 }

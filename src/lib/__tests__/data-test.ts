@@ -269,6 +269,7 @@ describe('fetchGroup', () => {
       lists: [{ data: [list] }],
       ideas: [{ data: [idea] }],
       reactions: [{ data: [react('i1', 'ann', '👍')] }],
+      comments: [{ data: [{ idea_id: 'i1' }, { idea_id: 'i1' }] }],
     });
     expect(await fetchGroup('g1')).toEqual({
       id: 'g1',
@@ -283,7 +284,16 @@ describe('fetchGroup', () => {
       lists: [list],
       ideas: [idea],
       reactions: [react('i1', 'ann', '👍')],
+      commentCounts: { i1: 2 },
     });
+  });
+
+  it('still shows the group when comments cannot be read, with no counts', async () => {
+    fakeClient({
+      groups: [{ data: { id: 'g1', name: 'Friends', cover: '🌼', invite_code: 'abc' } }],
+      comments: [{ error: { message: 'relation "comments" does not exist' } }],
+    });
+    expect((await fetchGroup('g1'))?.commentCounts).toEqual({});
   });
 
   it('leaves out ideas that are marked done', async () => {
