@@ -7,7 +7,8 @@ This is Phase 1: groups, join by link with just a name, lists, ideas, thumbs and
 the "Everyone's in" moment, and live updates between members.
 
 Phase 2 so far: plans. Any idea can be given a day and a time of day, planned ideas show under
-"Coming up" at the top of the group, and marking a plan as done takes it off the lists.
+"Coming up" at the top of the group, and marking a plan as done moves it from the lists to
+"Things we did", where it can be put back.
 And accounts: a guest can add an email to keep their groups and sign in on other devices.
 
 ## First-time setup
@@ -58,6 +59,7 @@ private browser window or on another device.
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
+| `src/app/group/[id]/done.tsx` | Things we did: done ideas, with a way to put one back |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
 | `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |

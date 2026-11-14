@@ -1,12 +1,14 @@
 import {
   addIdea,
   everyoneIn,
+  fetchDone,
   fetchGroup,
   fetchGroups,
   markChanged,
   markDone,
   planIdea,
   previewGroup,
+  restoreIdea,
   setReaction,
   takeChanged,
   type Member,
@@ -30,7 +32,7 @@ function fakeClient(results: Record<string, Result[]> = {}) {
     const call: Call = { table, steps: [] };
     calls.push(call);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'match', 'order', 'single', 'maybeSingle']) {
+    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'not', 'match', 'order', 'single', 'maybeSingle']) {
       builder[method] = (...args: unknown[]) => {
         call.steps.push([method, ...args]);
         return builder;
@@ -194,6 +196,40 @@ describe('markDone', () => {
     expect(Object.keys(values)).toEqual(['done_at']);
     expect(new Date(values.done_at).getTime()).toBeGreaterThanOrEqual(before);
     expect(new Date(values.done_at).getTime()).toBeLessThanOrEqual(Date.now());
+    expect(argsOf(update, 'eq')).toEqual(['id', 'i1']);
+  });
+});
+
+describe('fetchDone', () => {
+  it('asks for only the done ideas of that group, most recently done first', async () => {
+    const { calls } = fakeClient();
+    await fetchDone('g1');
+    const [query] = stepsFor(calls, 'ideas');
+    expect(argsOf(query, 'eq')).toEqual(['group_id', 'g1']);
+    expect(argsOf(query, 'not')).toEqual(['done_at', 'is', null]);
+    expect(argsOf(query, 'order')).toEqual(['done_at', { ascending: false }]);
+  });
+
+  it('returns the ideas, or an empty list when there are none', async () => {
+    const idea = { id: 'i1', title: 'Picnic', done_at: '2026-11-14T10:00:00.000Z' };
+    fakeClient({ ideas: [{ data: [idea] }] });
+    expect(await fetchDone('g1')).toEqual([idea]);
+    fakeClient();
+    expect(await fetchDone('g1')).toEqual([]);
+  });
+
+  it('throws the database error', async () => {
+    fakeClient({ ideas: [{ error: { message: 'no access' } }] });
+    await expect(fetchDone('g1')).rejects.toThrow('no access');
+  });
+});
+
+describe('restoreIdea', () => {
+  it('clears only the done mark on that one idea', async () => {
+    const { calls } = fakeClient();
+    await restoreIdea('i1');
+    const [update] = stepsFor(calls, 'ideas');
+    expect(argsOf(update, 'update')).toEqual([{ done_at: null }]);
     expect(argsOf(update, 'eq')).toEqual(['id', 'i1']);
   });
 });

@@ -182,6 +182,26 @@ export async function markDone(ideaId: string): Promise<void> {
   fail(error);
 }
 
+export type DoneIdea = Idea & { done_at: string };
+
+/** The ideas a group has marked as done, most recently done first. */
+export async function fetchDone(groupId: string): Promise<DoneIdea[]> {
+  const { data, error } = await db()
+    .from('ideas')
+    .select('id, list_id, title, link, note, added_by, planned_for, created_at, done_at')
+    .eq('group_id', groupId)
+    .not('done_at', 'is', null)
+    .order('done_at', { ascending: false });
+  fail(error);
+  return (data ?? []) as DoneIdea[];
+}
+
+/** Undo "done": the idea goes back on its list, keeping its reactions and any date it had. */
+export async function restoreIdea(ideaId: string): Promise<void> {
+  const { error } = await db().from('ideas').update({ done_at: null }).eq('id', ideaId);
+  fail(error);
+}
+
 /** An idea is "everyone's in" when the group has two or more members and all of them gave a thumbs up. */
 export function everyoneIn(ideaId: string, members: Member[], reactions: Reaction[]): boolean {
   if (members.length < 2) return false;
