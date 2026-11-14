@@ -4,6 +4,8 @@ import {
   fetchGroup,
   fetchGroups,
   markChanged,
+  markDone,
+  planIdea,
   previewGroup,
   setReaction,
   takeChanged,
@@ -28,7 +30,7 @@ function fakeClient(results: Record<string, Result[]> = {}) {
     const call: Call = { table, steps: [] };
     calls.push(call);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'insert', 'upsert', 'delete', 'eq', 'is', 'match', 'order', 'single', 'maybeSingle']) {
+    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'match', 'order', 'single', 'maybeSingle']) {
       builder[method] = (...args: unknown[]) => {
         call.steps.push([method, ...args]);
         return builder;
@@ -160,7 +162,49 @@ describe('addIdea', () => {
   });
 });
 
+describe('planIdea', () => {
+  it('saves the date on that one idea', async () => {
+    const { calls } = fakeClient();
+    const when = new Date(2026, 10, 21, 19, 0);
+    await planIdea('i1', when);
+    const [update] = stepsFor(calls, 'ideas');
+    expect(argsOf(update, 'update')).toEqual([{ planned_for: when.toISOString() }]);
+    expect(argsOf(update, 'eq')).toEqual(['id', 'i1']);
+  });
+
+  it('clears the date when given null', async () => {
+    const { calls } = fakeClient();
+    await planIdea('i1', null);
+    expect(argsOf(stepsFor(calls, 'ideas')[0], 'update')).toEqual([{ planned_for: null }]);
+  });
+
+  it('throws the database error', async () => {
+    fakeClient({ ideas: [{ error: { message: 'not a member' } }] });
+    await expect(planIdea('i1', null)).rejects.toThrow('not a member');
+  });
+});
+
+describe('markDone', () => {
+  it('stamps that one idea with the current time and leaves its date alone', async () => {
+    const { calls } = fakeClient();
+    const before = Date.now();
+    await markDone('i1');
+    const [update] = stepsFor(calls, 'ideas');
+    const [values] = argsOf(update, 'update') as [{ done_at: string }];
+    expect(Object.keys(values)).toEqual(['done_at']);
+    expect(new Date(values.done_at).getTime()).toBeGreaterThanOrEqual(before);
+    expect(new Date(values.done_at).getTime()).toBeLessThanOrEqual(Date.now());
+    expect(argsOf(update, 'eq')).toEqual(['id', 'i1']);
+  });
+});
+
 describe('fetchGroup', () => {
+  it('asks for each idea\'s planned date', async () => {
+    const { calls } = fakeClient();
+    await fetchGroup('g1');
+    expect(String(argsOf(stepsFor(calls, 'ideas')[0], 'select')?.[0])).toContain('planned_for');
+  });
+
   it('returns null when the group does not exist', async () => {
     fakeClient();
     expect(await fetchGroup('missing')).toBeNull();

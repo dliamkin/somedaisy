@@ -11,6 +11,7 @@ export type Idea = {
   link: string | null;
   note: string | null;
   added_by: string | null;
+  planned_for: string | null;
   created_at: string;
 };
 export type Reaction = { idea_id: string; user_id: string; emoji: string };
@@ -60,7 +61,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
     client
       .from('ideas')
-      .select('id, list_id, title, link, note, added_by, created_at')
+      .select('id, list_id, title, link, note, added_by, planned_for, created_at')
       .eq('group_id', id)
       .is('done_at', null)
       .order('created_at', { ascending: false }),
@@ -163,6 +164,21 @@ export async function setReaction(
   const { error } = await client
     .from('reactions')
     .upsert({ idea_id: ideaId, group_id: groupId, user_id: userId, emoji }, { onConflict: 'idea_id,user_id,emoji' });
+  fail(error);
+}
+
+/** Give an idea a date, turning it into a plan. Pass null to take the date away again. */
+export async function planIdea(ideaId: string, when: Date | null): Promise<void> {
+  const { error } = await db()
+    .from('ideas')
+    .update({ planned_for: when ? when.toISOString() : null })
+    .eq('id', ideaId);
+  fail(error);
+}
+
+/** Mark an idea as done. Done ideas no longer show in the group's lists. */
+export async function markDone(ideaId: string): Promise<void> {
+  const { error } = await db().from('ideas').update({ done_at: new Date().toISOString() }).eq('id', ideaId);
   fail(error);
 }
 
