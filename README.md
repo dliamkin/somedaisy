@@ -41,6 +41,11 @@ things set in the Supabase dashboard under Authentication:
 4. **Rate limit.** With your own email service connected, raise the emails-per-hour limit under
    Rate Limits to suit the number of people signing in.
 
+When someone who has been using a phone as a guest signs in to an account they already have, the
+guest's groups, ideas and reactions move into the account. That needs
+`supabase/updates/002-account-transfer.sql` to have been run; without it sign-in still works, but
+the guest's groups stay behind and the app says so.
+
 ### Push notifications
 
 Only two things send a notification: someone else reacting to an idea you added (one per person
@@ -90,6 +95,7 @@ private browser window or on another device.
 | `src/app/new-group.tsx` | Create a group |
 | `src/app/account.tsx` | Add an email, sign in, sign out |
 | `src/app/notifications.tsx` | Choose which notifications to get |
+| `src/app/profile.tsx` | Change your name and colour |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |

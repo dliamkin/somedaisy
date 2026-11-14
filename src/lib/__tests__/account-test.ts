@@ -1,5 +1,6 @@
 import {
   AccountError,
+  claimTransfer,
   cleanCode,
   cleanEmail,
   confirmEmailForGuest,
@@ -9,6 +10,7 @@ import {
   requestEmailForGuest,
   requestSignIn,
   signOut,
+  startTransfer,
   toAccountError,
 } from '../account';
 import { db } from '../supabase';
@@ -131,6 +133,43 @@ describe('signing in to an existing account', () => {
   it('reports a wrong code', async () => {
     fakeAuth({ message: 'Token has expired or is invalid', code: 'otp_expired', status: 403 });
     await expect(confirmSignIn('ann@example.com', '000000')).rejects.toMatchObject({ reason: 'bad-code' });
+  });
+});
+
+describe('bringing a guest\'s groups into an account', () => {
+  function fakeRpc(result: { data?: unknown; error?: { message: string } | null } | Error) {
+    const rpc = jest.fn(async (_name: string, _args?: unknown) => {
+      if (result instanceof Error) throw result;
+      return { data: null, error: null, ...result };
+    });
+    jest.mocked(db).mockReturnValue({ rpc } as never);
+    return rpc;
+  }
+
+  it('asks for a pass while still the guest', async () => {
+    const rpc = fakeRpc({ data: 'one-time-pass' });
+    expect(await startTransfer()).toBe('one-time-pass');
+    expect(rpc).toHaveBeenCalledWith('start_transfer');
+  });
+
+  it('gives no pass, without failing, when there is nothing to bring or the database refuses', async () => {
+    fakeRpc({ data: null });
+    expect(await startTransfer()).toBeNull();
+    fakeRpc({ error: { message: 'function start_transfer() does not exist' } });
+    expect(await startTransfer()).toBeNull();
+    fakeRpc(new Error('network down'));
+    expect(await startTransfer()).toBeNull();
+  });
+
+  it('hands the pass back after signing in and reports how many groups were added', async () => {
+    const rpc = fakeRpc({ data: 2 });
+    expect(await claimTransfer('one-time-pass')).toBe(2);
+    expect(rpc).toHaveBeenCalledWith('claim_transfer', { p_token: 'one-time-pass' });
+  });
+
+  it('says so when the groups could not be moved', async () => {
+    fakeRpc({ error: { message: 'That pass is not valid any more' } });
+    await expect(claimTransfer('stale-pass')).rejects.toThrow('could not be moved over');
   });
 });
 

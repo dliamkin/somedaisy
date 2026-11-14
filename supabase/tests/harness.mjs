@@ -16,8 +16,13 @@ create table auth.users (id uuid primary key default gen_random_uuid(), email te
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
+-- The signed-in person's token, as the app's request would carry it. Guests have is_anonymous = true.
+create function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb;
+$$;
 grant usage on schema auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
+grant execute on function auth.jwt() to anon, authenticated;
 
 -- Stand-in for pg_net: records every request instead of sending it.
 create schema net;
@@ -53,15 +58,20 @@ export async function freshDb(updates = []) {
 export const rows = async (db, sql, params = []) => (await db.query(sql, params)).rows;
 export const one = async (db, sql, params = []) => (await rows(db, sql, params))[0];
 
-/** Run fn as a signed-in user, with row level security applying as it would for the app. */
-export async function as(db, userId, fn) {
+/**
+ * Run fn as a signed-in user, with row level security applying as it would for the app.
+ * Pass { guest: true } for someone who has not added an email.
+ */
+export async function as(db, userId, fn, { guest = false } = {}) {
   await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? '']);
+  await db.query(`select set_config('request.jwt.claims', $1, false)`, [userId ? JSON.stringify({ sub: userId, is_anonymous: guest }) : '']);
   await db.exec('set role authenticated');
   try {
     return await fn();
   } finally {
     await db.exec('reset role');
     await db.query(`select set_config('request.jwt.claim.sub', '', false)`);
+    await db.query(`select set_config('request.jwt.claims', '', false)`);
   }
 }
 

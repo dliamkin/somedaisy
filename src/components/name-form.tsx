@@ -7,10 +7,19 @@ import { avatarColors, colors } from '@/lib/theme';
 import { Button, Card, ErrorNote, Field, T } from './ui';
 
 /** Name and avatar color. This is all someone needs to start: no account. */
-export function NameForm({ cta, onDone }: { cta: string; onDone: () => void | Promise<void> }) {
+export function NameForm({
+  cta,
+  onDone,
+  initial,
+}: {
+  cta: string;
+  onDone: () => void | Promise<void>;
+  /** The current name and colour, when changing them instead of choosing for the first time. */
+  initial?: { name: string; color: string };
+}) {
   const { saveProfile } = useSession();
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(avatarColors[0]);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [color, setColor] = useState(initial?.color ?? avatarColors[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
