@@ -43,8 +43,8 @@ create table public.ideas (
   link text,
   note text,
   added_by uuid references public.profiles (id) on delete set null,
-  planned_for timestamptz,   -- used from Phase 2
-  done_at timestamptz,       -- used from Phase 2
+  planned_for timestamptz,   -- set when the idea becomes a plan
+  done_at timestamptz,       -- set when the group has done it; done ideas leave the lists
   created_at timestamptz not null default now()
 );
 

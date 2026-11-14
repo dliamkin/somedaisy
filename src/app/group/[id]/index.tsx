@@ -4,7 +4,8 @@ import { Linking, Pressable, ScrollView, View } from 'react-native';
 
 import { Daisy, PlusIcon } from '@/components/daisy';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { addList, everyoneIn, fetchGroup, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
+import { addList, everyoneIn, fetchGroup, markDone, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
+import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { colors, REACTIONS } from '@/lib/theme';
@@ -18,6 +19,8 @@ export default function GroupScreen() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [newList, setNewList] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
+  const [confirmDone, setConfirmDone] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const notifyRef = useRef<() => void>(() => {});
 
   const load = useCallback(async () => {
@@ -25,6 +28,7 @@ export default function GroupScreen() {
     try {
       const g = await fetchGroup(id);
       setGroup(g);
+      setNow(new Date());
       setError(null);
       return g;
     } catch (e) {
@@ -111,6 +115,20 @@ export default function GroupScreen() {
     }
   };
 
+  const finish = async (idea: Idea) => {
+    setConfirmDone(null);
+    try {
+      await markDone(idea.id);
+      await load();
+      notifyRef.current();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not mark it as done.');
+    }
+  };
+
+  const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
+
+  const plans = plannedIdeas(group.ideas);
   const ideas = activeList ? group.ideas.filter((i) => i.list_id === activeList.id) : [];
   const nameOf = (uid: string | null) => (uid === userId ? 'you' : (group.members.find((m) => m.user_id === uid)?.name ?? 'someone'));
 
@@ -133,6 +151,48 @@ export default function GroupScreen() {
           }
         />
         <ErrorNote message={error} />
+
+        {plans.length > 0 ? (
+          <View style={{ gap: 10 }}>
+            <T size={16} weight="black">
+              Coming up
+            </T>
+            {plans.map((plan) => {
+              const past = isPast(plan.planned_for, now);
+              return (
+                <Card key={plan.id} style={{ backgroundColor: colors.today }}>
+                  <View style={{ gap: 2 }}>
+                    <T size={13} weight="extra" color={colors.link}>
+                      {formatPlan(plan.planned_for, now)}
+                    </T>
+                    <T size={17} weight="extra">
+                      {plan.title}
+                    </T>
+                    <T size={13} color={colors.muted}>
+                      {past ? 'Did it happen?' : (group.lists.find((l) => l.id === plan.list_id)?.name ?? '')}
+                    </T>
+                  </View>
+                  {confirmDone === plan.id ? (
+                    <View style={{ gap: 8 }}>
+                      <T size={13} color={colors.muted}>
+                        Marking it done takes it off the list for everyone.
+                      </T>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                        <Chip label="Yes, we did it" selected onPress={() => finish(plan)} />
+                        <Chip label="Not yet" onPress={() => setConfirmDone(null)} />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      <Chip label="We did it" onPress={() => setConfirmDone(plan.id)} />
+                      <Chip label="Change date" onPress={() => openPlan(plan)} />
+                    </View>
+                  )}
+                </Card>
+              );
+            })}
+          </View>
+        ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flexGrow: 0 }}>
           {group.lists.map((l) => (
@@ -216,7 +276,18 @@ export default function GroupScreen() {
                   <Chip key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
                 ))}
                 <Chip label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
+                {idea.planned_for ? (
+                  <Chip
+                    label={`📅 ${formatPlan(idea.planned_for, now)}`}
+                    accessibilityLabel={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`}
+                    selected
+                    onPress={() => openPlan(idea)}
+                  />
+                ) : allIn ? null : (
+                  <Chip label="📅 Plan it" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
+                )}
               </View>
+              {allIn && !idea.planned_for ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
               {pickerFor === idea.id ? (
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {REACTIONS.filter((e) => e !== '👍' && e !== '👎').map((e) => (
@@ -256,7 +327,20 @@ export default function GroupScreen() {
               The whole group said yes.
             </T>
           </Card>
-          <Button label="Nice" kind="soft" onPress={() => setCelebrate(null)} style={{ alignSelf: 'stretch', maxWidth: 420 }} />
+          <View style={{ alignSelf: 'stretch', maxWidth: 420, gap: 10 }}>
+            {celebrate.planned_for ? null : (
+              <Button
+                label="Pick a date"
+                kind="soft"
+                onPress={() => {
+                  const idea = celebrate;
+                  setCelebrate(null);
+                  openPlan(idea);
+                }}
+              />
+            )}
+            <Button label={celebrate.planned_for ? 'Nice' : 'Later'} kind="outline" onPress={() => setCelebrate(null)} />
+          </View>
         </View>
       ) : null}
     </View>

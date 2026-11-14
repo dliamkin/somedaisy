@@ -6,6 +6,9 @@ One codebase (Expo / React Native) for the web, Android and iPhone. Supabase is 
 This is Phase 1: groups, join by link with just a name, lists, ideas, thumbs and emoji reactions,
 the "Everyone's in" moment, and live updates between members.
 
+Phase 2 so far: plans. Any idea can be given a day and a time of day, planned ideas show under
+"Coming up" at the top of the group, and marking a plan as done takes it off the lists.
+
 ## First-time setup
 
 1. **Database.** In your Supabase project, open the SQL editor, paste in `supabase/schema.sql`, and run it once.
@@ -34,9 +37,10 @@ private browser window or on another device.
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |
+| `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
-| `src/lib/` | Theme colors, Supabase client, session, data access |
+| `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |
 | `supabase/schema.sql` | Tables, access rules and functions |
 
 ## Checks
