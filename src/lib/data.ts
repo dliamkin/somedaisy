@@ -163,7 +163,9 @@ export async function setReaction(
   }
   const { error } = await client
     .from('reactions')
-    .upsert({ idea_id: ideaId, group_id: groupId, user_id: userId, emoji }, { onConflict: 'idea_id,user_id,emoji' });
+    // If the reaction is already there (a double tap, or added from another device), leave it be.
+    // Asking the database to overwrite it instead would be refused: reactions cannot be edited.
+    .upsert({ idea_id: ideaId, group_id: groupId, user_id: userId, emoji }, { onConflict: 'idea_id,user_id,emoji', ignoreDuplicates: true });
   fail(error);
 }
 

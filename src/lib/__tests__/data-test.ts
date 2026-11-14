@@ -101,6 +101,12 @@ describe('setReaction', () => {
     expect(argsOf(save, 'upsert')?.[0]).toEqual({ idea_id: 'i1', group_id: 'g1', user_id: 'ann', emoji: '👍' });
   });
 
+  it('leaves an existing reaction alone instead of overwriting it, which the database would refuse', async () => {
+    const { calls } = fakeClient();
+    await setReaction('g1', 'i1', 'ann', '🎉', true);
+    expect(argsOf(stepsFor(calls, 'reactions')[0], 'upsert')?.[1]).toEqual({ onConflict: 'idea_id,user_id,emoji', ignoreDuplicates: true });
+  });
+
   it('removes the thumbs up before saving a thumbs down', async () => {
     const { calls } = fakeClient();
     await setReaction('g1', 'i1', 'ann', '👎', true);
