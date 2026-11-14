@@ -175,7 +175,7 @@ export default function GroupScreen() {
                   {confirmDone === plan.id ? (
                     <View style={{ gap: 8 }}>
                       <T size={13} color={colors.muted}>
-                        Marking it done takes it off the list for everyone.
+                        It moves from the list to &quot;Things we did&quot; for everyone.
                       </T>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                         <Chip label="Yes, we did it" selected onPress={() => finish(plan)} />
@@ -309,6 +309,7 @@ export default function GroupScreen() {
             <Avatar key={m.user_id} name={m.name} color={m.color} />
           ))}
         </View>
+        <Button label="Things we did" kind="ghost" small onPress={() => router.push(`/group/${group.id}/done` as never)} />
       </Screen>
 
       {celebrate ? (
