@@ -90,6 +90,27 @@ export async function confirmSignIn(email: string, code: string): Promise<void> 
   check(error);
 }
 
+/**
+ * Before a guest signs in to an existing account: get a one-time pass that lets the account
+ * collect the guest's groups afterwards. Returns null when there is nothing to bring or the pass
+ * cannot be had; signing in must still go ahead in that case.
+ */
+export async function startTransfer(): Promise<string | null> {
+  try {
+    const { data, error } = await db().rpc('start_transfer');
+    return error || typeof data !== 'string' || !data ? null : data;
+  } catch {
+    return null;
+  }
+}
+
+/** After signing in: move the guest's groups, ideas and reactions into the account. Returns how many groups were added. */
+export async function claimTransfer(pass: string): Promise<number> {
+  const { data, error } = await db().rpc('claim_transfer', { p_token: pass });
+  if (error) throw new AccountError('Your groups from this device could not be moved over.', 'other');
+  return typeof data === 'number' ? data : 0;
+}
+
 /** Sign out on this device only. The app then starts a fresh guest. */
 export async function signOut(): Promise<void> {
   const { error } = await db().auth.signOut({ scope: 'local' });

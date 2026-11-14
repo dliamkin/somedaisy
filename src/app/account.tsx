@@ -7,12 +7,14 @@ import {
   AccountError,
   cleanEmail,
   confirmEmailForGuest,
+  claimTransfer,
   confirmSignIn,
   isCode,
   isEmail,
   requestEmailForGuest,
   requestSignIn,
   signOut,
+  startTransfer,
 } from '@/lib/account';
 import { forgetDevice } from '@/lib/push';
 import { useSession } from '@/lib/session';
@@ -29,6 +31,7 @@ export default function Account() {
 
 function SignedIn({ email }: { email: string }) {
   const { profile, refresh } = useSession();
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +54,9 @@ function SignedIn({ email }: { email: string }) {
   return (
     <Screen>
       <TopBar title="Your account" backTo="/" />
+      {notice === 'not-moved' ? (
+        <ErrorNote message="You are signed in, but the groups from this device could not be moved over. Ask for a new invite link to rejoin them." />
+      ) : null}
       <Card style={{ padding: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {profile ? <Avatar name={profile.name} color={profile.color} size={44} /> : null}
@@ -66,6 +72,7 @@ function SignedIn({ email }: { email: string }) {
         <T size={14} weight="medium" color={colors.muted}>
           Your groups are saved to this email. Sign in with it on any phone or browser to see them.
         </T>
+        <Button label="Change name or colour" kind="outline" small onPress={() => router.push('/profile' as never)} />
       </Card>
       <Button label="Notification settings" kind="outline" small onPress={() => router.push('/notifications' as never)} />
       <ErrorNote message={error} />
@@ -127,10 +134,18 @@ function Guest({ hasProfile }: { hasProfile: boolean }) {
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'keep') await confirmEmailForGuest(sentTo, code);
-      else await confirmSignIn(sentTo, code);
+      let moved = true;
+      if (mode === 'keep') {
+        await confirmEmailForGuest(sentTo, code);
+      } else {
+        // Signing in replaces the guest on this device. Take a pass first, so the account can
+        // collect the guest's groups once it is signed in.
+        const pass = hasProfile ? await startTransfer() : null;
+        await confirmSignIn(sentTo, code);
+        if (pass) moved = await claimTransfer(pass).then(() => true, () => false);
+      }
       await refresh();
-      router.replace('/');
+      router.replace((moved ? '/' : '/account?notice=not-moved') as never);
     } catch (e) {
       fail(e, 'Could not check the code.');
       setBusy(false);
@@ -175,14 +190,14 @@ function Guest({ hasProfile }: { hasProfile: boolean }) {
             Sign in to that account instead?
           </T>
           <T size={14} weight="medium" color={colors.muted}>
-            You will see that account&apos;s groups. Groups you joined as a guest on this device will not move over, so ask for a new invite link to rejoin them.
+            You will see that account&apos;s groups, and the groups you joined as a guest on this device will come with you.
           </T>
           <Button label="Send me a sign-in code" small onPress={() => send('signin')} busy={busy} />
         </Card>
       ) : null}
       {mode === 'signin' && hasProfile ? (
         <T size={14} weight="medium" color={colors.muted}>
-          Signing in replaces the guest on this device. Groups you joined as a guest here will not move over.
+          Groups you joined as a guest on this device will come with you into the account.
         </T>
       ) : null}
       {hasProfile ? (
@@ -194,6 +209,7 @@ function Guest({ hasProfile }: { hasProfile: boolean }) {
           disabled={busy}
         />
       ) : null}
+      {hasProfile ? <Button label="Change name or colour" kind="ghost" small onPress={() => router.push('/profile' as never)} disabled={busy} /> : null}
     </Screen>
   );
 }
