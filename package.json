@@ -56,7 +56,11 @@
     "deploy:web": "node ./scripts/deploy-web.js"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/supabase/"
+    ]
   },
   "private": true
 }
