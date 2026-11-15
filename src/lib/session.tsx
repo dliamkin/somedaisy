@@ -3,7 +3,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Profile } from './data';
-import { finishGoogle, type GoogleNote } from './google';
 import { syncPush } from './push';
 import { isConfigured, supabase } from './supabase';
 
@@ -15,8 +14,6 @@ type SessionValue = {
   /** The account's email, or null for a guest. */
   email: string | null;
   profile: Profile | null;
-  /** Something to tell the person after coming back from Google, if it did not all go well. */
-  note: GoogleNote;
   saveProfile: (name: string, color: string) => Promise<void>;
   /** Re-read who is signed in. Call after signing in, signing out, or adding an email. */
   refresh: () => Promise<void>;
@@ -29,7 +26,6 @@ const SessionContext = createContext<SessionValue>({
   userId: null,
   email: null,
   profile: null,
-  note: null,
   saveProfile: async () => {},
   refresh: async () => {},
 });
@@ -87,7 +83,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [note, setNote] = useState<GoogleNote>(null);
   const mounted = useRef(true);
 
   const show = useCallback((who: Who) => {
@@ -114,14 +109,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mounted.current = true;
-    if (supabase) {
-      const client = supabase;
-      // Coming back from Google? Finish signing in before working out who is here.
-      void finishGoogle(client).then((result) => {
-        if (mounted.current) setNote(result);
-        return readSession(client).then(show, showError);
-      });
-    }
+    if (supabase) readSession(supabase).then(show, showError);
     return () => {
       mounted.current = false;
     };
@@ -140,8 +128,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ ready, configured: isConfigured, error, userId, email, profile, note, saveProfile, refresh }),
-    [ready, error, userId, email, profile, note, saveProfile, refresh],
+    () => ({ ready, configured: isConfigured, error, userId, email, profile, saveProfile, refresh }),
+    [ready, error, userId, email, profile, saveProfile, refresh],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

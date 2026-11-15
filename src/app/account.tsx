@@ -18,7 +18,7 @@ import {
   startTransfer,
 } from '@/lib/account';
 import type { Profile } from '@/lib/data';
-import { googleAvailable, startGoogle } from '@/lib/google';
+import { googleAvailable, signInWithGoogle } from '@/lib/google';
 import { forgetDevice } from '@/lib/push';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
@@ -33,10 +33,8 @@ export default function Account() {
 }
 
 function SignedIn({ email }: { email: string }) {
-  const { profile, refresh, note } = useSession();
-  const params = useLocalSearchParams<{ notice?: string }>();
-  // The groups can fail to move after an email code (told by the address) or after Google (told by the session).
-  const notice = params.notice ?? note;
+  const { profile, refresh } = useSession();
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,15 +102,16 @@ const GOOGLE_FAILED = 'Signing in with Google did not finish. Try again, or use 
 function Guest({ guest }: { guest: Profile | null }) {
   const hasProfile = Boolean(guest);
   const params = useLocalSearchParams<{ mode?: string }>();
-  const { refresh, note } = useSession();
+  const { refresh } = useSession();
   // Someone who has not picked a name yet has nothing to keep, so they can only sign in.
   const [mode, setMode] = useState<Mode>(hasProfile && params.mode !== 'signin' ? 'keep' : 'signin');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  const [error, setError] = useState<string | null>(note === 'google-failed' ? GOOGLE_FAILED : null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleAttempt, setGoogleAttempt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const [taken, setTaken] = useState(false);
 
   const fail = (e: unknown, fallback: string) => {
@@ -138,17 +137,21 @@ function Guest({ guest }: { guest: Profile | null }) {
     }
   };
 
-  // Leaves for Google. The page loads afresh on the way back, and the session finishes the job.
-  const google = async () => {
-    if (busy || leaving) return;
-    setLeaving(true);
+  // Google's pop-up has closed and told us who this is.
+  const google = async (credential: string, rawNonce: string) => {
+    if (busy || googleBusy) return;
+    setGoogleBusy(true);
     setError(null);
     setTaken(false);
     try {
-      await startGoogle(guest);
+      const { moved } = await signInWithGoogle(credential, rawNonce, guest);
+      await refresh();
+      router.replace((moved ? '/' : '/account?notice=not-moved') as never);
     } catch (e) {
       fail(e, GOOGLE_FAILED);
-      setLeaving(false);
+      setGoogleBusy(false);
+      // Google's note works once, so draw a fresh button for the next try.
+      setGoogleAttempt((n) => n + 1);
     }
   };
 
@@ -198,7 +201,7 @@ function Guest({ guest }: { guest: Profile | null }) {
   }
 
   return (
-    <Screen footer={<Button label="Email me a code" onPress={() => send()} disabled={!isEmail(email) || leaving} busy={busy} />}>
+    <Screen footer={<Button label="Email me a code" onPress={() => send()} disabled={!isEmail(email) || googleBusy} busy={busy} />}>
       <TopBar title={mode === 'keep' ? 'Keep your groups' : 'Sign in'} backTo="/" />
       <T weight="medium" color={colors.muted}>
         {mode === 'keep'
@@ -207,7 +210,7 @@ function Guest({ guest }: { guest: Profile | null }) {
       </T>
       {googleAvailable ? (
         <>
-          <GoogleButton onPress={google} busy={leaving} disabled={busy} />
+          <GoogleButton onCredential={google} busy={googleBusy} attempt={googleAttempt} />
           <OrLine />
         </>
       ) : null}
