@@ -9,8 +9,10 @@ import { NotificationsCard } from '@/components/notifications-card';
 import { PrivacyLink } from '@/components/privacy-link';
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { fetchGroups, type GroupSummary } from '@/lib/data';
+import { levelFor } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { colors, covers } from '@/lib/theme';
+import { fetchPointsByGroup } from '@/lib/together';
 
 function Brand() {
   return <Logo />;
@@ -71,6 +73,8 @@ function Welcome() {
 function Home() {
   const { profile, email } = useSession();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
+  // Each group's points, by group id. Null until loaded, and when points are not set up yet.
+  const [points, setPoints] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -79,6 +83,11 @@ function Home() {
       fetchGroups()
         .then((g) => alive && setGroups(g))
         .catch((e: Error) => alive && setError(e.message));
+      // Titles are a nicety: the groups show without them.
+      fetchPointsByGroup().then(
+        (p) => alive && setPoints(p),
+        () => {},
+      );
       return () => {
         alive = false;
       };
@@ -129,9 +138,16 @@ function Home() {
               <Daisy size={44} petal={colors.white} />
             </View>
             <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <T size={21} weight="extra" lines={1} style={{ flexShrink: 1 }}>
-                {g.name}
-              </T>
+              <View style={{ flexShrink: 1, gap: 2 }}>
+                <T size={21} weight="extra" lines={1}>
+                  {g.name}
+                </T>
+                {points ? (
+                  <T size={13} weight="extra" color={colors.pink} lines={1}>
+                    {levelFor(points[g.id] ?? 0).title}
+                  </T>
+                ) : null}
+              </View>
               <View style={{ flexDirection: 'row', gap: 6 }}>
                 {g.members.slice(0, 4).map((m) => (
                   <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />

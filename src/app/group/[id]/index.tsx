@@ -3,14 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { Daisy, PlusIcon } from '@/components/daisy';
+import { AgainChoice, NewTitle, PointsBar, YouDidIt } from '@/components/together';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
+import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { colors, REACTIONS } from '@/lib/theme';
+import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, type AgainPrompt } from '@/lib/together';
 
 /** One of the plain-word actions along the bottom of an idea card. */
 function CardAction({ label, accessibilityLabel, onPress, strong }: { label: string; accessibilityLabel: string; onPress: () => void; strong?: boolean }) {
@@ -33,6 +36,19 @@ export default function GroupScreen() {
   const [newList, setNewList] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
+  // The "you did it" screen for the person who tapped "We did it", with their do-again answer.
+  const [didIt, setDidIt] = useState<{ completion: Completion; total: number; reached: Level | null; again: boolean | null } | null>(null);
+  // A new title the group reached while this person was looking, thanks to someone else.
+  const [newTitle, setNewTitle] = useState<Level | null>(null);
+  // Things the group did lately that this person has not said they would do again or not.
+  const [prompts, setPrompts] = useState<AgainPrompt[]>([]);
+  const pointsRef = useRef<number | null>(null);
+  // Who is signed in, for `load` to read without being rebuilt when it becomes known. Rebuilding
+  // `load` would restart the live-updates channel below, and a channel restarted at once can go quiet.
+  const userRef = useRef(userId);
+  useEffect(() => {
+    userRef.current = userId;
+  }, [userId]);
   const [now, setNow] = useState(() => new Date());
   const notifyRef = useRef<() => void>(() => {});
   // The ideas still waiting on someone at the last load, to notice when one of them gets everyone in.
@@ -50,6 +66,15 @@ export default function GroupScreen() {
         const next = newlyAllIn(g, before);
         allInRef.current = new Set(g.ideas.filter((i) => !everyoneIn(i.id, g.members, g.reactions)).map((i) => i.id));
         if (before && next) setCelebrate(next);
+        // The same for points: notice when they carry the group past a new title.
+        if (g.points !== null) {
+          const had = pointsRef.current;
+          pointsRef.current = g.points;
+          const reached = had === null ? null : levelUp(had, g.points);
+          if (reached) setNewTitle(reached);
+        }
+        const me = userRef.current;
+        if (me) void fetchAgainPrompts(id, me).then(setPrompts, () => {});
       }
       setGroup(g);
       setNow(new Date());
@@ -160,14 +185,35 @@ export default function GroupScreen() {
 
   const finish = async (idea: Idea) => {
     setConfirmDone(null);
+    const before = group.points;
     try {
       await markDone(idea.id);
-      await load();
+      // The database has just worked out what this earned. Nothing comes back when points are
+      // not set up yet, and then the idea is simply done, as before.
+      const completion = await fetchFreshCompletion(idea.id).catch(() => null);
+      const fresh = await load();
       notifyRef.current();
+      if (completion) {
+        const total = fresh?.points ?? (before ?? 0) + completion.points;
+        setDidIt({ completion, total, reached: before === null ? null : levelUp(before, total), again: null });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not mark it as done.');
     }
   };
+
+  // Save this person's answer to "would you do it again?" and let the others know.
+  const answerAgain = async (ideaId: string, again: boolean) => {
+    try {
+      await setDoAgain(group.id, ideaId, userId, again);
+      setPrompts((current) => current.filter((p) => p.id !== ideaId));
+      notifyRef.current();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save your answer.');
+    }
+  };
+  // One question at a time, and not the one already being asked on the "you did it" screen.
+  const prompt = prompts.find((p) => p.id !== didIt?.completion.idea_id) ?? null;
 
   const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
   const openComments = (idea: Idea) => router.push(`/group/${group.id}/comments?idea=${idea.id}` as never);
@@ -195,7 +241,25 @@ export default function GroupScreen() {
             </CircleButton>
           }
         />
+        {group.points !== null ? <PointsBar points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : null}
         <ErrorNote message={error} />
+
+        {prompt && !didIt ? (
+          <Card style={{ padding: 16, gap: 10 }}>
+            <View style={{ gap: 2 }}>
+              <T size={13} weight="extra" color={colors.mintText}>
+                You did it
+              </T>
+              <T size={17} weight="extra">
+                {prompt.title}
+              </T>
+              <T size={14} weight="medium" color={colors.muted}>
+                Would you do it again?
+              </T>
+            </View>
+            <AgainChoice answer={null} onAnswer={(again) => void answerAgain(prompt.id, again)} />
+          </Card>
+        ) : null}
 
         {plans.length > 0 ? (
           <View style={{ gap: 10 }}>
@@ -391,7 +455,27 @@ export default function GroupScreen() {
         <Button label="Group settings" kind="ghost" small onPress={() => router.push(`/group/${group.id}/settings` as never)} />
       </Screen>
 
-      {celebrate ? (
+      {didIt ? (
+        <YouDidIt
+          completion={didIt.completion}
+          total={didIt.total}
+          reached={didIt.reached}
+          answer={didIt.completion.idea_id ? didIt.again : undefined}
+          onAnswer={(again) => {
+            const ideaId = didIt.completion.idea_id;
+            if (!ideaId) return;
+            setDidIt({ ...didIt, again });
+            void answerAgain(ideaId, again);
+          }}
+          onClose={() => {
+            // This screen already announced any new title.
+            setDidIt(null);
+            setNewTitle(null);
+          }}
+        />
+      ) : newTitle ? (
+        <NewTitle level={newTitle} onClose={() => setNewTitle(null)} />
+      ) : celebrate ? (
         <View
           accessibilityViewIsModal
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.grape, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 20 }}>

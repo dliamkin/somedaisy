@@ -420,6 +420,7 @@ describe('fetchGroup', () => {
       ideas: [{ data: [idea] }],
       reactions: [{ data: [react('i1', 'ann', '👍')] }],
       comments: [{ data: [{ idea_id: 'i1' }, { idea_id: 'i1' }] }],
+      completions: [{ data: [{ points: 20 }, { points: 15 }] }],
     });
     expect(await fetchGroup('g1')).toEqual({
       id: 'g1',
@@ -436,7 +437,21 @@ describe('fetchGroup', () => {
       ideas: [idea],
       reactions: [react('i1', 'ann', '👍')],
       commentCounts: { i1: 2 },
+      points: 35,
     });
+  });
+
+  it('still shows the group when points are not set up, with no points', async () => {
+    fakeClient({
+      groups: [{ data: { id: 'g1', name: 'Friends', cover: '🌼', invite_code: 'abc' } }],
+      completions: [{ error: { message: 'relation "completions" does not exist' } }],
+    });
+    expect((await fetchGroup('g1'))?.points).toBeNull();
+  });
+
+  it('starts a group that has done nothing on zero points', async () => {
+    fakeClient({ groups: [{ data: { id: 'g1', name: 'Friends', cover: '🌼', invite_code: 'abc' } }] });
+    expect((await fetchGroup('g1'))?.points).toBe(0);
   });
 
   it('still shows the group when comments cannot be read, with no counts', async () => {
