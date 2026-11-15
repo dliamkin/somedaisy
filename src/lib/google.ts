@@ -1,141 +1,89 @@
-// Sign in with Google. Works on the web for now; phones need their own build first.
+// Sign in with Google, using Google's own button. Works on the web for now; phones need their
+// own build first.
 //
-// Signing in means leaving for Google and coming back, so the page is loaded afresh on return.
-// Before leaving, the app notes what the guest on this device had (a one-time pass for their
-// groups, their name and colour). On return it signs in with what Google sent back, then uses
-// the note to bring the guest's groups into the account.
+// Google's button opens a pop-up on this site and hands back a signed note saying who the person
+// is. The app passes that note to Supabase, which signs them in. Nothing leaves the page, so the
+// guest on this device can hand their groups straight to the account, as with an emailed code.
+//
+// Needs EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env, and the same client ID listed under "Client IDs"
+// on Supabase's Google provider page.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-import { startTransfer, toAccountError } from './account';
+import { claimTransfer, startTransfer, toAccountError } from './account';
 import type { Profile } from './data';
 import { db } from './supabase';
 
-/** What went wrong on the way back from Google, if anything. */
-export type GoogleNote = 'google-failed' | 'not-moved' | null;
+export const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
-type Pending = { pass: string | null; name: string | null; color: string | null; at: number };
-type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+export const googleAvailable = Platform.OS === 'web' && Boolean(googleClientId);
 
-const KEY = 'somedaisy.google';
-// A pass lasts 15 minutes; a note older than that is from a visit to Google that never came back.
-const PENDING_MAX_AGE = 15 * 60 * 1000;
+/** A one-time secret tying Google's note to this page: Google gets `hashed`, Supabase gets `raw`. */
+export type Nonce = { raw: string; hashed: string };
 
-export const googleAvailable = Platform.OS === 'web';
-
-// The address the page was opened with, read before the router has a chance to tidy it.
-const landedAt = Platform.OS === 'web' && typeof window !== 'undefined' ? (window.location?.href ?? null) : null;
-
-function tabStore(): Store | null {
-  try {
-    return Platform.OS === 'web' && typeof window !== 'undefined' ? window.sessionStorage : null;
-  } catch {
-    return null;
-  }
+export async function makeNonce(): Promise<Nonce> {
+  const raw = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  const hashed = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return { raw, hashed };
 }
 
-function takePending(store: Store, now: number): Pending | null {
-  try {
-    const raw = store.getItem(KEY);
-    store.removeItem(KEY);
-    const pending = raw ? (JSON.parse(raw) as Pending) : null;
-    return pending && typeof pending.at === 'number' && now - pending.at < PENDING_MAX_AGE ? pending : null;
-  } catch {
-    return null;
-  }
-}
+/** The part of Google's sign-in library the app uses. */
+export type GoogleId = {
+  initialize: (config: { client_id: string; callback: (response: { credential?: string }) => void; nonce: string }) => void;
+  renderButton: (parent: HTMLElement, options: Record<string, string | number>) => void;
+};
 
-/** What Google and Supabase sent back, from both halves of the address. */
-export function readReturn(url: string): { accessToken?: string; refreshToken?: string; failed: boolean } {
-  let params = new URLSearchParams();
-  try {
-    const parsed = new URL(url);
-    params = new URLSearchParams(parsed.hash.replace(/^#/, ''));
-    parsed.searchParams.forEach((value, key) => {
-      if (!params.has(key)) params.set(key, value);
-    });
-  } catch {
-    return { failed: false };
-  }
-  return {
-    accessToken: params.get('access_token') ?? undefined,
-    refreshToken: params.get('refresh_token') ?? undefined,
-    failed: params.has('error') || params.has('error_code'),
-  };
+const SCRIPT = 'https://accounts.google.com/gsi/client';
+let loading: Promise<GoogleId> | null = null;
+
+const loaded = (): GoogleId | undefined => (window as unknown as { google?: { accounts?: { id?: GoogleId } } }).google?.accounts?.id;
+
+/** Fetch Google's sign-in library, once. Fails when it is blocked or the connection is down. */
+export function loadGoogle(): Promise<GoogleId> {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return Promise.reject(new Error('Google sign-in works in the browser for now.'));
+  loading ??= new Promise<GoogleId>((resolve, reject) => {
+    const ready = loaded();
+    if (ready) return resolve(ready);
+    const script = document.createElement('script');
+    script.src = SCRIPT;
+    script.async = true;
+    script.onload = () => {
+      const id = loaded();
+      if (id) resolve(id);
+      else reject(new Error('Google sign-in did not load.'));
+    };
+    script.onerror = () => reject(new Error('Google sign-in did not load.'));
+    document.head.appendChild(script);
+  }).catch((e) => {
+    loading = null; // let the next try fetch it again
+    throw e;
+  });
+  return loading;
 }
 
 /**
- * Leave for Google. On the web this replaces the page, so nothing after it runs when all is well.
- * `guest` is the profile of the guest on this device, if they have picked a name.
+ * Google has said who this is: sign in to their account, creating it the first time, and bring
+ * along the groups of the guest on this device. `guest` is that guest's profile, if they have
+ * picked a name. Returns whether the groups came along.
  */
-export async function startGoogle(guest: Profile | null, store: Store | null = tabStore()): Promise<void> {
-  if (!googleAvailable || !store || typeof window === 'undefined') {
-    throw new Error('Signing in with Google works in the browser for now.');
-  }
+export async function signInWithGoogle(credential: string, rawNonce: string, guest: Profile | null): Promise<{ moved: boolean }> {
   // Signing in replaces the guest on this device. Take a pass first, so the account can collect
   // the guest's groups once it is signed in.
   const pass = guest ? await startTransfer() : null;
-  const pending: Pending = { pass, name: guest?.name ?? null, color: guest?.color ?? null, at: Date.now() };
-  store.setItem(KEY, JSON.stringify(pending));
-  const { error } = await db().auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: `${window.location.origin}${guest ? '/account' : '/'}` },
-  });
-  if (error) {
-    store.removeItem(KEY);
-    throw toAccountError(error);
-  }
-}
-
-/**
- * Back from Google: sign in with what came back and bring the guest's groups along.
- * Does nothing unless this tab left for Google a moment ago. Never throws.
- */
-export async function finishGoogle(
-  client: SupabaseClient,
-  url: string | null = landedAt,
-  store: Store | null = tabStore(),
-  now: number = Date.now(),
-): Promise<GoogleNote> {
-  if (!url || !store) return null;
-  const pending = takePending(store, now);
-  if (!pending) return null;
-
-  const back = readReturn(url);
-  if (!back.accessToken || !back.refreshToken) return back.failed ? 'google-failed' : null;
-
-  let userId: string;
-  try {
-    const { data, error } = await client.auth.setSession({ access_token: back.accessToken, refresh_token: back.refreshToken });
-    if (error || !data.session?.user) return 'google-failed';
-    userId = data.session.user.id;
-  } catch {
-    return 'google-failed';
-  }
-  hideTokens();
-  if (!pending.pass) return null;
+  const { data, error } = await db().auth.signInWithIdToken({ provider: 'google', token: credential, nonce: rawNonce });
+  if (error) throw toAccountError(error);
+  const userId = data.user?.id;
+  if (!pass || !guest) return { moved: true };
+  if (!userId) return { moved: false };
 
   try {
     // Someone new to accounts has no name yet, and needs one to receive the guest's groups.
-    if (pending.name && pending.color) {
-      const { data: existing } = await client.from('profiles').select('id').eq('id', userId).maybeSingle();
-      if (!existing) await client.from('profiles').upsert({ id: userId, name: pending.name, color: pending.color });
-    }
-    const { error: moveError } = await client.rpc('claim_transfer', { p_token: pending.pass });
-    return moveError ? 'not-moved' : null;
+    const { data: existing } = await db().from('profiles').select('id').eq('id', userId).maybeSingle();
+    if (!existing) await db().from('profiles').upsert({ id: userId, name: guest.name, color: guest.color });
+    await claimTransfer(pass);
+    return { moved: true };
   } catch {
-    return 'not-moved';
-  }
-}
-
-/** Take the sign-in details out of the address bar and the browser's history. */
-function hideTokens(): void {
-  try {
-    if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
-      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
-    }
-  } catch {
-    // Leaving the address as it is does no harm beyond looks.
+    return { moved: false };
   }
 }

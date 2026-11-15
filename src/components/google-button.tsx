@@ -1,53 +1,88 @@
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
 import { T } from '@/components/ui';
+import { googleAvailable, googleClientId, loadGoogle, makeNonce } from '@/lib/google';
 import { colors } from '@/lib/theme';
 
-/** Google's "G", in the colours Google asks sign-in buttons to use. */
-function GoogleMark({ size = 20 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 18 18">
-      <Path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
-      <Path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" />
-      <Path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" />
-      <Path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
-    </Svg>
-  );
-}
+const HEIGHT = 44;
+// Google draws the button itself and allows it to be at most this wide.
+const MAX_WIDTH = 400;
 
-export function GoogleButton({ onPress, busy, disabled }: { onPress: () => void; busy?: boolean; disabled?: boolean }) {
+/**
+ * Google's own "Continue with Google" button. Pressing it opens Google's pop-up; when the person
+ * has chosen an account, `onCredential` receives Google's signed note and the secret that goes
+ * with it. Change `attempt` to draw a fresh button with a fresh secret, for example after a failure.
+ */
+export function GoogleButton({
+  onCredential,
+  busy,
+  attempt = 0,
+}: {
+  onCredential: (credential: string, rawNonce: string) => void;
+  busy?: boolean;
+  attempt?: number;
+}) {
+  const holder = useRef<ComponentRef<typeof View>>(null);
+  const [width, setWidth] = useState(0);
+  const [failed, setFailed] = useState(false);
+  // Always call the latest handler, without redrawing the button when it changes.
+  const handler = useRef(onCredential);
+  useEffect(() => {
+    handler.current = onCredential;
+  }, [onCredential]);
+
+  useEffect(() => {
+    if (!googleAvailable || width === 0) return;
+    let alive = true;
+    Promise.all([loadGoogle(), makeNonce()]).then(
+      ([google, nonce]) => {
+        // On the web a View is an ordinary page element, which is what Google draws into.
+        const element = holder.current as unknown as HTMLElement | null;
+        if (!alive || !element) return;
+        google.initialize({
+          client_id: googleClientId,
+          nonce: nonce.hashed,
+          callback: (response) => {
+            if (response.credential) handler.current(response.credential, nonce.raw);
+          },
+        });
+        element.replaceChildren();
+        google.renderButton(element, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          shape: 'pill',
+          text: 'continue_with',
+          logo_alignment: 'center',
+          width: Math.min(MAX_WIDTH, Math.floor(width)),
+        });
+        setFailed(false);
+      },
+      () => {
+        if (alive) setFailed(true);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [width, attempt]);
+
+  if (!googleAvailable) return null;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Continue with Google"
-      accessibilityState={{ disabled: Boolean(disabled || busy) }}
-      disabled={disabled || busy}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: colors.white,
-        borderWidth: 2,
-        borderColor: colors.line,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        paddingHorizontal: 20,
-        opacity: disabled ? 0.45 : pressed ? 0.85 : 1,
-      })}>
-      {busy ? (
-        <ActivityIndicator color={colors.text} />
-      ) : (
-        <>
-          <GoogleMark />
-          <T size={18} weight="extra" color={colors.text}>
-            Continue with Google
-          </T>
-        </>
-      )}
-    </Pressable>
+    <View style={{ gap: 8 }}>
+      <View
+        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        style={{ minHeight: HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
+        <View ref={holder} style={{ display: busy ? 'none' : 'flex' }} />
+        {busy ? <ActivityIndicator color={colors.grape} /> : null}
+      </View>
+      {failed ? (
+        <T size={14} weight="medium" color={colors.muted} center>
+          Google sign-in could not load here. You can still use your email.
+        </T>
+      ) : null}
+    </View>
   );
 }
 

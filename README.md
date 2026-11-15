@@ -49,22 +49,22 @@ the guest's groups stay behind and the app says so.
 
 ### Google sign-in
 
-On the website, the account screen also offers **Continue with Google**. It signs in to the account
-with that Google address, creating one the first time, and brings the groups of the guest on this
-device along (the same move as above, so it needs update 002). Someone who already has an email
-account with the same address lands in that same account. Phones do not offer it yet.
+On the website, the account screen also offers **Continue with Google**, using Google's own button.
+It signs in to the account with that Google address, creating one the first time, and brings the
+groups of the guest on this device along (the same move as above, so it needs update 002). Someone
+who already has an email account with the same address lands in that same account. Phones do not
+offer it yet.
 
 It needs three things set up once:
 
 1. **Google.** In the Google Cloud console, open Google Auth Platform, fill in the branding and
    audience pages, then create an OAuth client of type **Web application**. Under Authorized
    JavaScript origins add `https://somedaisy.com` (and `http://localhost:8081` to try it locally).
-   Under Authorized redirect URIs add the callback URL shown on Supabase's Google provider page.
-2. **Supabase provider.** Under Authentication > Sign In / Providers > Google, turn it on and paste
-   in the client ID and client secret from step 1. The secret goes nowhere else.
-3. **Where people come back to.** Under Authentication > URL Configuration, set the Site URL to
-   `https://somedaisy.com` and add `https://somedaisy.com/**` (and `http://localhost:8081/**`) to
-   the Redirect URLs.
+2. **Supabase provider.** Under Authentication > Sign In / Providers > Google, turn it on, paste in
+   the client ID and client secret from step 1, and add the same client ID under **Client IDs**.
+   Leave "Skip nonce check" off. The secret goes nowhere else.
+3. **Settings.** Put the client ID in `.env` as `EXPO_PUBLIC_GOOGLE_CLIENT_ID`. It is a public
+   value. Without it the button is not shown.
 
 ### Push notifications
 
