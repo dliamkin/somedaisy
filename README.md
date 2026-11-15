@@ -138,10 +138,21 @@ screens. That address is the one to give the Play Store and Google's sign-in bra
 words live in `src/lib/privacy.ts`: when the app starts keeping something new, or sends
 information to a new company, update them in the same change and move the date forward.
 
-It promises two things that need doing by hand. Mail sent to `hello@somedaisy.com` has to reach
-someone (Cloudflare > Email > Email Routing can forward it), and an account someone asks to have
-deleted is deleted in Supabase under Authentication > Users, which removes their profile,
-reactions, comments and notification details with it.
+It promises one thing that needs doing by hand: mail sent to `hello@somedaisy.com` has to reach
+someone (Cloudflare > Email > Email Routing can forward it).
+
+### Deleting an account
+
+The account screen has **Delete my account** (for a guest, **Delete my data**), with a second
+step to confirm. It needs `supabase/updates/005-delete-account.sql`; without it the app says the
+account could not be deleted. It removes the person's sign-in, name, email, picture, memberships,
+reactions, comments and notification details. Ideas they added stay in the group with no name on
+them, and a group where they were the only member is deleted. The website has the same button, so
+`https://somedaisy.com/account` is the address to give the Play Store as the way to delete an
+account outside the app.
+
+Someone who cannot get in can still ask by email; delete them in Supabase under Authentication >
+Users, which removes the same things.
 
 ## Run it
 
@@ -160,7 +171,7 @@ private browser window or on another device.
 | `src/app/` | Screens. Each file is a page (Expo Router). |
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
-| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out |
+| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out, delete the account |
 | `src/app/privacy.tsx` | The privacy policy, at `/privacy`. Its words are in `src/lib/privacy.ts` |
 | `src/app/notifications.tsx` | Choose which notifications to get |
 | `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
