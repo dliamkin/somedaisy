@@ -1,16 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Switch, View } from 'react-native';
 
 import { Avatar, Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import {
   fetchGroup,
+  fetchMuted,
   leaveGroup,
   markChanged,
   removeList,
   removeMember,
   renameList,
   resetInviteCode,
+  setGroupMuted,
   updateGroup,
   type GroupData,
   type List,
@@ -34,6 +36,20 @@ export default function GroupSettings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Whether this person has muted the group. Null while unknown, or when muting is not available.
+  const [muted, setMuted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!id || !userId) return;
+    let alive = true;
+    fetchMuted(id, userId).then(
+      (m) => alive && setMuted(m),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [id, userId]);
 
   const show = useCallback((g: GroupData | null) => {
     setGroup(g);
@@ -89,6 +105,17 @@ export default function GroupSettings() {
   const alone = group.members.length === 1;
   const changed = name.trim() !== group.name || cover !== group.cover;
 
+  // Shows the new setting straight away, and puts the old one back if it could not be saved.
+  const mute = (next: boolean) => {
+    const before = muted;
+    setMuted(next);
+    setError(null);
+    setGroupMuted(id, next).catch((e: unknown) => {
+      setMuted(before);
+      setError(e instanceof Error ? e.message : 'Could not save that. Try again.');
+    });
+  };
+
   const leave = async () => {
     if (busy) return;
     setBusy(true);
@@ -138,6 +165,28 @@ export default function GroupSettings() {
           disabled={!changed || !name.trim() || busy}
         />
       </Card>
+
+      {muted !== null ? (
+        <Card style={{ padding: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <T size={16} weight="extra">
+                Mute this group
+              </T>
+              <T size={14} weight="medium" color={colors.muted}>
+                No notifications from this group, for you only. Your other groups are not affected.
+              </T>
+            </View>
+            <Switch
+              accessibilityLabel="Mute this group"
+              value={muted}
+              onValueChange={mute}
+              trackColor={{ false: colors.dash, true: colors.grape }}
+              thumbColor={colors.white}
+            />
+          </View>
+        </Card>
+      ) : null}
 
       <Card style={{ padding: 18, gap: 10 }}>
         <T size={16} weight="extra">

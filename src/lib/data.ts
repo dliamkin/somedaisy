@@ -161,6 +161,22 @@ async function settingsCall<T>(name: string, args: Record<string, string>): Prom
   return data as T;
 }
 
+/**
+ * Whether this person has muted the group's notifications. Null when muting is not set up in
+ * the database yet (update 010), so the screen can leave the switch out.
+ */
+export async function fetchMuted(groupId: string, userId: string): Promise<boolean | null> {
+  const { data, error } = await db().from('group_members').select('muted').eq('group_id', groupId).eq('user_id', userId).maybeSingle();
+  if (error || !data) return null;
+  return typeof (data as { muted?: unknown }).muted === 'boolean' ? (data as { muted: boolean }).muted : null;
+}
+
+/** Mute or unmute a group for this person only. A muted group sends them no notifications. */
+export async function setGroupMuted(groupId: string, muted: boolean): Promise<void> {
+  const { error } = await db().rpc('set_group_muted', { p_group: groupId, p_muted: muted });
+  fail(error);
+}
+
 /** Leave a group. A group whose last member leaves is deleted. */
 export async function leaveGroup(groupId: string): Promise<void> {
   await settingsCall('leave_group', { p_group: groupId });

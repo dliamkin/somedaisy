@@ -29,10 +29,14 @@ export function stateFromPermissions(p: Permissions): PushState {
   return p.canAskAgain ? 'ask' : 'blocked';
 }
 
-/** The in-app path a tapped push should open, or null if it does not carry one we trust. */
+/**
+ * The in-app path a tapped push should open, or null if it does not carry one we trust.
+ * A push always names a group; one about a comment also names the idea, and opens its comments.
+ */
 export function routeFromPush(data: unknown): string | null {
-  const url = (data as { url?: unknown } | null | undefined)?.url;
-  return typeof url === 'string' && /^\/group\/[0-9a-f-]{36}$/i.test(url) ? url : null;
+  const { url, idea } = (data ?? {}) as { url?: unknown; idea?: unknown };
+  if (typeof url !== 'string' || !/^\/group\/[0-9a-f-]{36}$/i.test(url)) return null;
+  return typeof idea === 'string' && /^[0-9a-f-]{36}$/i.test(idea) ? `${url}/comments?idea=${idea}` : url;
 }
 
 /** The phone's time zone, e.g. "America/New_York", so dates in a push read in local time. */
