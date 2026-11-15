@@ -238,6 +238,17 @@ export function everyoneIn(ideaId: string, members: Member[], reactions: Reactio
   return members.every((m) => ups.has(m.user_id));
 }
 
+/**
+ * The idea that has just become "everyone's in": one that is now, and was still waiting on
+ * someone at the last look (`waiting` holds the ids of the ideas that were). Null when there is
+ * none, or when this is the first look and there is nothing to compare with. An idea not seen
+ * at the last look is never the answer, even if everyone is in on it.
+ */
+export function newlyAllIn(group: Pick<GroupData, 'ideas' | 'members' | 'reactions'>, waiting: ReadonlySet<string> | null): Idea | null {
+  if (!waiting) return null;
+  return group.ideas.find((i) => waiting.has(i.id) && everyoneIn(i.id, group.members, group.reactions)) ?? null;
+}
+
 // A screen that changes a group marks it here, so the group page knows to tell the other members.
 const dirty = new Set<string>();
 export function markChanged(groupId: string): void {
