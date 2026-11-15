@@ -291,7 +291,7 @@ export default function GroupScreen() {
                     onPress={() => openPlan(idea)}
                   />
                 ) : allIn ? null : (
-                  <Chip label="📅 Plan it" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
+                  <Chip label="📅 Pick a date" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
                 )}
               </View>
               {allIn && !idea.planned_for ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
