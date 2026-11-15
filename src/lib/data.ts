@@ -178,6 +178,24 @@ export async function setReaction(
   fail(error);
 }
 
+/** Change an idea's words or move it to another list. Its reactions, comments and date stay. */
+export async function updateIdea(
+  ideaId: string,
+  change: { title: string; link: string | null; note: string | null; listId: string },
+): Promise<void> {
+  const { error } = await db()
+    .from('ideas')
+    .update({ title: change.title, link: change.link || null, note: change.note || null, list_id: change.listId })
+    .eq('id', ideaId);
+  fail(error);
+}
+
+/** Remove an idea for everyone in the group, along with its reactions and comments. */
+export async function deleteIdea(ideaId: string): Promise<void> {
+  const { error } = await db().from('ideas').delete().eq('id', ideaId);
+  fail(error);
+}
+
 /** Give an idea a date, turning it into a plan. Pass null to take the date away again. */
 export async function planIdea(ideaId: string, when: Date | null): Promise<void> {
   const { error } = await db()

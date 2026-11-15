@@ -220,8 +220,8 @@ export function Field({
   autoFocus?: boolean;
   maxLength?: number;
   onSubmit?: () => void;
-  /** Picks the right keyboard and autofill for an email address or an emailed code. */
-  kind?: 'email' | 'code';
+  /** Picks the right keyboard and autofill for an email address, an emailed code or a web address. */
+  kind?: 'email' | 'code' | 'link';
 }) {
   return (
     <View style={{ gap: 6 }}>
@@ -238,7 +238,7 @@ export function Field({
         autoFocus={autoFocus}
         maxLength={maxLength}
         onSubmitEditing={onSubmit}
-        keyboardType={kind === 'email' ? 'email-address' : kind === 'code' ? 'number-pad' : 'default'}
+        keyboardType={kind === 'email' ? 'email-address' : kind === 'code' ? 'number-pad' : kind === 'link' ? 'url' : 'default'}
         autoCapitalize={kind ? 'none' : undefined}
         autoCorrect={kind ? false : undefined}
         autoComplete={kind === 'email' ? 'email' : kind === 'code' ? 'one-time-code' : undefined}

@@ -1,10 +1,11 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { Daisy, PlusIcon } from '@/components/daisy';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addList, everyoneIn, fetchGroup, markDone, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
+import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
@@ -129,6 +130,7 @@ export default function GroupScreen() {
 
   const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
   const openComments = (idea: Idea) => router.push(`/group/${group.id}/comments?idea=${idea.id}` as never);
+  const openEdit = (idea: Idea) => router.push(`/group/${group.id}/edit?idea=${idea.id}` as never);
 
   const plans = plannedIdeas(group.ideas);
   const ideas = activeList ? group.ideas.filter((i) => i.list_id === activeList.id) : [];
@@ -269,7 +271,7 @@ export default function GroupScreen() {
                 </T>
               ) : null}
               {idea.link ? (
-                <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(idea.link as string)}>
+                <Pressable accessibilityRole="link" onPress={() => openLink(idea.link as string)}>
                   <T size={14} color={colors.link} lines={1} style={{ textDecorationLine: 'underline' }}>
                     {idea.link}
                   </T>
@@ -297,6 +299,7 @@ export default function GroupScreen() {
                 ) : allIn ? null : (
                   <Chip label="📅 Pick a date" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
                 )}
+                <Chip label="✏️" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
               </View>
               {allIn && !idea.planned_for ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
               {pickerFor === idea.id ? (
