@@ -52,8 +52,9 @@ export default function GroupSettings() {
   }, [id, show]);
 
   // Run one change: show it is happening, reload afterwards, and put any failure on the screen.
-  const run = async (change: () => Promise<void>, done?: string) => {
-    if (!id || busy) return;
+  // Answers whether it worked, so a confirmation stays open when it did not.
+  const run = async (change: () => Promise<void>, done?: string): Promise<boolean> => {
+    if (!id || busy) return false;
     setBusy(true);
     setError(null);
     setNote(null);
@@ -62,8 +63,10 @@ export default function GroupSettings() {
       markChanged(id);
       show(await fetchGroup(id));
       setNote(done ?? null);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save that. Try again.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -156,7 +159,7 @@ export default function GroupSettings() {
               small
               onPress={() => {
                 const { list, name: next } = editing;
-                void run(() => renameList(list.id, next.trim()), 'List renamed.').then(() => setEditing(null));
+                void run(() => renameList(list.id, next.trim()), 'List renamed.').then((ok) => ok && setEditing(null));
               }}
               disabled={!editing.name.trim() || editing.name.trim() === editing.list.name || busy}
             />
@@ -166,7 +169,7 @@ export default function GroupSettings() {
               small
               onPress={() => {
                 const { list } = editing;
-                void run(() => removeList(list.id), 'List removed.').then(() => setEditing(null));
+                void run(() => removeList(list.id), 'List removed.').then((ok) => ok && setEditing(null));
               }}
               disabled={busy}
             />
@@ -208,7 +211,7 @@ export default function GroupSettings() {
               busy={busy}
               onPress={() => {
                 const { member } = confirm;
-                void run(() => removeMember(id, member.user_id), `${member.name} was removed.`).then(() => setConfirm(null));
+                void run(() => removeMember(id, member.user_id), `${member.name} was removed.`).then((ok) => ok && setConfirm(null));
               }}
             />
             <Button label="Keep them" kind="ghost" small onPress={() => setConfirm(null)} disabled={busy} />
@@ -231,7 +234,7 @@ export default function GroupSettings() {
                 label="Get a new link"
                 small
                 busy={busy}
-                onPress={() => void run(async () => void (await resetInviteCode(id)), 'The invite link is new. Share it from the Invite screen.').then(() => setConfirm(null))}
+                onPress={() => void run(async () => void (await resetInviteCode(id)), 'The invite link is new. Share it from the Invite screen.').then((ok) => ok && setConfirm(null))}
               />
               <Button label="Keep the current link" kind="ghost" small onPress={() => setConfirm(null)} disabled={busy} />
             </>
