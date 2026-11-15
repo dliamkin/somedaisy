@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -128,7 +129,21 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
   return <View style={[{ backgroundColor: colors.white, borderRadius: 24, padding: 14, gap: 12 }, shadow, style]}>{children}</View>;
 }
 
-export function Avatar({ name, color, size = 30 }: { name: string; color: string; size?: number }) {
+/** A person's circle: their photo when they have one that loads, otherwise their initial on their colour. */
+export function Avatar({ name, color, size = 30, photo }: { name: string; color: string; size?: number; photo?: string | null }) {
+  // Remember the photo that failed, so a different one gets its own chance.
+  const [broken, setBroken] = useState<string | null>(null);
+  if (photo && broken !== photo) {
+    return (
+      <Image
+        source={{ uri: photo }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }}
+        contentFit="cover"
+        accessibilityLabel={name}
+        onError={() => setBroken(photo)}
+      />
+    );
+  }
   return (
     <View
       style={{

@@ -62,7 +62,7 @@ function SignedIn({ email }: { email: string }) {
       ) : null}
       <Card style={{ padding: 18 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {profile ? <Avatar name={profile.name} color={profile.color} size={44} /> : null}
+          {profile ? <Avatar name={profile.name} color={profile.color} photo={profile.photo_url} size={44} /> : null}
           <View style={{ flex: 1, gap: 2 }}>
             <T size={18} weight="extra" lines={1}>
               {profile?.name ?? 'Signed in'}

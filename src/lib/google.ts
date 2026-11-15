@@ -18,6 +18,16 @@ export const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
 export const googleAvailable = Platform.OS === 'web' && Boolean(googleClientId);
 
+/**
+ * The picture from someone's Google account, if they have signed in with Google. Only addresses
+ * served by Google count, which is also all the database accepts.
+ */
+export function googlePhoto(user: { user_metadata?: Record<string, unknown> } | null | undefined): string | null {
+  const meta = user?.user_metadata ?? {};
+  const url = meta.avatar_url ?? meta.picture;
+  return typeof url === 'string' && url.length <= 500 && /^https:\/\/lh[0-9]\.googleusercontent\.com\/[A-Za-z0-9_=./-]+$/.test(url) ? url : null;
+}
+
 /** A one-time secret tying Google's note to this page: Google gets `hashed`, Supabase gets `raw`. */
 export type Nonce = { raw: string; hashed: string };
 

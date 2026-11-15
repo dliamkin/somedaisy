@@ -151,7 +151,7 @@ export default function IdeaComments() {
         const mine = comment.user_id === userId;
         return (
           <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-            <Avatar name={author?.name ?? '?'} color={author?.color ?? colors.line} />
+            <Avatar name={author?.name ?? '?'} color={author?.color ?? colors.line} photo={author?.photo} />
             <Card style={{ flex: 1, gap: 4, backgroundColor: mine ? colors.today : colors.white }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <T size={14} weight="extra" lines={1} style={{ flexShrink: 1 }}>

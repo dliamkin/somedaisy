@@ -92,7 +92,7 @@ function Home() {
             accessibilityRole="button"
             accessibilityLabel={email ? 'Your account' : 'Save your account'}
             onPress={() => router.push('/account' as never)}>
-            <Avatar name={profile.name} color={profile.color} size={44} />
+            <Avatar name={profile.name} color={profile.color} photo={profile.photo_url} size={44} />
           </Pressable>
         ) : null}
       </View>
@@ -132,7 +132,7 @@ function Home() {
               </T>
               <View style={{ flexDirection: 'row', gap: 6 }}>
                 {g.members.slice(0, 4).map((m) => (
-                  <Avatar key={m.user_id} name={m.name} color={m.color} />
+                  <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
                 ))}
               </View>
             </View>
