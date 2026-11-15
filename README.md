@@ -3,7 +3,7 @@
 A shared place for friends to collect ideas for things to do, vote on them, and stop forgetting the good ones.
 One codebase (Expo / React Native) for the web, Android and iPhone. Supabase is the backend.
 
-This is Phase 1: groups, join by link with just a name, lists, ideas, thumbs and emoji reactions,
+Phase 1: groups, join by link with just a name, lists, ideas, thumbs and emoji reactions,
 the "Everyone's in" moment, and live updates between members.
 
 Phase 2 so far: plans. Any idea can be given a day and a time of day, planned ideas show under
@@ -195,5 +195,5 @@ npx expo export -p web   # production web build into dist/
 
 ## Not built yet
 
-Planning and calendar, Done Together, Google / Apple / Facebook sign-in, profile editing, notifications,
-dark mode, and the app store builds. See the build plan for the phases.
+A calendar view, points and stamps for things the group has done, Apple and Facebook sign-in,
+dark mode, and the app store listings.

@@ -50,3 +50,4 @@ example
 
 # not needed to build the app
 /supabase/tests
+/docs
