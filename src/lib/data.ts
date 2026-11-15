@@ -1,8 +1,10 @@
 import { countByIdea } from './comments';
 import { db } from './supabase';
 
-export type Profile = { id: string; name: string; color: string };
-export type Member = { user_id: string; name: string; color: string };
+/** `photo_url` and `photo_hidden` need supabase/updates/004-profile-photo.sql; without it they are simply absent. */
+export type Profile = { id: string; name: string; color: string; photo_url?: string | null; photo_hidden?: boolean };
+/** `photo` is the person's Google picture, when they have one and show it. */
+export type Member = { user_id: string; name: string; color: string; photo: string | null };
 export type GroupSummary = { id: string; name: string; cover: string; members: Member[] };
 export type List = { id: string; name: string; position: number };
 export type Idea = {
@@ -29,12 +31,13 @@ export type GroupData = {
   commentCounts: Record<string, number>;
 };
 
-type MemberRow = { user_id: string; profiles: { name: string; color: string } | { name: string; color: string }[] | null };
+type MemberProfile = { name: string; color: string; photo_url?: string | null };
+type MemberRow = { user_id: string; profiles: MemberProfile | MemberProfile[] | null };
 
 function toMembers(rows: MemberRow[] | null | undefined): Member[] {
   return (rows ?? []).map((r) => {
     const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-    return { user_id: r.user_id, name: p?.name ?? 'Someone', color: p?.color ?? '#FFD9C7' };
+    return { user_id: r.user_id, name: p?.name ?? 'Someone', color: p?.color ?? '#FFD9C7', photo: p?.photo_url ?? null };
   });
 }
 
@@ -45,7 +48,7 @@ function fail(error: { message: string } | null): void {
 export async function fetchGroups(): Promise<GroupSummary[]> {
   const { data, error } = await db()
     .from('groups')
-    .select('id, name, cover, created_at, group_members(user_id, profiles(name, color))')
+    .select('id, name, cover, created_at, group_members(user_id, profiles(*))')
     .order('created_at', { ascending: true });
   fail(error);
   return (data ?? []).map((g) => ({
@@ -60,7 +63,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
   const client = db();
   const [g, m, l, i, r, c] = await Promise.all([
     client.from('groups').select('id, name, cover, invite_code').eq('id', id).maybeSingle(),
-    client.from('group_members').select('user_id, profiles(name, color)').eq('group_id', id).order('joined_at'),
+    client.from('group_members').select('user_id, profiles(*)').eq('group_id', id).order('joined_at'),
     client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
     client
       .from('ideas')

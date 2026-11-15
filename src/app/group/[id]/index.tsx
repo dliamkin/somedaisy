@@ -313,7 +313,7 @@ export default function GroupScreen() {
 
         <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', paddingTop: 4 }}>
           {group.members.map((m) => (
-            <Avatar key={m.user_id} name={m.name} color={m.color} />
+            <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
           ))}
         </View>
         <Button label="Things we did" kind="ghost" small onPress={() => router.push(`/group/${group.id}/done` as never)} />

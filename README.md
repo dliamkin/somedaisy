@@ -66,6 +66,10 @@ It needs three things set up once:
 3. **Settings.** Put the client ID in `.env` as `EXPO_PUBLIC_GOOGLE_CLIENT_ID`. It is a public
    value. Without it the button is not shown.
 
+Someone signed in with Google has their Google picture as their circle, in place of their initial,
+and friends in their groups see it too. They can switch it off where they change their name. This
+needs `supabase/updates/004-profile-photo.sql`; without it everyone keeps their initial.
+
 ### Push notifications
 
 Only three things send a notification: someone else reacting to an idea you added (one per person
@@ -117,7 +121,7 @@ private browser window or on another device.
 | `src/app/new-group.tsx` | Create a group |
 | `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out |
 | `src/app/notifications.tsx` | Choose which notifications to get |
-| `src/app/profile.tsx` | Change your name and colour |
+| `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |

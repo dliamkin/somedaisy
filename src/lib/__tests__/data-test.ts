@@ -54,7 +54,7 @@ function fakeClient(results: Record<string, Result[]> = {}) {
 const stepsFor = (calls: Call[], table: string) => calls.filter((c) => c.table === table).map((c) => c.steps);
 const argsOf = (steps: Call['steps'], method: string) => steps.find(([m]) => m === method)?.slice(1);
 
-const member = (id: string): Member => ({ user_id: id, name: id, color: '#fff' });
+const member = (id: string): Member => ({ user_id: id, name: id, color: '#fff', photo: null });
 const react = (idea: string, user: string, emoji: string): Reaction => ({ idea_id: idea, user_id: user, emoji });
 
 describe('everyoneIn', () => {
@@ -260,7 +260,7 @@ describe('fetchGroup', () => {
       group_members: [
         {
           data: [
-            { user_id: 'ann', profiles: { name: 'Ann', color: '#111' } },
+            { user_id: 'ann', profiles: { name: 'Ann', color: '#111', photo_url: 'https://lh3.googleusercontent.com/a/ann' } },
             { user_id: 'bo', profiles: [{ name: 'Bo', color: '#222' }] },
             { user_id: 'cy', profiles: null },
           ],
@@ -277,9 +277,9 @@ describe('fetchGroup', () => {
       cover: '🌼',
       invite_code: 'abc',
       members: [
-        { user_id: 'ann', name: 'Ann', color: '#111' },
-        { user_id: 'bo', name: 'Bo', color: '#222' },
-        { user_id: 'cy', name: 'Someone', color: '#FFD9C7' },
+        { user_id: 'ann', name: 'Ann', color: '#111', photo: 'https://lh3.googleusercontent.com/a/ann' },
+        { user_id: 'bo', name: 'Bo', color: '#222', photo: null },
+        { user_id: 'cy', name: 'Someone', color: '#FFD9C7', photo: null },
       ],
       lists: [list],
       ideas: [idea],
@@ -329,7 +329,7 @@ describe('fetchGroups', () => {
       ],
     });
     expect(await fetchGroups()).toEqual([
-      { id: 'g1', name: 'Friends', cover: '🌼', members: [{ user_id: 'ann', name: 'Ann', color: '#111' }] },
+      { id: 'g1', name: 'Friends', cover: '🌼', members: [{ user_id: 'ann', name: 'Ann', color: '#111', photo: null }] },
     ]);
   });
 

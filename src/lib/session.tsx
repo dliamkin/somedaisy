@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Profile } from './data';
+import { googlePhoto } from './google';
 import { syncPush } from './push';
 import { isConfigured, supabase } from './supabase';
 
@@ -14,7 +15,11 @@ type SessionValue = {
   /** The account's email, or null for a guest. */
   email: string | null;
   profile: Profile | null;
+  /** The picture from their Google account, whether or not they show it. Null without Google. */
+  googlePhoto: string | null;
   saveProfile: (name: string, color: string) => Promise<void>;
+  /** Show or hide the Google picture on this person's circle. */
+  showPhoto: (show: boolean) => Promise<void>;
   /** Re-read who is signed in. Call after signing in, signing out, or adding an email. */
   refresh: () => Promise<void>;
 };
@@ -26,11 +31,13 @@ const SessionContext = createContext<SessionValue>({
   userId: null,
   email: null,
   profile: null,
+  googlePhoto: null,
   saveProfile: async () => {},
+  showPhoto: async () => {},
   refresh: async () => {},
 });
 
-type Who = { userId: string; email: string | null; profile: Profile | null };
+type Who = { userId: string; email: string | null; profile: Profile | null; googlePhoto: string | null };
 
 /** No account needed: everyone starts as a guest. */
 async function startGuest(client: SupabaseClient) {
@@ -41,7 +48,19 @@ async function startGuest(client: SupabaseClient) {
 }
 
 const readProfile = (client: SupabaseClient, id: string) =>
-  client.from('profiles').select('id, name, color').eq('id', id).maybeSingle();
+  // "*" takes whatever the profile has, so this works before and after update 004 (photos).
+  client.from('profiles').select('*').eq('id', id).maybeSingle();
+
+/**
+ * Keep the profile's photo the same as the Google account's, unless they chose to hide it.
+ * Friends see the profile, not the account, so this is what puts the picture on their screens.
+ * Without update 004 the save fails, and the profile is returned as it was.
+ */
+async function withPhoto(client: SupabaseClient, profile: Profile | null, photo: string | null): Promise<Profile | null> {
+  if (!profile || !photo || profile.photo_hidden || profile.photo_url === photo) return profile;
+  const { error } = await client.from('profiles').update({ photo_url: photo }).eq('id', profile.id);
+  return error ? profile : { ...profile, photo_url: photo };
+}
 
 /**
  * True when the saved sign-in belongs to a user Supabase no longer has. The device keeps working
@@ -69,10 +88,12 @@ export async function readSession(client: SupabaseClient): Promise<Who> {
     if (pErr) throw new Error(pErr.message);
   }
   const user = session.user;
+  const photo = user.is_anonymous ? null : googlePhoto(user);
   return {
     userId: user.id,
     email: user.is_anonymous ? null : (user.email ?? null),
-    profile: (p as Profile | null) ?? null,
+    profile: await withPhoto(client, (p as Profile | null) ?? null, photo),
+    googlePhoto: photo,
   };
 }
 
@@ -83,6 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
   const mounted = useRef(true);
 
   const show = useCallback((who: Who) => {
@@ -90,6 +112,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUserId(who.userId);
     setEmail(who.email);
     setProfile(who.profile);
+    setPhoto(who.googlePhoto);
     setError(null);
     setReady(true);
     // If this phone already allows notifications, make sure they go to whoever is signed in now.
@@ -121,15 +144,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const row = { id: userId, name: name.trim(), color };
       const { error: err } = await supabase.from('profiles').upsert(row);
       if (err) throw new Error(err.message);
-      setProfile(row);
+      // Someone naming themselves for the first time after signing in with Google gets their photo too.
+      const saved = await withPhoto(supabase, { ...profile, ...row }, photo).catch(() => ({ ...profile, ...row }));
+      setProfile(saved);
       void syncPush();
     },
-    [userId],
+    [userId, profile, photo],
+  );
+
+  const showPhoto = useCallback(
+    async (show: boolean) => {
+      if (!supabase || !profile) throw new Error('Not connected yet.');
+      const change = show ? { photo_hidden: false, photo_url: photo } : { photo_hidden: true, photo_url: null };
+      const { error: err } = await supabase.from('profiles').update(change).eq('id', profile.id);
+      if (err) throw new Error(err.message);
+      setProfile({ ...profile, ...change });
+    },
+    [profile, photo],
   );
 
   const value = useMemo(
-    () => ({ ready, configured: isConfigured, error, userId, email, profile, saveProfile, refresh }),
-    [ready, error, userId, email, profile, saveProfile, refresh],
+    () => ({ ready, configured: isConfigured, error, userId, email, profile, googlePhoto: photo, saveProfile, showPhoto, refresh }),
+    [ready, error, userId, email, profile, photo, saveProfile, showPhoto, refresh],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

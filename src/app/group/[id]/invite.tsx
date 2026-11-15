@@ -68,7 +68,7 @@ export default function Invite() {
             </T>
             {group.members.map((m) => (
               <View key={m.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
-                <Avatar name={m.name} color={m.color} size={40} />
+                <Avatar name={m.name} color={m.color} photo={m.photo} size={40} />
                 <T weight="extra">{m.user_id === userId ? `${m.name} (you)` : m.name}</T>
               </View>
             ))}
