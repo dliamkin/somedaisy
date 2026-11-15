@@ -24,7 +24,7 @@ export default function GroupScreen() {
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const notifyRef = useRef<() => void>(() => {});
-  // The ideas everyone was in on at the last load, to notice when another one gets there.
+  // The ideas still waiting on someone at the last load, to notice when one of them gets everyone in.
   const allInRef = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
@@ -33,10 +33,11 @@ export default function GroupScreen() {
       const g = await fetchGroup(id);
       if (g) {
         // Whoever gives the last thumbs up, every member with the group open sees the celebration.
-        // Nothing is celebrated on the first load: those ideas got there before this visit.
+        // Nothing is celebrated on the first load, and nothing for an idea that arrives already
+        // agreed on (one brought back to be done again): those got there before this visit.
         const before = allInRef.current;
         const next = newlyAllIn(g, before);
-        allInRef.current = new Set(g.ideas.filter((i) => everyoneIn(i.id, g.members, g.reactions)).map((i) => i.id));
+        allInRef.current = new Set(g.ideas.filter((i) => !everyoneIn(i.id, g.members, g.reactions)).map((i) => i.id));
         if (before && next) setCelebrate(next);
       }
       setGroup(g);

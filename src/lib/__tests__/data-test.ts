@@ -202,16 +202,21 @@ describe('newlyAllIn', () => {
   const bothIn = (id: string) => [react(id, 'a', '👍'), react(id, 'b', '👍')];
 
   it('finds the idea everyone has just come in on', () => {
-    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set())?.id).toBe('i2');
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set(['i1', 'i2']))?.id).toBe('i2');
   });
 
   it('ignores ideas everyone was already in on', () => {
-    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set(['i2']))).toBeNull();
-    expect(newlyAllIn({ ideas, members, reactions: [...bothIn('i1'), ...bothIn('i2')] }, new Set(['i1']))?.id).toBe('i2');
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set(['i1']))).toBeNull();
+    expect(newlyAllIn({ ideas, members, reactions: [...bothIn('i1'), ...bothIn('i2')] }, new Set(['i2']))?.id).toBe('i2');
   });
 
   it('finds nothing while someone has yet to say yes', () => {
-    expect(newlyAllIn({ ideas, members, reactions: [react('i1', 'a', '👍'), react('i1', 'b', '👎')] }, new Set())).toBeNull();
+    expect(newlyAllIn({ ideas, members, reactions: [react('i1', 'a', '👍'), react('i1', 'b', '👎')] }, new Set(['i1', 'i2']))).toBeNull();
+  });
+
+  it('ignores an idea that arrives already agreed on, such as one brought back to do again', () => {
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set(['i1']))).toBeNull();
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set())).toBeNull();
   });
 
   it('celebrates nothing on the first look', () => {
