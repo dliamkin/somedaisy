@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 
 import { Daisy, PlusIcon } from '@/components/daisy';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { addList, everyoneIn, fetchGroup, markDone, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
+import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { useSession } from '@/lib/session';
@@ -24,11 +24,21 @@ export default function GroupScreen() {
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const notifyRef = useRef<() => void>(() => {});
+  // The ideas everyone was in on at the last load, to notice when another one gets there.
+  const allInRef = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return null;
     try {
       const g = await fetchGroup(id);
+      if (g) {
+        // Whoever gives the last thumbs up, every member with the group open sees the celebration.
+        // Nothing is celebrated on the first load: those ideas got there before this visit.
+        const before = allInRef.current;
+        const next = newlyAllIn(g, before);
+        allInRef.current = new Set(g.ideas.filter((i) => everyoneIn(i.id, g.members, g.reactions)).map((i) => i.id));
+        if (before && next) setCelebrate(next);
+      }
       setGroup(g);
       setNow(new Date());
       setError(null);
@@ -74,6 +84,26 @@ export default function GroupScreen() {
   }, [group, listId]);
 
   if (group === undefined && !error) return <Loading />;
+  if (group === undefined) {
+    // The group may well exist: it just could not be fetched, for example with no connection.
+    return (
+      <Screen
+        footer={
+          <>
+            <Button label="Try again" onPress={() => void load()} />
+            <Button label="Back to groups" kind="ghost" small onPress={() => router.replace('/')} />
+          </>
+        }>
+        <T size={26} weight="black">
+          Could not load this group
+        </T>
+        <ErrorNote message={error} />
+        <T weight="medium" color={colors.muted}>
+          Check your connection, then try again.
+        </T>
+      </Screen>
+    );
+  }
   if (!group || !userId) {
     return (
       <Screen footer={<Button label="Back to groups" kind="soft" onPress={() => router.replace('/')} />}>
@@ -90,13 +120,12 @@ export default function GroupScreen() {
 
   const react = async (idea: Idea, emoji: string) => {
     const mine = group.reactions.some((r) => r.idea_id === idea.id && r.user_id === userId && r.emoji === emoji);
-    const wasIn = everyoneIn(idea.id, group.members, group.reactions);
     setPickerFor(null);
     try {
       await setReaction(group.id, idea.id, userId, emoji, !mine);
-      const fresh = await load();
+      // Loading notices when this was the thumbs up that got everyone in.
+      await load();
       notifyRef.current();
-      if (fresh && !wasIn && everyoneIn(idea.id, fresh.members, fresh.reactions)) setCelebrate(idea);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your reaction.');
     }

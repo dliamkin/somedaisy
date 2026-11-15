@@ -7,6 +7,7 @@ import {
   fetchGroups,
   markChanged,
   markDone,
+  newlyAllIn,
   planIdea,
   previewGroup,
   restoreIdea,
@@ -191,6 +192,30 @@ describe('planIdea', () => {
   it('throws the database error', async () => {
     fakeClient({ ideas: [{ error: { message: 'not a member' } }] });
     await expect(planIdea('i1', null)).rejects.toThrow('not a member');
+  });
+});
+
+describe('newlyAllIn', () => {
+  const idea = (id: string) => ({ id, list_id: 'l1', title: id, link: null, note: null, added_by: 'a', planned_for: null, created_at: '2026-11-01T10:00:00.000Z' });
+  const members = [member('a'), member('b')];
+  const ideas = [idea('i1'), idea('i2')];
+  const bothIn = (id: string) => [react(id, 'a', '👍'), react(id, 'b', '👍')];
+
+  it('finds the idea everyone has just come in on', () => {
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set())?.id).toBe('i2');
+  });
+
+  it('ignores ideas everyone was already in on', () => {
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i2') }, new Set(['i2']))).toBeNull();
+    expect(newlyAllIn({ ideas, members, reactions: [...bothIn('i1'), ...bothIn('i2')] }, new Set(['i1']))?.id).toBe('i2');
+  });
+
+  it('finds nothing while someone has yet to say yes', () => {
+    expect(newlyAllIn({ ideas, members, reactions: [react('i1', 'a', '👍'), react('i1', 'b', '👎')] }, new Set())).toBeNull();
+  });
+
+  it('celebrates nothing on the first look', () => {
+    expect(newlyAllIn({ ideas, members, reactions: bothIn('i1') }, null)).toBeNull();
   });
 });
 

@@ -238,6 +238,16 @@ export function everyoneIn(ideaId: string, members: Member[], reactions: Reactio
   return members.every((m) => ups.has(m.user_id));
 }
 
+/**
+ * The idea that has just become "everyone's in": one that is now, and was not in `before` (the
+ * ids of the ideas everyone was in on at the last look). Null when there is none, or when this
+ * is the first look and there is nothing to compare with.
+ */
+export function newlyAllIn(group: Pick<GroupData, 'ideas' | 'members' | 'reactions'>, before: ReadonlySet<string> | null): Idea | null {
+  if (!before) return null;
+  return group.ideas.find((i) => !before.has(i.id) && everyoneIn(i.id, group.members, group.reactions)) ?? null;
+}
+
 // A screen that changes a group marks it here, so the group page knows to tell the other members.
 const dirty = new Set<string>();
 export function markChanged(groupId: string): void {
