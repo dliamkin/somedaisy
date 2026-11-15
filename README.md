@@ -170,6 +170,14 @@ owner is whoever started the group, or, once they have gone, whoever has been in
 Leaving, removing and replacing the link need `supabase/updates/007-group-settings.sql`; without
 it the app says they are not available yet.
 
+### Guests
+
+Nobody is signed in just for opening the app or the website. A person becomes a guest when
+they pick a name or open an invite link, so visitors who only look leave nothing behind.
+`supabase/updates/009-guest-cleanup.sql` adds a daily job that removes guests who never picked
+a name and are more than 30 days old (older copies of the app made one for every visitor).
+Guests with a name, and accounts with an email, are never removed by it.
+
 ### Points, stamps and the do-again shelf
 
 Marking a plan as done opens one "You did it" screen: the points it earned, the stamp, a new

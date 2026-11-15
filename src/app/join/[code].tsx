@@ -11,17 +11,22 @@ import { colors, covers } from '@/lib/theme';
 
 export default function Join() {
   const { code } = useLocalSearchParams<{ code: string }>();
-  const { ready, error: sessionError, profile, userId } = useSession();
+  const { ready, error: sessionError, profile, userId, ensureUser } = useSession();
   const [preview, setPreview] = useState<{ name: string; cover: string; member_count: number } | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!ready || !userId || !code) return;
+    if (!ready || !code) return;
+    if (!userId) {
+      // Opening an invite is what makes a visitor a guest: the group cannot be shown without one.
+      ensureUser().catch((e: Error) => setError(e.message));
+      return;
+    }
     previewGroup(code)
       .then(setPreview)
       .catch((e: Error) => setError(e.message));
-  }, [ready, userId, code]);
+  }, [ready, userId, code, ensureUser]);
 
   const join = async () => {
     if (!code) return;
@@ -38,14 +43,14 @@ export default function Join() {
 
   if (!ready || (preview === undefined && !error && !sessionError)) return <Loading />;
 
-  if (sessionError || preview === null) {
+  if (sessionError || preview === null || (preview === undefined && error)) {
     return (
       <Screen footer={<Button label="Go to SomeDaisy" kind="soft" onPress={() => router.replace('/')} />}>
         <T size={28} weight="black">
-          {sessionError ? 'Could not connect' : 'This invite link is not valid'}
+          {preview === null ? 'This invite link is not valid' : 'Could not connect'}
         </T>
         <T weight="medium" color={colors.muted}>
-          {sessionError ?? 'Ask your friend to send the link again.'}
+          {preview === null ? 'Ask your friend to send the link again.' : (sessionError ?? error)}
         </T>
       </Screen>
     );
