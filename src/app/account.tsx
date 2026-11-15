@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { GoogleButton, OrLine } from '@/components/google-button';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import {
   AccountError,
@@ -16,6 +17,8 @@ import {
   signOut,
   startTransfer,
 } from '@/lib/account';
+import type { Profile } from '@/lib/data';
+import { googleAvailable, startGoogle } from '@/lib/google';
 import { forgetDevice } from '@/lib/push';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
@@ -26,12 +29,14 @@ type Mode = 'keep' | 'signin';
 export default function Account() {
   const { ready, email, profile } = useSession();
   if (!ready) return <Loading />;
-  return email ? <SignedIn email={email} /> : <Guest hasProfile={Boolean(profile)} />;
+  return email ? <SignedIn email={email} /> : <Guest guest={profile} />;
 }
 
 function SignedIn({ email }: { email: string }) {
-  const { profile, refresh } = useSession();
-  const { notice } = useLocalSearchParams<{ notice?: string }>();
+  const { profile, refresh, note } = useSession();
+  const params = useLocalSearchParams<{ notice?: string }>();
+  // The groups can fail to move after an email code (told by the address) or after Google (told by the session).
+  const notice = params.notice ?? note;
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,16 +99,20 @@ function SignedIn({ email }: { email: string }) {
   );
 }
 
-function Guest({ hasProfile }: { hasProfile: boolean }) {
+const GOOGLE_FAILED = 'Signing in with Google did not finish. Try again, or use your email.';
+
+function Guest({ guest }: { guest: Profile | null }) {
+  const hasProfile = Boolean(guest);
   const params = useLocalSearchParams<{ mode?: string }>();
-  const { refresh } = useSession();
+  const { refresh, note } = useSession();
   // Someone who has not picked a name yet has nothing to keep, so they can only sign in.
   const [mode, setMode] = useState<Mode>(hasProfile && params.mode !== 'signin' ? 'keep' : 'signin');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [error, setError] = useState<string | null>(note === 'google-failed' ? GOOGLE_FAILED : null);
   const [taken, setTaken] = useState(false);
 
   const fail = (e: unknown, fallback: string) => {
@@ -126,6 +135,20 @@ function Guest({ hasProfile }: { hasProfile: boolean }) {
       fail(e, 'Could not send the code.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Leaves for Google. The page loads afresh on the way back, and the session finishes the job.
+  const google = async () => {
+    if (busy || leaving) return;
+    setLeaving(true);
+    setError(null);
+    setTaken(false);
+    try {
+      await startGoogle(guest);
+    } catch (e) {
+      fail(e, GOOGLE_FAILED);
+      setLeaving(false);
     }
   };
 
@@ -175,14 +198,20 @@ function Guest({ hasProfile }: { hasProfile: boolean }) {
   }
 
   return (
-    <Screen footer={<Button label="Email me a code" onPress={() => send()} disabled={!isEmail(email)} busy={busy} />}>
+    <Screen footer={<Button label="Email me a code" onPress={() => send()} disabled={!isEmail(email) || leaving} busy={busy} />}>
       <TopBar title={mode === 'keep' ? 'Keep your groups' : 'Sign in'} backTo="/" />
       <T weight="medium" color={colors.muted}>
         {mode === 'keep'
-          ? 'Right now your groups live only on this device. Add your email and you can get back to them from any phone or browser. No password needed.'
-          : 'Enter the email you saved your account with. We will send you a code, no password needed.'}
+          ? `Right now your groups live only on this device. ${googleAvailable ? 'Continue with Google or add your email' : 'Add your email'} and you can get back to them from any phone or browser. No password needed.`
+          : `${googleAvailable ? 'Continue with Google, or enter' : 'Enter'} the email you saved your account with. We will send you a code, no password needed.`}
       </T>
-      <Field label="Your email" value={email} onChangeText={setEmail} placeholder="you@example.com" kind="email" maxLength={254} autoFocus onSubmit={() => send()} />
+      {googleAvailable ? (
+        <>
+          <GoogleButton onPress={google} busy={leaving} disabled={busy} />
+          <OrLine />
+        </>
+      ) : null}
+      <Field label="Your email" value={email} onChangeText={setEmail} placeholder="you@example.com" kind="email" maxLength={254} autoFocus={!googleAvailable} onSubmit={() => send()} />
       <ErrorNote message={error} />
       {taken && mode === 'keep' ? (
         <Card style={{ padding: 18 }}>

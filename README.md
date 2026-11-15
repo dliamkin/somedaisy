@@ -9,7 +9,7 @@ the "Everyone's in" moment, and live updates between members.
 Phase 2 so far: plans. Any idea can be given a day and a time of day, planned ideas show under
 "Coming up" at the top of the group, and marking a plan as done moves it from the lists to
 "Things we did", where it can be put back.
-And accounts: a guest can add an email to keep their groups and sign in on other devices.
+And accounts: a guest can add an email, or continue with Google on the website, to keep their groups and sign in on other devices.
 And push notifications on phones, kept deliberately few: a reaction to or comment on an idea you
 added, and a reminder before a plan. Each person can switch any of them off.
 And comments: every idea has a conversation any member of the group can add to.
@@ -34,7 +34,7 @@ things set in the Supabase dashboard under Authentication:
    (this is what lets a guest gain an email).
 2. **Codes in the emails.** Under Emails, edit the **Magic link or OTP** template and the
    **Change email address** template so each shows the code, for example
-   `<p>Your SomeDaisy code is {{ .Token }}</p>`. Without this the emails contain a link, which the
+   `<p>Your SomeDaisy code is {{ .Token }}</p>`. The templates in use are kept in `supabase/emails/`. Without this the emails contain a link, which the
    app does not use.
 3. **Your own email service.** Under Emails > SMTP Settings, connect an email provider. Supabase's
    built-in sender only delivers to the project's own team members, at two emails an hour, so
@@ -46,6 +46,25 @@ When someone who has been using a phone as a guest signs in to an account they a
 guest's groups, ideas and reactions move into the account. That needs
 `supabase/updates/002-account-transfer.sql` to have been run; without it sign-in still works, but
 the guest's groups stay behind and the app says so.
+
+### Google sign-in
+
+On the website, the account screen also offers **Continue with Google**. It signs in to the account
+with that Google address, creating one the first time, and brings the groups of the guest on this
+device along (the same move as above, so it needs update 002). Someone who already has an email
+account with the same address lands in that same account. Phones do not offer it yet.
+
+It needs three things set up once:
+
+1. **Google.** In the Google Cloud console, open Google Auth Platform, fill in the branding and
+   audience pages, then create an OAuth client of type **Web application**. Under Authorized
+   JavaScript origins add `https://somedaisy.com` (and `http://localhost:8081` to try it locally).
+   Under Authorized redirect URIs add the callback URL shown on Supabase's Google provider page.
+2. **Supabase provider.** Under Authentication > Sign In / Providers > Google, turn it on and paste
+   in the client ID and client secret from step 1. The secret goes nowhere else.
+3. **Where people come back to.** Under Authentication > URL Configuration, set the Site URL to
+   `https://somedaisy.com` and add `https://somedaisy.com/**` (and `http://localhost:8081/**`) to
+   the Redirect URLs.
 
 ### Push notifications
 
@@ -96,7 +115,7 @@ private browser window or on another device.
 | `src/app/` | Screens. Each file is a page (Expo Router). |
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
-| `src/app/account.tsx` | Add an email, sign in, sign out |
+| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out |
 | `src/app/notifications.tsx` | Choose which notifications to get |
 | `src/app/profile.tsx` | Change your name and colour |
 | `src/app/join/[code].tsx` | Join by invite link |
