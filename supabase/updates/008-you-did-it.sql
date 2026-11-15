@@ -12,6 +12,8 @@
 --     When everyone in the group says yes, the idea is on the group's do-again shelf.
 --   * Ideas the group had already done before this update each get their record and points.
 --   * A guest's answers come along when their groups move into an account (update 002).
+--     This file replaces the function update 003 set up for that, so if you ever run 003 again,
+--     run this file again after it.
 --
 -- The points for one completion:
 --   10  did an idea                  (5 instead when it is a repeat of something done before)
@@ -99,7 +101,9 @@ $$;
 
 revoke all on function public.record_completion(uuid, timestamptz, uuid) from public, anon, authenticated;
 
--- An idea being marked as done is what earns the points.
+-- An idea being marked as done is what earns the points. The time used is the database's own,
+-- not the one the phone sent: a phone with the wrong date, or anyone sending a made-up one,
+-- cannot earn the long-wait bonus early or get past the 12-hour rule above.
 create or replace function public.ideas_on_done()
 returns trigger
 language plpgsql
@@ -108,7 +112,7 @@ set search_path = public
 as $$
 begin
   if new.done_at is not null and old.done_at is null then
-    perform record_completion(new.id, new.done_at, auth.uid());
+    perform record_completion(new.id, now(), auth.uid());
   end if;
   return new;
 end;

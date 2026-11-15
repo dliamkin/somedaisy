@@ -43,6 +43,12 @@ export default function GroupScreen() {
   // Things the group did lately that this person has not said they would do again or not.
   const [prompts, setPrompts] = useState<AgainPrompt[]>([]);
   const pointsRef = useRef<number | null>(null);
+  // Who is signed in, for `load` to read without being rebuilt when it becomes known. Rebuilding
+  // `load` would restart the live-updates channel below, and a channel restarted at once can go quiet.
+  const userRef = useRef(userId);
+  useEffect(() => {
+    userRef.current = userId;
+  }, [userId]);
   const [now, setNow] = useState(() => new Date());
   const notifyRef = useRef<() => void>(() => {});
   // The ideas still waiting on someone at the last load, to notice when one of them gets everyone in.
@@ -67,7 +73,8 @@ export default function GroupScreen() {
           const reached = had === null ? null : levelUp(had, g.points);
           if (reached) setNewTitle(reached);
         }
-        if (userId) void fetchAgainPrompts(id, userId).then(setPrompts, () => {});
+        const me = userRef.current;
+        if (me) void fetchAgainPrompts(id, me).then(setPrompts, () => {});
       }
       setGroup(g);
       setNow(new Date());
@@ -77,7 +84,7 @@ export default function GroupScreen() {
       setError(e instanceof Error ? e.message : 'Could not load the group.');
       return null;
     }
-  }, [id, userId]);
+  }, [id]);
 
   // Live updates: members ping each other on a shared channel, and everyone reloads.
   useEffect(() => {

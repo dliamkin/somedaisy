@@ -2,16 +2,27 @@
 // and each person's answer to "would you do it again?".
 // Needs supabase/updates/008-you-did-it.sql. Until that has been run, the readers here answer
 // null ("not available") instead of failing, so the rest of the app carries on as before.
+// Any other failure, such as a dropped connection, is still a failure: it must not be mistaken
+// for "not set up", or the app would fall back to how things worked before the update.
 
 import type { Completion, DoAgainVote } from './points';
 import { db } from './supabase';
 
 const COMPLETION = 'id, idea_id, title, list_name, done_at, waited_days, repeat, first_in_list, long_wait, points';
 
+type Failure = { message: string; code?: string };
+
+/** True when the database is saying it has no such table or column: the update has not been run. */
+export function notSetUp(error: Failure | null): boolean {
+  return Boolean(error && ['PGRST205', 'PGRST204', '42P01', '42703'].includes(error.code ?? ''));
+}
+
 /** Everything a group has done, newest first. Null when points are not set up in the database yet. */
 export async function fetchCompletions(groupId: string): Promise<Completion[] | null> {
   const { data, error } = await db().from('completions').select(COMPLETION).eq('group_id', groupId).order('done_at', { ascending: false });
-  return error ? null : ((data ?? []) as Completion[]);
+  if (notSetUp(error)) return null;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Completion[];
 }
 
 /** The points of every group this person is in, by group id. Null when points are not set up yet. */
@@ -37,7 +48,9 @@ export async function fetchFreshCompletion(ideaId: string, now: Date = new Date(
 /** Everyone's do-again answers in a group. Null when they are not set up in the database yet. */
 export async function fetchDoAgainVotes(groupId: string): Promise<DoAgainVote[] | null> {
   const { data, error } = await db().from('do_again_votes').select('idea_id, user_id, again').eq('group_id', groupId);
-  return error ? null : ((data ?? []) as DoAgainVote[]);
+  if (notSetUp(error)) return null;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DoAgainVote[];
 }
 
 /** Save this person's answer to "would you do it again?". Answering again replaces the earlier answer. */

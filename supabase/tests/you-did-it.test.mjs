@@ -107,6 +107,18 @@ await test('marking it done, putting it back and marking it done again the same 
   eq((await w.done()).length, 1);
 });
 
+await test('a made-up date earns nothing extra: the database uses its own clock', async () => {
+  const w = await world();
+  const picnic = await w.addIdea(w.ann, 'Picnic');
+  // Marked done "200 days from now", then put back and marked done again further and further ahead.
+  for (let n = 1; n <= 5; n++) {
+    await as(w.db, w.ann, () => w.db.query(`update ideas set done_at = now() + make_interval(days => $2) where id = $1`, [picnic, 200 * n]));
+    await w.putBack(w.ann, picnic);
+  }
+  eq((await w.done()).map((c) => [c.points, c.long_wait, c.waited_days]), [[20, false, 0]]);
+  eq((await one(w.db, `select done_at <= now() as sane from completions`)).sane, true, 'recorded at the real time');
+});
+
 console.log('\nPoints never go down');
 
 await test('putting an idea back on the list keeps its points', async () => {

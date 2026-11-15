@@ -147,6 +147,11 @@ describe('categoryEmoji', () => {
     expect(['Movies', 'Places', 'Food', 'Shows', 'Games', 'Trips', 'Day trips'].map(categoryEmoji)).toEqual(['🎬', '📍', '🍜', '📺', '🎲', '✈️', '🚗']);
   });
 
+  it('matches whole words from their start, not letters inside other words', () => {
+    expect(['Theatre', 'Creative', 'Abroad', 'Barbecue', 'Activities'].map(categoryEmoji)).toEqual(['🌼', '🌼', '🌼', '🌼', '🌼']);
+    expect(['Eating out', 'Road trips', 'Bars', 'TV', 'Hiking'].map(categoryEmoji)).toEqual(['🍜', '🚗', '☕', '📺', '🥾']);
+  });
+
   it('falls back to the daisy', () => {
     expect(categoryEmoji('Whatever')).toBe('🌼');
     expect(categoryEmoji(null)).toBe('🌼');

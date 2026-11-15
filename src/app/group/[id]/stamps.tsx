@@ -49,7 +49,7 @@ export default function Stamps() {
         <TopBar title="Stamps" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
         <T weight="medium" color={colors.muted}>
-          Stamps are not available yet. Try again later.
+          {error ? 'Your stamps could not be loaded. Check your connection, then try again.' : 'Stamps are not available yet. Try again later.'}
         </T>
       </Screen>
     );

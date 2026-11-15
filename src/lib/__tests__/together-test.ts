@@ -3,7 +3,7 @@ import { doItAgain, fetchAgainPrompts, fetchCompletions, fetchDoAgainVotes, fetc
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
 
-type Result = { data?: unknown; error?: { message: string } | null };
+type Result = { data?: unknown; error?: { message: string; code?: string } | null };
 type Call = { table: string; steps: [method: string, ...args: unknown[]][] };
 
 /** A stand-in for the Supabase client: each query on a table resolves to the next result queued for it. */
@@ -30,7 +30,8 @@ function fakeClient(results: Record<string, Result[]> = {}) {
 const stepsFor = (calls: Call[], table: string) => calls.filter((c) => c.table === table).map((c) => c.steps);
 const argsOf = (steps: Call['steps'], method: string) => steps.find(([m]) => m === method)?.slice(1);
 const allArgsOf = (steps: Call['steps'], method: string) => steps.filter(([m]) => m === method).map((s) => s.slice(1));
-const missing = { error: { message: 'relation "completions" does not exist' } };
+const missing = { error: { message: "Could not find the table 'public.completions' in the schema cache", code: 'PGRST205' } };
+const offline = { error: { message: 'TypeError: Failed to fetch' } };
 const now = new Date('2026-11-14T12:00:00.000Z');
 
 describe('fetchCompletions', () => {
@@ -50,6 +51,11 @@ describe('fetchCompletions', () => {
   it('says "not available" instead of failing when points are not set up', async () => {
     fakeClient({ completions: [missing] });
     expect(await fetchCompletions('g1')).toBeNull();
+  });
+
+  it('fails for any other reason, so a dropped connection is not mistaken for "not set up"', async () => {
+    fakeClient({ completions: [offline] });
+    await expect(fetchCompletions('g1')).rejects.toThrow('Failed to fetch');
   });
 });
 
@@ -101,6 +107,11 @@ describe('do-again answers', () => {
   it('says "not available" when they are not set up', async () => {
     fakeClient({ do_again_votes: [missing] });
     expect(await fetchDoAgainVotes('g1')).toBeNull();
+  });
+
+  it('fails for any other reason, so a dropped connection cannot bring back the old way of putting ideas back', async () => {
+    fakeClient({ do_again_votes: [offline] });
+    await expect(fetchDoAgainVotes('g1')).rejects.toThrow('Failed to fetch');
   });
 
   it('saves an answer so that answering again replaces it', async () => {

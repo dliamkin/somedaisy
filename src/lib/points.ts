@@ -94,19 +94,20 @@ export function breakdown(c: Completion): { label: string; points: number }[] {
   return sum === c.points ? lines : [{ label: c.repeat ? 'Did it again' : 'Did it together', points: c.points }];
 }
 
+// Each pattern matches from the start of a word, so "Theatre" is not taken for "eat".
 const CATEGORY_EMOJI: [RegExp, string][] = [
-  [/movie|film|cinema/i, '🎬'],
-  [/show|series|tv/i, '📺'],
-  [/food|eat|restaurant|dinner|lunch|brunch|cook/i, '🍜'],
-  [/day trip|drive|road/i, '🚗'],
-  [/trip|travel|holiday|vacation/i, '✈️'],
-  [/place|visit|sight/i, '📍'],
-  [/game|play/i, '🎲'],
-  [/music|concert|gig/i, '🎵'],
-  [/book|read/i, '📚'],
-  [/hike|walk|outdoor|nature|park/i, '🥾'],
-  [/sport|gym|run|swim/i, '⚽'],
-  [/drink|bar|coffee|cafe/i, '☕'],
+  [/\b(movie|film|cinema)/i, '🎬'],
+  [/\b(show|series|tv\b)/i, '📺'],
+  [/\b(food|eat|restaurant|dinner|lunch|brunch|cook)/i, '🍜'],
+  [/\b(day trip|drive|road)/i, '🚗'],
+  [/\b(trip|travel|holiday|vacation)/i, '✈️'],
+  [/\b(place|visit|sight)/i, '📍'],
+  [/\b(game|play)/i, '🎲'],
+  [/\b(music|concert|gig\b)/i, '🎵'],
+  [/\b(book|read)/i, '📚'],
+  [/\b(hike|hiking|walk|outdoor|nature|park)/i, '🥾'],
+  [/\b(sport|gym\b|run|swim)/i, '⚽'],
+  [/\b(drink|bars?\b|coffee|cafe)/i, '☕'],
 ];
 
 /** A picture for a list, guessed from its name. Lists the app does not recognise get the daisy. */
