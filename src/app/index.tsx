@@ -6,6 +6,7 @@ import { Daisy } from '@/components/daisy';
 import { Logo } from '@/components/logo';
 import { NameForm } from '@/components/name-form';
 import { NotificationsCard } from '@/components/notifications-card';
+import { PrivacyLink } from '@/components/privacy-link';
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { fetchGroups, type GroupSummary } from '@/lib/data';
 import { useSession } from '@/lib/session';
@@ -62,6 +63,7 @@ function Welcome() {
         No account needed. Got an invite link? Open it and you will land in the group.
       </T>
       <Button label="I already have an account" kind="ghost" small onPress={() => router.push('/account?mode=signin' as never)} />
+      <PrivacyLink />
     </Screen>
   );
 }
