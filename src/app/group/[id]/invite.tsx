@@ -1,11 +1,11 @@
 import * as Clipboard from 'expo-clipboard';
-import * as ExpoLinking from 'expo-linking';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Share, View } from 'react-native';
 
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { fetchGroup, type GroupData } from '@/lib/data';
+import { inviteLink } from '@/lib/links';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -25,7 +25,7 @@ export default function Invite() {
 
   if (group === undefined && !error) return <Loading />;
 
-  const link = group ? ExpoLinking.createURL(`/join/${group.invite_code}`) : '';
+  const link = group ? inviteLink(group.invite_code) : '';
 
   const copy = async () => {
     await Clipboard.setStringAsync(link);
