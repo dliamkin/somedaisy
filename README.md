@@ -162,6 +162,14 @@ links the same way, for older copies of the app that send them as typed: what ca
 into a web address is dropped, and the idea is saved without a link. It also tidies links saved
 before it. Without that update the app still tidies new links; the database just does not.
 
+### Group settings
+
+Any member can rename a group, change its cover, rename its lists and leave. The group's owner
+can also remove someone and replace the invite link, which stops the old link working. The
+owner is whoever started the group, or, once they have gone, whoever has been in it longest.
+Leaving, removing and replacing the link need `supabase/updates/007-group-settings.sql`; without
+it the app says they are not available yet.
+
 ## Run it
 
 ```bash
@@ -191,6 +199,7 @@ private browser window or on another device.
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: done ideas, with a way to put one back |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
+| `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
 | `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |
 | `supabase/schema.sql` | Tables, access rules and functions |
