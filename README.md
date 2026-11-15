@@ -174,6 +174,26 @@ owner is whoever started the group, or, once they have gone, whoever has been in
 Leaving, removing and replacing the link need `supabase/updates/007-group-settings.sql`; without
 it the app says they are not available yet.
 
+### Link previews
+
+An idea with a link shows that page's preview picture on its card: the same picture a chat app
+shows for the link. Only the picture's web address is saved, never the picture. It needs two
+things, and without either the app simply shows no pictures:
+
+1. **Database.** Run `supabase/updates/011-link-previews.sql`.
+2. **Server-side helper.** A browser cannot read another site's page, so a small helper on
+   Supabase does it. In the Supabase dashboard open **Edge Functions**, choose **Deploy a new
+   function**, then **Via Editor**. Name it exactly `link-preview`, replace the sample code with
+   the whole of `supabase/functions/link-preview/index.ts`, and press **Deploy function**. It needs
+   no keys or settings. To change it later, paste the new version and press **Deploy updates**
+   (the dashboard keeps no history; this repository is the record).
+
+The helper only answers signed-in people, only reads ordinary web addresses (never addresses
+inside Supabase's own network), and returns nothing but a picture's address. Its rules are
+tested in `src/lib/__tests__/link-preview-test.ts`. The picture is looked up in the background
+after an idea is saved, so it appears on the card a few seconds later. A page with no picture,
+or a picture that will not load, leaves the card as it was.
+
 ### Guests
 
 Nobody is signed in just for opening the app or the website. A person becomes a guest when
@@ -237,6 +257,7 @@ private browser window or on another device.
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
 | `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |
 | `supabase/schema.sql` | Tables, access rules and functions |
+| `supabase/functions/` | Server-side helpers that run on Supabase (link previews) |
 
 ## Checks
 
@@ -247,5 +268,5 @@ npx expo export -p web   # production web build into dist/
 
 ## Not built yet
 
-Apple and Facebook sign-in, link previews,
+Apple and Facebook sign-in,
 dark mode, and the app store listings.

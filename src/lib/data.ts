@@ -16,6 +16,8 @@ export type Idea = {
   added_by: string | null;
   planned_for: string | null;
   created_at: string;
+  /** The preview picture of the page the link goes to. Absent until update 011 has been run. */
+  image_url?: string | null;
 };
 export type Reaction = { idea_id: string; user_id: string; emoji: string };
 export type GroupData = {
@@ -71,7 +73,8 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
     client
       .from('ideas')
-      .select('id, list_id, title, link, note, added_by, planned_for, created_at')
+      // "*" takes whatever an idea has, so this works before and after update 011 (preview pictures).
+      .select('*')
       .eq('group_id', id)
       .is('done_at', null)
       .order('created_at', { ascending: false }),
@@ -205,7 +208,7 @@ export async function addIdea(input: {
   note?: string;
   userId: string;
   thumbsUp: boolean;
-}): Promise<void> {
+}): Promise<string> {
   const client = db();
   const { data, error } = await client
     .from('ideas')
@@ -226,6 +229,7 @@ export async function addIdea(input: {
       .insert({ idea_id: data.id, group_id: input.groupId, user_id: input.userId, emoji: '👍' });
     fail(res.error);
   }
+  return (data as { id: string }).id;
 }
 
 export async function setReaction(

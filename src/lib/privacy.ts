@@ -26,6 +26,7 @@ export const SECTIONS: Section[] = [
         'Your email address, if you add one. It is how you sign in. Other people never see it.',
         'If you continue with Google: your name, email address and profile picture from your Google account. The picture is shown as your circle unless you switch that off where you change your name. We never see your Google password.',
         'What you add to a group: the group itself, its lists, ideas (with any link or note), reactions, comments, the dates you plan things for, what you mark as done, the points and stamps your group earns for it, and your answer when asked whether you would do something again.',
+        'If an idea has a link: the web address of that page\'s preview picture, so the idea\'s card can show it. We keep the address, not the picture.',
         'If you turn on notifications: an address that lets us send notifications to your phone, whether it is an Android phone or an iPhone, your time zone, and which kinds of notification you want.',
         'A sign-in kept on your phone or in your browser, so you stay signed in.',
       ],
@@ -55,6 +56,7 @@ export const SECTIONS: Section[] = [
         'Expo passes notifications on to phones. It receives the address for your phone and the words of the notification, which can include a friend\'s name, the title of an idea and the words of a comment.',
       ],
       'These companies may keep information in countries other than yours, including the United States.',
+      'When an idea has a link, our server reads that page once to find its preview picture. The picture itself comes from the website it lives on each time someone in the group looks at the idea, so that website sees the internet address of whoever is looking, as it would for any picture on the web.',
     ],
   },
   {

@@ -5,6 +5,7 @@ import { Switch, View } from 'react-native';
 import { Button, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addIdea, fetchGroup, markChanged, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
+import { attachPreview } from '@/lib/preview';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -42,7 +43,9 @@ export default function AddIdea() {
     setBusy(true);
     setError(null);
     try {
-      await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp });
+      const ideaId = await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp });
+      // The link's preview picture is looked up in the background and appears on the card shortly after.
+      if (tidy.link) void attachPreview(ideaId, tidy.link);
       markChanged(id);
       back();
     } catch (e) {
