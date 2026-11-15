@@ -60,7 +60,7 @@ export const SECTIONS: Section[] = [
   {
     title: 'How long we keep it',
     blocks: [
-      'We keep your information for as long as you use SomeDaisy. When you ask us to delete your account we remove it, as described below. Sign-in codes stop working after a short time.',
+      'We keep your information for as long as you use SomeDaisy. When you delete your account it is removed straight away, as described below. Sign-in codes stop working after a short time.',
     ],
   },
   {
@@ -70,11 +70,11 @@ export const SECTIONS: Section[] = [
         'Change your name or colour, or hide your Google picture, from your account.',
         'Turn notifications off in the app, or in your phone\'s settings.',
         'Sign out on a device from your account.',
+        'Delete your account, from your account in the app or at somedaisy.com/account. If you use SomeDaisy without an email, the same place lets you delete your data.',
         'Ask for a copy of your information, or ask us to correct it.',
-        'Ask us to delete your account.',
       ],
-      `For the last two, write to ${CONTACT} from the email address on your account. If your account has no email, tell us your name in the app and a group you are in.`,
-      'When we delete your account, your name, email address, picture, reactions, comments and notification details are removed. Ideas you added stay in the group for your friends, without your name on them. We aim to do this within 30 days.',
+      'When you delete your account, your name, email address, picture, reactions, comments and notification details are removed straight away, and this cannot be undone. Ideas you added stay in the group for your friends, without your name on them. A group where you are the only member is deleted with everything in it.',
+      `For a copy or a correction, or if you cannot get into your account to delete it, write to ${CONTACT} from the email address on your account. We aim to answer within 30 days.`,
       'Depending on where you live, the law may give you further rights over your information, including the right to complain to your data protection authority.',
     ],
   },

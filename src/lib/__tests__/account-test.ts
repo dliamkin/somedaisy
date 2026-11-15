@@ -5,6 +5,7 @@ import {
   cleanEmail,
   confirmEmailForGuest,
   confirmSignIn,
+  deleteAccount,
   isCode,
   isEmail,
   requestEmailForGuest,
@@ -178,5 +179,42 @@ describe('signOut', () => {
     const auth = fakeAuth();
     await signOut();
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+});
+
+describe('deleteAccount', () => {
+  function fakeDb(opts: { rpcError?: boolean; signOutThrows?: boolean } = {}) {
+    const order: string[] = [];
+    const rpc = jest.fn(async (name: string) => {
+      order.push(name);
+      return { data: null, error: opts.rpcError ? { message: 'function delete_account() does not exist' } : null };
+    });
+    const signOut = jest.fn(async (_opts: unknown) => {
+      order.push('sign-out');
+      if (opts.signOutThrows) throw new Error('network down');
+      return { error: null };
+    });
+    jest.mocked(db).mockReturnValue({ rpc, auth: { signOut } } as never);
+    return { order, rpc, signOut };
+  }
+
+  it('asks the database to delete the account, then clears the sign-in on this device only', async () => {
+    const { order, rpc, signOut } = fakeDb();
+    await deleteAccount();
+    expect(rpc).toHaveBeenCalledWith('delete_account');
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(order).toEqual(['delete_account', 'sign-out']);
+  });
+
+  it('says so plainly when the account could not be deleted, and stays signed in', async () => {
+    const { signOut } = fakeDb({ rpcError: true });
+    await expect(deleteAccount()).rejects.toThrow('could not be deleted');
+    await expect(deleteAccount()).rejects.toBeInstanceOf(AccountError);
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('still counts as deleted when the leftover sign-in cannot be cleared', async () => {
+    fakeDb({ signOutThrows: true });
+    await expect(deleteAccount()).resolves.toBeUndefined();
   });
 });

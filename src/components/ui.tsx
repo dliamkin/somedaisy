@@ -71,7 +71,7 @@ export function Loading({ label }: { label?: string }) {
   );
 }
 
-type ButtonKind = 'primary' | 'soft' | 'ghost' | 'outline';
+type ButtonKind = 'primary' | 'soft' | 'ghost' | 'outline' | 'danger';
 
 export function Button({
   label,
@@ -92,7 +92,7 @@ export function Button({
 }) {
   const height = small ? 44 : 56;
   const bg = kind === 'primary' ? colors.grape : kind === 'ghost' ? 'transparent' : colors.white;
-  const fg = kind === 'primary' ? colors.white : kind === 'soft' ? colors.text : colors.link;
+  const fg = kind === 'primary' ? colors.white : kind === 'soft' ? colors.text : kind === 'danger' ? colors.danger : colors.link;
   return (
     <Pressable
       accessibilityRole="button"
@@ -108,8 +108,8 @@ export function Button({
           justifyContent: 'center',
           paddingHorizontal: 20,
           opacity: disabled ? 0.45 : pressed ? 0.85 : 1,
-          borderWidth: kind === 'outline' ? 3 : 0,
-          borderColor: colors.grape,
+          borderWidth: kind === 'outline' || kind === 'danger' ? 3 : 0,
+          borderColor: kind === 'danger' ? colors.danger : colors.grape,
         },
         kind === 'primary' || kind === 'soft' ? shadow : null,
         style,

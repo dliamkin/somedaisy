@@ -111,6 +111,22 @@ export async function claimTransfer(pass: string): Promise<number> {
   return typeof data === 'number' ? data : 0;
 }
 
+/**
+ * Delete the account (or guest) signed in on this device, for good. What goes and what stays is
+ * set out in supabase/updates/005-delete-account.sql. The app then starts a fresh guest.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { error } = await db().rpc('delete_account');
+  if (error) throw new AccountError('Your account could not be deleted. Check your connection and try again.', 'other');
+  // The sign-in kept on this device now belongs to nobody. Clearing it can fail (the server no
+  // longer knows it), and the app copes with a leftover one, so that must not undo the good news.
+  try {
+    await db().auth.signOut({ scope: 'local' });
+  } catch {
+    // Nothing to do: the next start notices the account is gone and begins again.
+  }
+}
+
 /** Sign out on this device only. The app then starts a fresh guest. */
 export async function signOut(): Promise<void> {
   const { error } = await db().auth.signOut({ scope: 'local' });

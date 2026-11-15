@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { DeleteAccount } from '@/components/delete-account';
 import { GoogleButton, OrLine } from '@/components/google-button';
 import { PrivacyLink } from '@/components/privacy-link';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
@@ -94,6 +95,7 @@ function SignedIn({ email }: { email: string }) {
       ) : (
         <Button label="Sign out" kind="soft" onPress={() => setConfirming(true)} />
       )}
+      <DeleteAccount disabled={busy} />
       <PrivacyLink />
     </Screen>
   );
@@ -244,6 +246,7 @@ function Guest({ guest }: { guest: Profile | null }) {
         />
       ) : null}
       {hasProfile ? <Button label="Change name or colour" kind="ghost" small onPress={() => router.push('/profile' as never)} disabled={busy} /> : null}
+      {hasProfile ? <DeleteAccount guest disabled={busy || googleBusy} /> : null}
       <PrivacyLink />
     </Screen>
   );
