@@ -32,20 +32,43 @@ const SessionContext = createContext<SessionValue>({
 
 type Who = { userId: string; email: string | null; profile: Profile | null };
 
+/** No account needed: everyone starts as a guest. */
+async function startGuest(client: SupabaseClient) {
+  const res = await client.auth.signInAnonymously();
+  if (res.error) throw new Error(res.error.message);
+  if (!res.data.session) throw new Error('Could not start a session.');
+  return res.data.session;
+}
+
+const readProfile = (client: SupabaseClient, id: string) =>
+  client.from('profiles').select('id, name, color').eq('id', id).maybeSingle();
+
+/**
+ * True when the saved sign-in belongs to a user Supabase no longer has. The device keeps working
+ * with its saved pass for up to an hour after the user is removed, so ask the server directly.
+ * A failed connection is not an answer, and keeps the sign-in.
+ */
+async function userIsGone(client: SupabaseClient): Promise<boolean> {
+  const { error } = await client.auth.getUser();
+  if (!error) return false;
+  return error.code === 'user_not_found' || error.status === 401 || error.status === 403 || error.status === 404;
+}
+
 /** Find out who is using this device, starting a guest if nobody is signed in. */
-async function readSession(client: SupabaseClient): Promise<Who> {
+export async function readSession(client: SupabaseClient): Promise<Who> {
   const { data: sessionData } = await client.auth.getSession();
-  let session = sessionData.session;
-  if (!session) {
-    // No account needed: everyone starts as a guest.
-    const res = await client.auth.signInAnonymously();
-    if (res.error) throw new Error(res.error.message);
-    session = res.data.session;
-  }
-  if (!session) throw new Error('Could not start a session.');
-  const user = session.user;
-  const { data: p, error: pErr } = await client.from('profiles').select('id, name, color').eq('id', user.id).maybeSingle();
+  let session = sessionData.session ?? (await startGuest(client));
+  let { data: p, error: pErr } = await readProfile(client, session.user.id);
   if (pErr) throw new Error(pErr.message);
+  // A sign-in with no name is either someone new or a user who has been removed. Only the first
+  // can save a name, so check, and give a removed user a fresh start as a guest.
+  if (!p && (await userIsGone(client))) {
+    await client.auth.signOut({ scope: 'local' });
+    session = await startGuest(client);
+    ({ data: p, error: pErr } = await readProfile(client, session.user.id));
+    if (pErr) throw new Error(pErr.message);
+  }
+  const user = session.user;
   return {
     userId: user.id,
     email: user.is_anonymous ? null : (user.email ?? null),
