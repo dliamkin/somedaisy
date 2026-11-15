@@ -131,6 +131,18 @@ Android checks the website when the app is installed, so publish the website
 (`npm run deploy:web`) before installing a new build. A Play Store build is signed with a
 different key; add that key's SHA-256 to the list in `assetlinks.json` when the time comes.
 
+### Privacy policy
+
+The policy is the page at `https://somedaisy.com/privacy`, linked from the welcome and account
+screens. That address is the one to give the Play Store and Google's sign-in branding page. Its
+words live in `src/lib/privacy.ts`: when the app starts keeping something new, or sends
+information to a new company, update them in the same change and move the date forward.
+
+It promises two things that need doing by hand. Mail sent to `hello@somedaisy.com` has to reach
+someone (Cloudflare > Email > Email Routing can forward it), and an account someone asks to have
+deleted is deleted in Supabase under Authentication > Users, which removes their profile,
+reactions, comments and notification details with it.
+
 ## Run it
 
 ```bash
@@ -149,6 +161,7 @@ private browser window or on another device.
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
 | `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out |
+| `src/app/privacy.tsx` | The privacy policy, at `/privacy`. Its words are in `src/lib/privacy.ts` |
 | `src/app/notifications.tsx` | Choose which notifications to get |
 | `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
 | `src/app/join/[code].tsx` | Join by invite link |
