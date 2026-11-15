@@ -1,0 +1,52 @@
+# What is left out when the project is sent to Expo to be built.
+# Expo uses this file INSTEAD of .gitignore, so it repeats that file with one difference:
+# .env is sent, because the build needs the Supabase address and key that live there.
+# Those are public values (the website carries them too). Never put a secret in .env.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Firebase service account keys (secret; uploaded to Expo by hand, never with the project)
+*firebase-adminsdk*.json
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+
+# local env files (.env itself is deliberately not listed)
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# not needed to build the app
+/supabase/tests

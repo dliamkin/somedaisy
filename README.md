@@ -86,17 +86,21 @@ web or inside Expo Go; there the app simply does not offer them.
 
 1. **Database.** In Supabase under Database > Extensions, turn on **pg_net** and **pg_cron**. Then
    run `supabase/updates/001-push-notifications.sql` in the SQL editor.
-2. **Expo project.** Run `npx eas-cli@latest init` and sign in to (or create) an Expo account. This
-   adds a project ID to `app.json`, which the app needs to get a phone's push address. Commit that change.
-3. **Android.** Create a Firebase project and add an Android app to it with the same package name
-   the build uses. Download its `google-services.json` into this folder and point
-   `expo.android.googleServicesFile` in `app.json` at it. Then, in Firebase under Project settings >
-   Service accounts, generate a private key and upload it with `npx eas-cli@latest credentials`
-   (Android > Google Service Account > FCM V1). Keep that key file out of git.
+2. **Expo project.** Create a free account at expo.dev, then run `npx eas-cli@latest login` and
+   `npx eas-cli@latest init`. This adds a project ID and owner to `app.json`, which the app needs
+   to get a phone's push address. Commit that change.
+3. **Android.** Create a Firebase project and add an Android app to it with the package name
+   `com.somedaisy.app` (the one in `app.json`). Download its `google-services.json` into this
+   folder, next to `app.json`, and commit it; it holds only public identifiers. Then, in Firebase
+   under Project settings > Service accounts, generate a private key and upload it at expo.dev
+   under the project's Credentials > Android > FCM V1 service account key. That key is a secret:
+   keep it out of this folder and out of git.
 4. **iPhone.** Needs a paid Apple Developer account. The first `eas build` for iOS offers to set up
    push notifications and create the key; say yes to both.
-5. **Build.** `npx eas-cli@latest build --profile preview --platform android` (or `ios`) makes an
-   installable app. The first run asks a few questions and creates `eas.json`.
+5. **Build.** `npx eas-cli@latest build --profile preview --platform android` makes an APK that
+   installs straight onto a phone from the link or QR code it prints. The first run offers to
+   create a signing key; say yes. Builds are set up in `eas.json`. `.env` is sent along with the
+   project (see `.easignore`), so the build talks to the same Supabase project as the website.
 
 To check it end to end: install the build on two phones, join the same group, turn on notifications
 on both from the home screen, add an idea on one and react to it on the other. Expo's push tool at

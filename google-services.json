@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "263548513050",
+    "project_id": "somedaisy-fb0ce",
+    "storage_bucket": "somedaisy-fb0ce.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263548513050:android:00a575f82603cdebeadaa3",
+        "android_client_info": {
+          "package_name": "com.somedaisy.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUUPa4vupw_WG-t9YP4wZY4xVPhoDjE2c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
