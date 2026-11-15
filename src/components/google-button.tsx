@@ -1,28 +1,111 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { T } from '@/components/ui';
 import { googleAvailable, googleClientId, loadGoogle, makeNonce } from '@/lib/google';
+import { askGoogle } from '@/lib/google-phone';
 import { colors } from '@/lib/theme';
 
 const HEIGHT = 44;
+const PHONE_HEIGHT = 48;
 // Google draws the button itself and allows it to be at most this wide.
 const MAX_WIDTH = 400;
 
-/**
- * Google's own "Continue with Google" button. Pressing it opens Google's pop-up; when the person
- * has chosen an account, `onCredential` receives Google's signed note and the secret that goes
- * with it. Change `attempt` to draw a fresh button with a fresh secret, for example after a failure.
- */
-export function GoogleButton({
-  onCredential,
-  busy,
-  attempt = 0,
-}: {
+type Props = {
   onCredential: (credential: string, rawNonce: string) => void;
   busy?: boolean;
   attempt?: number;
-}) {
+};
+
+/**
+ * "Continue with Google". When the person has chosen an account, `onCredential` receives Google's
+ * signed note and the secret that goes with it. On the website this is Google's own button and
+ * pop-up; in the phone app it is our button and Android's account sheet.
+ */
+export function GoogleButton(props: Props) {
+  if (!googleAvailable) return null;
+  return Platform.OS === 'web' ? <WebGoogleButton {...props} /> : <PhoneGoogleButton {...props} />;
+}
+
+/** The phone app's button. Each press asks Android afresh, with a fresh secret. */
+function PhoneGoogleButton({ onCredential, busy }: Props) {
+  const [asking, setAsking] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const press = async () => {
+    if (asking) return;
+    setAsking(true);
+    setFailed(false);
+    try {
+      const answer = await askGoogle();
+      // No answer means they closed the sheet without choosing, which is not a failure.
+      if (answer) onCredential(answer.credential, answer.rawNonce);
+    } catch {
+      setFailed(true);
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const waiting = Boolean(busy) || asking;
+  return (
+    <View style={{ gap: 8 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Google"
+        accessibilityState={{ disabled: waiting, busy: waiting }}
+        disabled={waiting}
+        onPress={() => void press()}
+        style={({ pressed }) => ({
+          height: PHONE_HEIGHT,
+          borderRadius: PHONE_HEIGHT / 2,
+          borderWidth: 2,
+          borderColor: colors.line,
+          backgroundColor: colors.white,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          opacity: pressed ? 0.85 : 1,
+        })}>
+        {waiting ? (
+          <ActivityIndicator color={colors.grape} />
+        ) : (
+          <>
+            <GoogleLogo size={20} />
+            <T size={16} weight="extra">
+              Continue with Google
+            </T>
+          </>
+        )}
+      </Pressable>
+      {failed ? (
+        <T size={14} weight="medium" color={colors.muted} center>
+          Google sign-in did not work on this phone. You can still use your email.
+        </T>
+      ) : null}
+    </View>
+  );
+}
+
+/** Google's "G", which their rules ask for on a button like this. */
+function GoogleLogo({ size }: { size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </Svg>
+  );
+}
+
+/**
+ * The website's button: Google's own, which opens Google's pop-up. Change `attempt` to draw a
+ * fresh button with a fresh secret, for example after a failure.
+ */
+function WebGoogleButton({ onCredential, busy, attempt = 0 }: Props) {
   const holder = useRef<ComponentRef<typeof View>>(null);
   const [width, setWidth] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -33,7 +116,7 @@ export function GoogleButton({
   }, [onCredential]);
 
   useEffect(() => {
-    if (!googleAvailable || width === 0) return;
+    if (width === 0) return;
     let alive = true;
     Promise.all([loadGoogle(), makeNonce()]).then(
       ([google, nonce]) => {
@@ -68,7 +151,6 @@ export function GoogleButton({
     };
   }, [width, attempt]);
 
-  if (!googleAvailable) return null;
   return (
     <View style={{ gap: 8 }}>
       <View

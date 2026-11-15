@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.somedaisy.app",
+      "sha256_cert_fingerprints": [
+        "E2:DE:6E:DC:C4:50:BB:48:F4:3F:7D:A8:C4:7D:98:F4:49:8A:A0:95:F1:7E:F6:77:06:86:C6:46:15:63:9B:DC"
+      ]
+    }
+  }
+]

@@ -49,10 +49,10 @@ the guest's groups stay behind and the app says so.
 
 ### Google sign-in
 
-On the website, the account screen also offers **Continue with Google**, using Google's own button.
-It signs in to the account with that Google address, creating one the first time, and brings the
+The account screen also offers **Continue with Google**: on the website with Google's own button,
+in the Android app with Android's account sheet. It signs in to the account with that Google address, creating one the first time, and brings the
 groups of the guest on this device along (the same move as above, so it needs update 002). Someone
-who already has an email account with the same address lands in that same account. Phones do not
+who already has an email account with the same address lands in that same account. iPhones do not
 offer it yet.
 
 It needs three things set up once:
@@ -65,6 +65,13 @@ It needs three things set up once:
    Leave "Skip nonce check" off. The secret goes nowhere else.
 3. **Settings.** Put the client ID in `.env` as `EXPO_PUBLIC_GOOGLE_CLIENT_ID`. It is a public
    value. Without it the button is not shown.
+4. **Android app.** In the same Google Cloud project, create a second OAuth client of type
+   **Android** with the package name `com.somedaisy.app` and the SHA-1 fingerprint of the key the
+   build is signed with (`npx eas-cli@latest credentials -p android` shows it). Nothing from it
+   goes into the code: the app keeps using the Web client ID from step 3, and Google only checks
+   that this one exists. Without it the account sheet closes as if the person had cancelled. An
+   app installed from the Play Store is signed with a different key, so it will need one more
+   Android client with that key's SHA-1 (Play Console > Setup > App signing).
 
 Someone signed in with Google has their Google picture as their circle, in place of their initial,
 and friends in their groups see it too. They can switch it off where they change their name. This
@@ -102,9 +109,27 @@ web or inside Expo Go; there the app simply does not offer them.
    create a signing key; say yes. Builds are set up in `eas.json`. `.env` is sent along with the
    project (see `.easignore`), so the build talks to the same Supabase project as the website.
 
+The small picture in a notification is `assets/images/notification-icon.png`, which has to be
+all white on a see-through background. It and the app icon are part of the build, so changing
+either needs a new one.
+
 To check it end to end: install the build on two phones, join the same group, turn on notifications
 on both from the home screen, add an idea on one and react to it on the other. Expo's push tool at
 https://expo.dev/notifications can also send a test to a single phone.
+
+### Invite links that open the app
+
+An invite link is a web address, `https://somedaisy.com/join/<code>`. On an Android phone with the
+app installed it opens the app; everywhere else it opens the website. Two things make that work,
+and they have to agree:
+
+- `intentFilters` in `app.json` tells Android the app handles `somedaisy.com/join/` links.
+- `public/.well-known/assetlinks.json` is the website saying which app may do so. It names the
+  package and the SHA-256 fingerprint of the key the build is signed with.
+
+Android checks the website when the app is installed, so publish the website
+(`npm run deploy:web`) before installing a new build. A Play Store build is signed with a
+different key; add that key's SHA-256 to the list in `assetlinks.json` when the time comes.
 
 ## Run it
 

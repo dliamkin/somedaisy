@@ -1,12 +1,12 @@
-// Sign in with Google, using Google's own button. Works on the web for now; phones need their
-// own build first.
+// Sign in with Google. On the website this uses Google's own button; in the Android app it uses
+// Android's account sheet (google-phone.native.ts). iPhones do not have it yet.
 //
-// Google's button opens a pop-up on this site and hands back a signed note saying who the person
-// is. The app passes that note to Supabase, which signs them in. Nothing leaves the page, so the
-// guest on this device can hand their groups straight to the account, as with an emailed code.
+// Either way Google hands back a signed note saying who the person is. The app passes that note
+// to Supabase, which signs them in. Nothing leaves the app, so the guest on this device can hand
+// their groups straight to the account, as with an emailed code.
 //
 // Needs EXPO_PUBLIC_GOOGLE_CLIENT_ID in .env, and the same client ID listed under "Client IDs"
-// on Supabase's Google provider page.
+// on Supabase's Google provider page. The phone app uses that same (website) client ID.
 
 import { Platform } from 'react-native';
 
@@ -16,7 +16,7 @@ import { db } from './supabase';
 
 export const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
-export const googleAvailable = Platform.OS === 'web' && Boolean(googleClientId);
+export const googleAvailable = Boolean(googleClientId) && (Platform.OS === 'web' || Platform.OS === 'android');
 
 /**
  * The picture from someone's Google account, if they have signed in with Google. Only addresses
