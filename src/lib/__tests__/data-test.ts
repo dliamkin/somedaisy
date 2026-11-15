@@ -5,14 +5,21 @@ import {
   fetchDone,
   fetchGroup,
   fetchGroups,
+  leaveGroup,
   markChanged,
   markDone,
   newlyAllIn,
+  ownerOf,
   planIdea,
   previewGroup,
+  removeList,
+  removeMember,
+  renameList,
+  resetInviteCode,
   restoreIdea,
   setReaction,
   takeChanged,
+  updateGroup,
   updateIdea,
   type Member,
   type Reaction,
@@ -35,7 +42,7 @@ function fakeClient(results: Record<string, Result[]> = {}) {
     const call: Call = { table, steps: [] };
     calls.push(call);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'not', 'match', 'order', 'single', 'maybeSingle']) {
+    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'not', 'match', 'order', 'limit', 'single', 'maybeSingle']) {
       builder[method] = (...args: unknown[]) => {
         call.steps.push([method, ...args]);
         return builder;
@@ -195,6 +202,81 @@ describe('planIdea', () => {
   });
 });
 
+describe('ownerOf', () => {
+  const members = [member('bo'), member('ann'), member('cy')];
+
+  it('is the person who started the group, while they are in it', () => {
+    expect(ownerOf('ann', members)).toBe('ann');
+  });
+
+  it('is whoever joined first once the starter has gone', () => {
+    expect(ownerOf('zed', members)).toBe('bo');
+    expect(ownerOf(null, members)).toBe('bo');
+    expect(ownerOf(undefined, members)).toBe('bo');
+  });
+
+  it('is nobody in a group with no members', () => {
+    expect(ownerOf('ann', [])).toBeNull();
+  });
+});
+
+describe('group settings', () => {
+  it('renames a group and changes its cover, and nothing else', async () => {
+    const { calls } = fakeClient();
+    await updateGroup('g1', { name: 'Best friends', cover: 'mint' });
+    const [update] = stepsFor(calls, 'groups');
+    expect(argsOf(update, 'update')).toEqual([{ name: 'Best friends', cover: 'mint' }]);
+    expect(argsOf(update, 'eq')).toEqual(['id', 'g1']);
+  });
+
+  it('renames a list', async () => {
+    const { calls } = fakeClient();
+    await renameList('l1', 'Dinners');
+    const [update] = stepsFor(calls, 'lists');
+    expect(argsOf(update, 'update')).toEqual([{ name: 'Dinners' }]);
+    expect(argsOf(update, 'eq')).toEqual(['id', 'l1']);
+  });
+
+  it('removes a list with nothing on it', async () => {
+    const { calls } = fakeClient({ ideas: [{ data: [] }] });
+    await removeList('l1');
+    expect(argsOf(stepsFor(calls, 'ideas')[0], 'eq')).toEqual(['list_id', 'l1']);
+    const [query] = stepsFor(calls, 'lists');
+    expect(query.map(([method]) => method)).toEqual(['delete', 'eq']);
+    expect(argsOf(query, 'eq')).toEqual(['id', 'l1']);
+  });
+
+  it('refuses to remove a list that has ideas, done ones included', async () => {
+    const { calls } = fakeClient({ ideas: [{ data: [{ id: 'i1' }] }] });
+    await expect(removeList('l1')).rejects.toThrow('still has ideas');
+    // The check must not look only at ideas that are still to do.
+    expect(stepsFor(calls, 'ideas')[0].some(([method]) => method === 'is')).toBe(false);
+    expect(stepsFor(calls, 'lists')).toEqual([]);
+  });
+
+  it('leaves, removes a member and replaces the invite link through the database', async () => {
+    const { client } = fakeClient({ 'rpc:reset_invite_code': [{ data: 'newcode123' }] });
+    await leaveGroup('g1');
+    await removeMember('g1', 'bo');
+    expect(await resetInviteCode('g1')).toBe('newcode123');
+    expect(client.rpc.mock.calls).toEqual([
+      ['leave_group', { p_group: 'g1' }],
+      ['remove_member', { p_group: 'g1', p_user: 'bo' }],
+      ['reset_invite_code', { p_group: 'g1' }],
+    ]);
+  });
+
+  it('passes on the database\'s refusal', async () => {
+    fakeClient({ 'rpc:remove_member': [{ error: { message: "Only the group's owner can remove someone" } }] });
+    await expect(removeMember('g1', 'bo')).rejects.toThrow("Only the group's owner");
+  });
+
+  it('says so plainly when the database has not been updated yet', async () => {
+    fakeClient({ 'rpc:leave_group': [{ error: { message: 'Could not find the function public.leave_group', code: 'PGRST202' } as never }] });
+    await expect(leaveGroup('g1')).rejects.toThrow('not available yet');
+  });
+});
+
 describe('newlyAllIn', () => {
   const idea = (id: string) => ({ id, list_id: 'l1', title: id, link: null, note: null, added_by: 'a', planned_for: null, created_at: '2026-11-01T10:00:00.000Z' });
   const members = [member('a'), member('b')];
@@ -344,6 +426,7 @@ describe('fetchGroup', () => {
       name: 'Friends',
       cover: '🌼',
       invite_code: 'abc',
+      owner: 'ann',
       members: [
         { user_id: 'ann', name: 'Ann', color: '#111', photo: 'https://lh3.googleusercontent.com/a/ann' },
         { user_id: 'bo', name: 'Bo', color: '#222', photo: null },

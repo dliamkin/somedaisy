@@ -23,6 +23,8 @@ export type GroupData = {
   name: string;
   cover: string;
   invite_code: string;
+  /** The member who can remove people and replace the invite link. See `ownerOf`. */
+  owner: string | null;
   members: Member[];
   lists: List[];
   ideas: Idea[];
@@ -62,7 +64,7 @@ export async function fetchGroups(): Promise<GroupSummary[]> {
 export async function fetchGroup(id: string): Promise<GroupData | null> {
   const client = db();
   const [g, m, l, i, r, c] = await Promise.all([
-    client.from('groups').select('id, name, cover, invite_code').eq('id', id).maybeSingle(),
+    client.from('groups').select('id, name, cover, invite_code, created_by').eq('id', id).maybeSingle(),
     client.from('group_members').select('user_id, profiles(*)').eq('group_id', id).order('joined_at'),
     client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
     client
@@ -76,12 +78,14 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
   ]);
   fail(g.error ?? m.error ?? l.error ?? i.error ?? r.error);
   if (!g.data) return null;
+  const members = toMembers(m.data as unknown as MemberRow[]);
   return {
     id: g.data.id,
     name: g.data.name,
     cover: g.data.cover,
     invite_code: g.data.invite_code,
-    members: toMembers(m.data as unknown as MemberRow[]),
+    owner: ownerOf(g.data.created_by as string | null | undefined, members),
+    members,
     lists: (l.data ?? []) as List[],
     ideas: (i.data ?? []) as Idea[],
     reactions: (r.data ?? []) as Reaction[],
@@ -107,6 +111,64 @@ export async function joinGroup(code: string): Promise<string> {
   const { data, error } = await db().rpc('join_group', { p_code: code });
   fail(error);
   return data as string;
+}
+
+/**
+ * A group's owner: the person who started it, or, once they have gone, whoever has been in it
+ * longest. `members` must be in the order they joined. The database decides the same way
+ * (supabase/updates/007-group-settings.sql) and has the final say.
+ */
+export function ownerOf(startedBy: string | null | undefined, members: Member[]): string | null {
+  if (startedBy && members.some((m) => m.user_id === startedBy)) return startedBy;
+  return members[0]?.user_id ?? null;
+}
+
+/** Rename a group or change its cover. Any member can. */
+export async function updateGroup(groupId: string, change: { name: string; cover: string }): Promise<void> {
+  const { error } = await db().from('groups').update({ name: change.name, cover: change.cover }).eq('id', groupId);
+  fail(error);
+}
+
+export async function renameList(listId: string, name: string): Promise<void> {
+  const { error } = await db().from('lists').update({ name }).eq('id', listId);
+  fail(error);
+}
+
+/**
+ * Remove a list that has nothing on it. A list with ideas, including ones already done, is
+ * refused: removing it would take those ideas with it.
+ */
+export async function removeList(listId: string): Promise<void> {
+  const client = db();
+  const { data, error } = await client.from('ideas').select('id').eq('list_id', listId).limit(1);
+  fail(error);
+  if ((data ?? []).length > 0) throw new Error('That list still has ideas on it, or ideas you have done. Move or remove them first.');
+  const res = await client.from('lists').delete().eq('id', listId);
+  fail(res.error);
+}
+
+/** Group settings that go through the database's own functions (update 007). */
+async function settingsCall<T>(name: string, args: Record<string, string>): Promise<T> {
+  const { data, error } = await db().rpc(name, args);
+  // PGRST202 is the database saying it has no such function: update 007 has not been run.
+  if (error && (error as { code?: string }).code === 'PGRST202') throw new Error('This is not available yet. Try again later.');
+  fail(error);
+  return data as T;
+}
+
+/** Leave a group. A group whose last member leaves is deleted. */
+export async function leaveGroup(groupId: string): Promise<void> {
+  await settingsCall('leave_group', { p_group: groupId });
+}
+
+/** Take someone out of a group. Only its owner can. */
+export async function removeMember(groupId: string, userId: string): Promise<void> {
+  await settingsCall('remove_member', { p_group: groupId, p_user: userId });
+}
+
+/** Replace a group's invite link, so the old one stops working. Only its owner can. Returns the new code. */
+export async function resetInviteCode(groupId: string): Promise<string> {
+  return settingsCall<string>('reset_invite_code', { p_group: groupId });
 }
 
 export async function addList(groupId: string, name: string, position: number): Promise<void> {

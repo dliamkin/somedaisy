@@ -354,6 +354,7 @@ export default function GroupScreen() {
           ))}
         </View>
         <Button label="Things we did" kind="ghost" small onPress={() => router.push(`/group/${group.id}/done` as never)} />
+        <Button label="Group settings" kind="ghost" small onPress={() => router.push(`/group/${group.id}/settings` as never)} />
       </Screen>
 
       {celebrate ? (
