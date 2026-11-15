@@ -1,5 +1,6 @@
 import {
   addIdea,
+  deleteIdea,
   everyoneIn,
   fetchDone,
   fetchGroup,
@@ -11,6 +12,7 @@ import {
   restoreIdea,
   setReaction,
   takeChanged,
+  updateIdea,
   type Member,
   type Reaction,
 } from '../data';
@@ -189,6 +191,42 @@ describe('planIdea', () => {
   it('throws the database error', async () => {
     fakeClient({ ideas: [{ error: { message: 'not a member' } }] });
     await expect(planIdea('i1', null)).rejects.toThrow('not a member');
+  });
+});
+
+describe('updateIdea', () => {
+  it('changes the words and list of that one idea, and nothing else about it', async () => {
+    const { calls } = fakeClient();
+    await updateIdea('i1', { title: 'Tacos', link: 'https://example.com', note: 'Yum', listId: 'l2' });
+    const [update] = stepsFor(calls, 'ideas');
+    expect(argsOf(update, 'update')).toEqual([{ title: 'Tacos', link: 'https://example.com', note: 'Yum', list_id: 'l2' }]);
+    expect(argsOf(update, 'eq')).toEqual(['id', 'i1']);
+  });
+
+  it('saves an emptied link or note as none', async () => {
+    const { calls } = fakeClient();
+    await updateIdea('i1', { title: 'Tacos', link: '', note: null, listId: 'l2' });
+    expect(argsOf(stepsFor(calls, 'ideas')[0], 'update')).toEqual([{ title: 'Tacos', link: null, note: null, list_id: 'l2' }]);
+  });
+
+  it('throws the database error', async () => {
+    fakeClient({ ideas: [{ error: { message: 'not a member' } }] });
+    await expect(updateIdea('i1', { title: 'T', link: null, note: null, listId: 'l1' })).rejects.toThrow('not a member');
+  });
+});
+
+describe('deleteIdea', () => {
+  it('removes that one idea', async () => {
+    const { calls } = fakeClient();
+    await deleteIdea('i1');
+    const [query] = stepsFor(calls, 'ideas');
+    expect(query.map(([method]) => method)).toEqual(['delete', 'eq']);
+    expect(argsOf(query, 'eq')).toEqual(['id', 'i1']);
+  });
+
+  it('throws the database error', async () => {
+    fakeClient({ ideas: [{ error: { message: 'not a member' } }] });
+    await expect(deleteIdea('i1')).rejects.toThrow('not a member');
   });
 });
 

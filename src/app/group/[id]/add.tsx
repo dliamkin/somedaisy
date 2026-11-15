@@ -4,6 +4,7 @@ import { Switch, View } from 'react-native';
 
 import { Button, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addIdea, fetchGroup, markChanged, type List } from '@/lib/data';
+import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -33,10 +34,15 @@ export default function AddIdea() {
 
   const submit = async () => {
     if (!id || !userId || !listId || !title.trim() || busy) return;
+    const tidy = tidyLink(link);
+    if (!tidy.ok) {
+      setError('That link does not look like a web address. Check it, or leave it empty.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await addIdea({ groupId: id, listId, title: title.trim(), link: link.trim(), note: note.trim(), userId, thumbsUp });
+      await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp });
       markChanged(id);
       back();
     } catch (e) {
@@ -61,8 +67,8 @@ export default function AddIdea() {
           ))}
         </View>
       </View>
-      <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." />
-      <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline />
+      <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
+      <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <T size={16} weight="extra">

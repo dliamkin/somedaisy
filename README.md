@@ -154,6 +154,14 @@ account outside the app.
 Someone who cannot get in can still ask by email; delete them in Supabase under Authentication >
 Users, which removes the same things.
 
+### Links on ideas
+
+A link on an idea has to be a web address. The app adds a missing `https://` and asks the
+person to fix anything else. `supabase/updates/006-idea-links.sql` makes the database tidy
+links the same way, for older copies of the app that send them as typed: what cannot be made
+into a web address is dropped, and the idea is saved without a link. It also tidies links saved
+before it. Without that update the app still tidies new links; the database just does not.
+
 ## Run it
 
 ```bash
@@ -178,6 +186,7 @@ private browser window or on another device.
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
 | `src/app/group/[id]/add.tsx` | Add an idea |
+| `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: done ideas, with a way to put one back |
