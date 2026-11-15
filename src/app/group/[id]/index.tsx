@@ -12,6 +12,17 @@ import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { colors, REACTIONS } from '@/lib/theme';
 
+/** One of the plain-word actions along the bottom of an idea card. */
+function CardAction({ label, accessibilityLabel, onPress, strong }: { label: string; accessibilityLabel: string; onPress: () => void; strong?: boolean }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={{ minHeight: 44, justifyContent: 'center' }}>
+      <T size={14} weight="extra" color={strong ? colors.pink : colors.link}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useSession();
@@ -321,24 +332,7 @@ export default function GroupScreen() {
                   <Chip key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
                 ))}
                 <Chip label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
-                <Chip
-                  label={comments ? `💬 ${comments}` : '💬'}
-                  accessibilityLabel={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
-                  onPress={() => openComments(idea)}
-                />
-                {idea.planned_for ? (
-                  <Chip
-                    label={`📅 ${formatPlan(idea.planned_for, now)}`}
-                    accessibilityLabel={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`}
-                    selected
-                    onPress={() => openPlan(idea)}
-                  />
-                ) : allIn ? null : (
-                  <Chip label="📅 Pick a date" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
-                )}
-                <Chip label="✏️" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
               </View>
-              {allIn && !idea.planned_for ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
               {pickerFor === idea.id ? (
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {REACTIONS.filter((e) => e !== '👍' && e !== '👎').map((e) => (
@@ -346,6 +340,38 @@ export default function GroupScreen() {
                   ))}
                 </View>
               ) : null}
+              {allIn && !idea.planned_for ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
+              {/* What you can do with the idea, kept apart from the reactions above: plain words on their own line, with Edit at the far end. */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  columnGap: 16,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.line,
+                  marginTop: 2,
+                }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 18, flexShrink: 1 }}>
+                  <CardAction
+                    label={comments === 1 ? '💬 1 comment' : comments ? `💬 ${comments} comments` : '💬 Comment'}
+                    accessibilityLabel={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
+                    onPress={() => openComments(idea)}
+                  />
+                  {idea.planned_for ? (
+                    <CardAction
+                      label={`📅 ${formatPlan(idea.planned_for, now)}`}
+                      accessibilityLabel={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`}
+                      strong
+                      onPress={() => openPlan(idea)}
+                    />
+                  ) : allIn ? null : (
+                    <CardAction label="📅 Pick a date" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
+                  )}
+                </View>
+                <CardAction label="Edit" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
+              </View>
               {!allIn && waiting.length > 0 && group.members.length > 1 ? (
                 <T size={13} color={colors.muted}>
                   Waiting on {waiting.map((m) => (m.user_id === userId ? 'you' : m.name)).join(', ')}

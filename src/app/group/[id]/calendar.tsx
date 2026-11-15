@@ -1,9 +1,10 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { MonthGrid } from '@/components/month-grid';
 import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
-import { byDay, dayKey, longDayLabel, monthGrid, monthLabel, monthOf, shiftMonth, WEEKDAY_LETTERS, WEEKDAY_NAMES, type Month } from '@/lib/calendar';
+import { byDay, dayKey, longDayLabel, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchDone, fetchGroup, type DoneIdea, type GroupData } from '@/lib/data';
 import { dayLabel, plannedIdeas, timeLabel } from '@/lib/plans';
 import { colors } from '@/lib/theme';
@@ -58,7 +59,6 @@ export default function GroupCalendar() {
 
   const plansByDay = byDay(plannedIdeas(group.ideas), (i) => i.planned_for);
   const doneByDay = byDay(done, (i) => i.done_at);
-  const todayKey = dayKey(now);
   const pickedKey = dayKey(picked);
   const plans = plansByDay[pickedKey] ?? [];
   const finished = doneByDay[pickedKey] ?? [];
@@ -78,70 +78,14 @@ export default function GroupCalendar() {
       <ErrorNote message={error} />
 
       <Card style={{ padding: 14, gap: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Chip label="‹" accessibilityLabel="Previous month" onPress={() => turn(-1)} />
-          <T size={18} weight="black">
-            {monthLabel(month)}
-          </T>
-          <Chip label="›" accessibilityLabel="Next month" onPress={() => turn(1)} />
-        </View>
-        <View style={{ flexDirection: 'row' }}>
-          {WEEKDAY_LETTERS.map((letter, i) => (
-            <View key={WEEKDAY_NAMES[i]} style={{ flex: 1, alignItems: 'center' }}>
-              <T size={12} weight="extra" color={colors.muted}>
-                {letter}
-              </T>
-            </View>
-          ))}
-        </View>
-        {monthGrid(month).map((week, w) => (
-          <View key={w} style={{ flexDirection: 'row' }}>
-            {week.map((day, d) => {
-              if (!day) return <View key={d} style={{ flex: 1 }} />;
-              const key = dayKey(day);
-              const planCount = plansByDay[key]?.length ?? 0;
-              const doneCount = doneByDay[key]?.length ?? 0;
-              const isPicked = key === pickedKey;
-              const isToday = key === todayKey;
-              const says = [
-                longDayLabel(day),
-                isToday ? 'today' : null,
-                planCount ? (planCount === 1 ? '1 plan' : `${planCount} plans`) : null,
-                doneCount ? `${doneCount} done` : null,
-              ].filter(Boolean);
-              return (
-                <Pressable
-                  key={d}
-                  accessibilityRole="button"
-                  accessibilityLabel={says.join(', ')}
-                  accessibilityState={{ selected: isPicked }}
-                  onPress={() => setPicked(day)}
-                  style={{ flex: 1, alignItems: 'center', paddingVertical: 2 }}>
-                  <View
-                    style={{
-                      width: 40,
-                      height: 44,
-                      borderRadius: 14,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 2,
-                      borderWidth: 2,
-                      borderColor: isPicked ? colors.pink : 'transparent',
-                      backgroundColor: isPicked ? colors.pinkTint : isToday ? colors.today : 'transparent',
-                    }}>
-                    <T size={15} weight={isToday || isPicked ? 'black' : 'bold'}>
-                      {day.getDate()}
-                    </T>
-                    <View style={{ flexDirection: 'row', gap: 3, height: 6 }}>
-                      {planCount ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.grape }} /> : null}
-                      {doneCount ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.mintText }} /> : null}
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
+        <MonthGrid
+          month={month}
+          onTurn={turn}
+          picked={picked}
+          today={now}
+          onPick={setPicked}
+          marks={(key) => ({ plans: plansByDay[key]?.length, done: doneByDay[key]?.length })}
+        />
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
           <Legend color={colors.grape} label="Planned" />
           <Legend color={colors.mintText} label="Done" />
