@@ -37,6 +37,13 @@ const old = {
   script: await addIdea(ann, 'Script', { link: 'javascript:alert(1)' }),
   huge: await addIdea(ann, 'Huge', { link: `https://example.com/${'a'.repeat(3000)}` }),
   longNote: await addIdea(ann, 'Long note', { note: 'n'.repeat(1500) }),
+  // Free text people typed into the link box, which no prefix can turn into an address.
+  words: await addIdea(ann, 'Words', { link: 'the place near Bo' }),
+  sentence: await addIdea(ann, 'Sentence', { link: 'see www.example.com' }),
+  newline: await addIdea(ann, 'Newline', { link: 'example.com/a\n' }),
+  spaced: await addIdea(ann, 'Spaced', { link: 'http://a b' }),
+  schemeOnly: await addIdea(ann, 'Scheme only', { link: 'https://' }),
+  port: await addIdea(ann, 'Port', { link: 'maps.example.com:8080/pin' }),
 };
 
 await db.exec(sql);
@@ -62,6 +69,18 @@ await test('a link that is not a web address, or is far too long, is removed', a
   eq(await linkOf(old.huge), null);
 });
 
+await test('free text that is not an address is removed rather than stopping the update', async () => {
+  eq(await linkOf(old.words), null);
+  eq(await linkOf(old.sentence), null);
+  eq(await linkOf(old.spaced), null);
+  eq(await linkOf(old.schemeOnly), null);
+});
+
+await test('a trailing line break is trimmed, and an address with a port is kept', async () => {
+  eq(await linkOf(old.newline), 'https://example.com/a');
+  eq(await linkOf(old.port), 'https://maps.example.com:8080/pin');
+});
+
 await test('a very long note is cut to the limit, and the idea itself is kept', async () => {
   const { n, title } = await one(db, `select char_length(note) as n, title from ideas where id = $1`, [old.longNote]);
   eq([n, title], [1000, 'Long note']);
@@ -82,22 +101,40 @@ await test('no link at all is fine', async () => {
   eq(await linkOf(await addIdea(bo, 'No link')), null);
 });
 
-await test('anything that is not a web address is refused', async () => {
-  for (const bad of ['tel:5551234', 'javascript:alert(1)', 'example.com', 'intent://scan', 'https://exa mple.com', '']) {
-    await rejects(addIdea(bo, 'Bad', { link: bad }), /ideas_link_check/, bad);
+await test('an older copy of the app, sending a link as typed, still saves the idea with the link tidied', async () => {
+  eq(await linkOf(await addIdea(bo, 'Bare', { link: 'youtube.com/watch?v=1' })), 'https://youtube.com/watch?v=1');
+  eq(await linkOf(await addIdea(bo, 'Padded', { link: '  https://example.com/x \n' })), 'https://example.com/x');
+  eq(await linkOf(await addIdea(bo, 'Empty', { link: '' })), null);
+});
+
+await test('anything that is not a web address is dropped, and the idea is still saved', async () => {
+  for (const bad of ['tel:5551234', 'javascript:alert(1)', 'intent://scan', 'https://exa mple.com', 'the taco place', 'mailto:a@b.com']) {
+    const id = await addIdea(bo, `Bad ${bad}`, { link: bad });
+    eq(await linkOf(id), null, bad);
   }
 });
 
-await test('a link or note over the limit is refused', async () => {
-  await rejects(addIdea(bo, 'Long', { link: `https://example.com/${'a'.repeat(2000)}` }), /ideas_link_check/, 'link');
-  await rejects(addIdea(bo, 'Long', { note: 'n'.repeat(1001) }), /ideas_note_check/, 'note');
+await test('a link over the limit is dropped, and a note over the limit is cut to fit', async () => {
+  eq(await linkOf(await addIdea(bo, 'Long link', { link: `https://example.com/${'a'.repeat(2000)}` })), null);
+  eq((await one(db, `select char_length(note) as n from ideas where id = $1`, [await addIdea(bo, 'Long note', { note: 'n'.repeat(1001) })])).n, 1000);
   eq((await one(db, `select char_length(note) as n from ideas where id = $1`, [await addIdea(bo, 'Just fits', { note: 'n'.repeat(1000) })])).n, 1000);
 });
 
-await test('editing a link has to follow the same rule', async () => {
-  await rejects(as(db, bo, () => db.query(`update ideas set link = 'tel:5551234' where id = $1`, [old.fine])), /ideas_link_check/);
-  await as(db, bo, () => db.query(`update ideas set link = 'https://example.com/new' where id = $1`, [old.fine]));
+await test('editing a link is tidied in the same way', async () => {
+  await as(db, bo, () => db.query(`update ideas set link = 'tel:5551234' where id = $1`, [old.fine]));
+  eq(await linkOf(old.fine), null);
+  await as(db, bo, () => db.query(`update ideas set link = 'example.com/new' where id = $1`, [old.fine]));
   eq(await linkOf(old.fine), 'https://example.com/new');
+});
+
+await test('nothing can get an untidy link past the database, even with the tidying switched off', async () => {
+  await db.exec(`alter table ideas disable trigger ideas_tidy`);
+  try {
+    await rejects(db.query(`update ideas set link = 'tel:5551234' where id = $1`, [old.fine]), /ideas_link_check/, 'link');
+    await rejects(db.query(`update ideas set note = $2 where id = $1`, [old.fine, 'n'.repeat(1001)]), /ideas_note_check/, 'note');
+  } finally {
+    await db.exec(`alter table ideas enable trigger ideas_tidy`);
+  }
 });
 
 console.log('\nEditing and removing ideas');
