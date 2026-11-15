@@ -7,6 +7,7 @@ import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Sc
 import { addList, everyoneIn, fetchGroup, markDone, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { useSession } from '@/lib/session';
+import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { colors, REACTIONS } from '@/lib/theme';
 
@@ -240,6 +241,8 @@ export default function GroupScreen() {
           const waiting = group.members.filter((m) => !rs.some((r) => r.user_id === m.user_id && (r.emoji === '👍' || r.emoji === '👎')));
           const extras = REACTIONS.filter((e) => e !== '👍' && e !== '👎' && count(e) > 0);
           const comments = group.commentCounts[idea.id] ?? 0;
+          // The clock stops once the idea has a date.
+          const clock = idea.planned_for ? null : somedayLabel(idea.created_at, now);
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
@@ -249,6 +252,7 @@ export default function GroupScreen() {
                   </T>
                   <T size={13} color={colors.muted}>
                     Added by {nameOf(idea.added_by)}
+                    {clock ? ` · ${clock}` : ''}
                   </T>
                 </View>
                 {allIn ? (
