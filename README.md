@@ -113,6 +113,10 @@ The small picture in a notification is `assets/images/notification-icon.png`, wh
 all white on a see-through background. It and the app icon are part of the build, so changing
 either needs a new one.
 
+With `supabase/updates/010-notification-polish.sql`, each person can mute a single group from
+its settings (no notifications from that group, for them only), and tapping a notification
+about a comment opens that idea's comments instead of the group.
+
 To check it end to end: install the build on two phones, join the same group, turn on notifications
 on both from the home screen, add an idea on one and react to it on the other. Expo's push tool at
 https://expo.dev/notifications can also send a test to a single phone.

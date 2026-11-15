@@ -29,6 +29,22 @@ describe('routeFromPush', () => {
     expect(routeFromPush({ url: group })).toBe(group);
   });
 
+  it('opens the comments of the idea a comment push is about', () => {
+    const idea = '0b9f6a1e-52a4-4f0e-9c0b-6c7f0f1f2a33';
+    expect(routeFromPush({ url: group, idea })).toBe(`${group}/comments?idea=${idea}`);
+  });
+
+  it('falls back to the group when the idea is missing or not an id', () => {
+    expect(routeFromPush({ url: group, idea: null })).toBe(group);
+    expect(routeFromPush({ url: group, idea: 42 })).toBe(group);
+    expect(routeFromPush({ url: group, idea: 'x&next=https://example.com' })).toBe(group);
+    expect(routeFromPush({ url: group, idea: '../../account' })).toBe(group);
+  });
+
+  it('opens nothing for an idea without a group', () => {
+    expect(routeFromPush({ idea: '0b9f6a1e-52a4-4f0e-9c0b-6c7f0f1f2a33' })).toBeNull();
+  });
+
   it('ignores a push with no link or a malformed one', () => {
     expect(routeFromPush(undefined)).toBeNull();
     expect(routeFromPush(null)).toBeNull();
