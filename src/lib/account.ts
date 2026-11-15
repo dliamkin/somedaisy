@@ -113,7 +113,8 @@ export async function claimTransfer(pass: string): Promise<number> {
 
 /**
  * Delete the account (or guest) signed in on this device, for good. What goes and what stays is
- * set out in supabase/updates/005-delete-account.sql. The app then starts a fresh guest.
+ * set out in supabase/updates/005-delete-account.sql. The app then goes back to its welcome
+ * screen, with nobody signed in.
  */
 export async function deleteAccount(): Promise<void> {
   const { error } = await db().rpc('delete_account');
@@ -127,7 +128,7 @@ export async function deleteAccount(): Promise<void> {
   }
 }
 
-/** Sign out on this device only. The app then starts a fresh guest. */
+/** Sign out on this device only. The app then goes back to its welcome screen, with nobody signed in. */
 export async function signOut(): Promise<void> {
   const { error } = await db().auth.signOut({ scope: 'local' });
   check(error);
