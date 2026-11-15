@@ -3,55 +3,76 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { Daisy } from '@/components/daisy';
+import { AgainChoice, PointsBar } from '@/components/together';
 import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
-import { fetchDone, fetchGroup, markChanged, restoreIdea, type DoneIdea, type GroupData, type List } from '@/lib/data';
+import { fetchDone, fetchGroup, markChanged, restoreIdea, type DoneIdea, type GroupData } from '@/lib/data';
 import { dayLabel } from '@/lib/plans';
+import { answersFor, myAnswer, onShelf, type DoAgainVote } from '@/lib/points';
+import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
+import { doItAgain, fetchDoAgainVotes, setDoAgain } from '@/lib/together';
 
+type Loaded = { group: GroupData | null; done: DoneIdea[]; votes: DoAgainVote[] | null };
+
+/** Things we did: the do-again shelf, and everything the group has done with the do-again question. */
 export default function ThingsWeDid() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { userId } = useSession();
   const [now] = useState(() => new Date());
-  const [done, setDone] = useState<DoneIdea[] | null>(null);
-  const [lists, setLists] = useState<List[]>([]);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const show = useCallback(([group, ideas]: [GroupData | null, DoneIdea[]]) => {
-    setLists(group?.lists ?? []);
-    setDone(ideas);
+  const read = useCallback(async (groupId: string): Promise<Loaded> => {
+    const [group, done, votes] = await Promise.all([fetchGroup(groupId), fetchDone(groupId), fetchDoAgainVotes(groupId)]);
+    return { group, done, votes };
   }, []);
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([fetchGroup(id), fetchDone(id)]).then(show, (e: Error) => {
+    read(id).then(setLoaded, (e: Error) => {
       setError(e.message);
-      setDone([]);
+      setLoaded({ group: null, done: [], votes: null });
     });
-  }, [id, show]);
+  }, [id, read]);
 
-  const putBack = async (idea: DoneIdea) => {
+  // Run one change to an idea, then show the screen as it now stands.
+  const change = async (ideaId: string, what: () => Promise<void>, failed: string) => {
     if (!id || busyId) return;
-    setBusyId(idea.id);
+    setBusyId(ideaId);
     setError(null);
     try {
-      await restoreIdea(idea.id);
+      await what();
       markChanged(id);
-      show(await Promise.all([fetchGroup(id), fetchDone(id)]));
+      setLoaded(await read(id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not put it back.');
+      setError(e instanceof Error ? e.message : failed);
     } finally {
       setBusyId(null);
     }
   };
 
-  if (done === null) return <Loading />;
+  if (loaded === null) return <Loading />;
 
+  const { group, done, votes } = loaded;
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
+  const memberIds = (group?.members ?? []).map((m) => m.user_id);
+  const listName = (listId: string) => group?.lists.find((l) => l.id === listId)?.name;
+  const shelf = votes ? done.filter((idea) => onShelf(idea.id, memberIds, votes)) : [];
+  const everyone = memberIds.length;
 
   return (
     <Screen>
       <TopBar title="Things we did" subtitle={done.length ? (done.length === 1 ? '1 so far' : `${done.length} so far`) : undefined} backTo={`/group/${id}`} />
       <ErrorNote message={error} />
+
+      {group && group.points !== null ? (
+        <Card style={{ padding: 16, gap: 10 }}>
+          <PointsBar points={group.points} />
+          <Button label="See your stamps" kind="outline" small onPress={() => router.push(`/group/${id}/stamps` as never)} />
+        </Card>
+      ) : null}
+
       {done.length === 0 && !error ? (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 32 }}>
           <Daisy size={64} petal={colors.today} />
@@ -64,9 +85,48 @@ export default function ThingsWeDid() {
           <Button label="Back to the group" kind="soft" small onPress={back} />
         </View>
       ) : null}
+
+      {votes && done.length > 0 ? (
+        <View style={{ gap: 10 }}>
+          <T size={16} weight="black">
+            Do-again shelf
+          </T>
+          {shelf.length === 0 ? (
+            <T size={14} weight="medium" color={colors.muted}>
+              Nothing here yet. When everyone says they would do something again, it lands on this shelf for the nights nobody has an idea.
+            </T>
+          ) : null}
+          {shelf.map((idea) => (
+            <Card key={idea.id} style={{ backgroundColor: colors.today }}>
+              <View style={{ gap: 2 }}>
+                <T size={17} weight="extra">
+                  {idea.title}
+                </T>
+                <T size={13} color={colors.muted}>
+                  {everyone === 2 ? 'You would both do it again' : 'Everyone would do it again'}
+                </T>
+              </View>
+              <Button
+                label="Do it again"
+                small
+                busy={busyId === idea.id}
+                onPress={() => change(idea.id, () => doItAgain(idea.id), 'Could not put it back on the list.')}
+              />
+            </Card>
+          ))}
+        </View>
+      ) : null}
+
+      {done.length > 0 ? (
+        <T size={16} weight="black">
+          Everything you did
+        </T>
+      ) : null}
+
       {done.map((idea) => {
         const when = dayLabel(new Date(idea.done_at), now);
-        const list = lists.find((l) => l.id === idea.list_id)?.name;
+        const list = listName(idea.list_id);
+        const answers = votes ? answersFor(idea.id, memberIds, votes) : null;
         return (
           <Card key={idea.id}>
             <View style={{ gap: 2 }}>
@@ -87,13 +147,33 @@ export default function ThingsWeDid() {
                 {idea.note}
               </T>
             ) : null}
-            <View style={{ flexDirection: 'row' }}>
-              <Chip
-                label={busyId === idea.id ? 'Putting it back...' : 'Put it back on the list'}
-                accessibilityLabel={`Put ${idea.title} back on the list`}
-                onPress={() => putBack(idea)}
-              />
-            </View>
+            {votes && answers && userId ? (
+              <View style={{ gap: 6 }}>
+                <T size={14} weight="extra">
+                  Would you do it again?
+                </T>
+                <AgainChoice
+                  answer={myAnswer(idea.id, userId, votes)}
+                  disabled={busyId !== null}
+                  onAnswer={(again) => change(idea.id, () => setDoAgain(id as string, idea.id, userId, again), 'Could not save your answer.')}
+                />
+                {everyone > 1 ? (
+                  <T size={13} color={colors.muted}>
+                    {answers.yes} of {everyone} said yes
+                    {answers.waiting > 0 ? `, ${answers.waiting} still to answer` : ''}
+                  </T>
+                ) : null}
+              </View>
+            ) : (
+              // Before the do-again shelf is set up in the database, a done idea can simply be put back.
+              <View style={{ flexDirection: 'row' }}>
+                <Chip
+                  label={busyId === idea.id ? 'Putting it back...' : 'Put it back on the list'}
+                  accessibilityLabel={`Put ${idea.title} back on the list`}
+                  onPress={() => change(idea.id, () => restoreIdea(idea.id), 'Could not put it back.')}
+                />
+              </View>
+            )}
           </Card>
         );
       })}

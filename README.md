@@ -8,7 +8,7 @@ the "Everyone's in" moment, and live updates between members.
 
 Phase 2 so far: plans. Any idea can be given a day and a time of day, planned ideas show under
 "Coming up" at the top of the group, and marking a plan as done moves it from the lists to
-"Things we did", where it can be put back.
+"Things we did" and earns the group points and a stamp.
 And accounts: a guest can add an email, or continue with Google on the website, to keep their groups and sign in on other devices.
 And push notifications on phones, kept deliberately few: a reaction to or comment on an idea you
 added, and a reminder before a plan. Each person can switch any of them off.
@@ -170,6 +170,26 @@ owner is whoever started the group, or, once they have gone, whoever has been in
 Leaving, removing and replacing the link need `supabase/updates/007-group-settings.sql`; without
 it the app says they are not available yet.
 
+### Points, stamps and the do-again shelf
+
+Marking a plan as done opens one "You did it" screen: the points it earned, the stamp, a new
+title if the group reached one, and the question "Would you do it again?". Each group has one
+shared bar and rises through eight titles, from Homebodies to Legends. The bar sits under the
+group's name, the title shows on the home screen, and the stamps page lists everything done.
+
+Points come only from doing things: 10 for an idea (5 for a repeat), 5 for everyone being there
+(always given for now; the app does not ask who came), 5 for the first thing done from a list,
+and 10 if the idea had waited more than 90 days. They never go down. The database works them
+out when an idea is marked as done, so older copies of the app earn them too. The numbers live
+in `supabase/updates/008-you-did-it.sql`, and the titles in `src/lib/points.ts`.
+
+When everyone in a group says they would do something again, it goes on the do-again shelf in
+Things we did. "Do it again" there puts it back on its list, to be planned and done once more.
+That is the only way a done idea goes back.
+
+All of this needs update 008. Without it the app works as before: no bar, no stamps, and done
+ideas keep their plain "Put it back on the list".
+
 ## Run it
 
 ```bash
@@ -198,7 +218,8 @@ private browser window or on another device.
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
-| `src/app/group/[id]/done.tsx` | Things we did: done ideas, with a way to put one back |
+| `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
+| `src/app/group/[id]/stamps.tsx` | The group's title, points and stamps |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
 | `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
@@ -214,5 +235,5 @@ npx expo export -p web   # production web build into dist/
 
 ## Not built yet
 
-Points and stamps for things the group has done, Apple and Facebook sign-in,
+Apple and Facebook sign-in, link previews,
 dark mode, and the app store listings.

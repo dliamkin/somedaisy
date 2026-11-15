@@ -31,6 +31,8 @@ export type GroupData = {
   reactions: Reaction[];
   /** How many comments each idea has, by idea id. Ideas with none are left out. */
   commentCounts: Record<string, number>;
+  /** The points the group has earned by doing things. Null when points are not set up in the database yet (update 008). */
+  points: number | null;
 };
 
 type MemberProfile = { name: string; color: string; photo_url?: string | null };
@@ -63,7 +65,7 @@ export async function fetchGroups(): Promise<GroupSummary[]> {
 
 export async function fetchGroup(id: string): Promise<GroupData | null> {
   const client = db();
-  const [g, m, l, i, r, c] = await Promise.all([
+  const [g, m, l, i, r, c, p] = await Promise.all([
     client.from('groups').select('id, name, cover, invite_code, created_by').eq('id', id).maybeSingle(),
     client.from('group_members').select('user_id, profiles(*)').eq('group_id', id).order('joined_at'),
     client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
@@ -75,6 +77,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
       .order('created_at', { ascending: false }),
     client.from('reactions').select('idea_id, user_id, emoji').eq('group_id', id),
     client.from('comments').select('idea_id').eq('group_id', id),
+    client.from('completions').select('points').eq('group_id', id),
   ]);
   fail(g.error ?? m.error ?? l.error ?? i.error ?? r.error);
   if (!g.data) return null;
@@ -91,6 +94,8 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     reactions: (r.data ?? []) as Reaction[],
     // A failure here (comments not set up in the database yet) must not hide the whole group.
     commentCounts: c.error ? {} : countByIdea(c.data as { idea_id: string }[] | null),
+    // The same goes for points: without them the group still shows, just with no bar.
+    points: p.error ? null : ((p.data ?? []) as { points: number }[]).reduce((sum, row) => sum + row.points, 0),
   };
 }
 
