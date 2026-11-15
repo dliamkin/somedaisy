@@ -196,6 +196,7 @@ private browser window or on another device.
 | `src/app/group/[id]/add.tsx` | Add an idea |
 | `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
+| `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: done ideas, with a way to put one back |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
@@ -213,5 +214,5 @@ npx expo export -p web   # production web build into dist/
 
 ## Not built yet
 
-A calendar view, points and stamps for things the group has done, Apple and Facebook sign-in,
+Points and stamps for things the group has done, Apple and Facebook sign-in,
 dark mode, and the app store listings.

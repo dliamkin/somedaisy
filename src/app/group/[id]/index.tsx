@@ -188,9 +188,16 @@ export default function GroupScreen() {
 
         {plans.length > 0 ? (
           <View style={{ gap: 10 }}>
-            <T size={16} weight="black">
-              Coming up
-            </T>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <T size={16} weight="black">
+                Coming up
+              </T>
+              <Pressable accessibilityRole="link" onPress={() => router.push(`/group/${group.id}/calendar` as never)} hitSlop={12}>
+                <T size={14} weight="extra" color={colors.link}>
+                  Calendar
+                </T>
+              </Pressable>
+            </View>
             {plans.map((plan) => {
               const past = isPast(plan.planned_for, now);
               return (
@@ -353,6 +360,7 @@ export default function GroupScreen() {
             <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
           ))}
         </View>
+        <Button label="Calendar" kind="ghost" small onPress={() => router.push(`/group/${group.id}/calendar` as never)} />
         <Button label="Things we did" kind="ghost" small onPress={() => router.push(`/group/${group.id}/done` as never)} />
         <Button label="Group settings" kind="ghost" small onPress={() => router.push(`/group/${group.id}/settings` as never)} />
       </Screen>
