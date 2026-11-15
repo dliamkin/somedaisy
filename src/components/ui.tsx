@@ -167,6 +167,7 @@ export function Chip({
   onPress,
   dark,
   dashed,
+  outlined,
   accessibilityLabel,
 }: {
   label: string;
@@ -174,6 +175,8 @@ export function Chip({
   onPress?: () => void;
   dark?: boolean;
   dashed?: boolean;
+  /** A visible edge even when not selected, for a chip sitting on a white card. */
+  outlined?: boolean;
   accessibilityLabel?: string;
 }) {
   const active = Boolean(selected);
@@ -191,7 +194,7 @@ export function Chip({
         justifyContent: 'center',
         borderWidth: 2,
         borderStyle: dashed ? 'dashed' : 'solid',
-        borderColor: dashed ? colors.dash : active && !dark ? colors.pink : 'transparent',
+        borderColor: dashed ? colors.dash : active && !dark ? colors.pink : outlined ? colors.dash : 'transparent',
         backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.text : colors.pinkTint) : colors.white,
       }}>
       <T size={15} weight="extra" color={active && dark ? colors.white : colors.text}>

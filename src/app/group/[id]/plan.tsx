@@ -6,7 +6,7 @@ import { MonthGrid } from '@/components/month-grid';
 import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { byDay, dayKey, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchGroup, markChanged, planIdea, type Idea } from '@/lib/data';
-import { combine, daysFromToday, formatPlan, plannedIdeas, slotOf, TIME_SLOTS } from '@/lib/plans';
+import { atTime, daysFromToday, formatPlan, minutesLabel, minutesOf, plannedIdeas, shiftTime, slotFor, slotMinutes, TIME_SLOTS, TIME_STEP } from '@/lib/plans';
 import { colors } from '@/lib/theme';
 
 export default function PlanIdea() {
@@ -17,7 +17,8 @@ export default function PlanIdea() {
   const [others, setOthers] = useState<Idea[]>([]);
   const [day, setDay] = useState<Date | null>(null);
   const [month, setMonth] = useState<Month>(() => monthOf(new Date()));
-  const [slotKey, setSlotKey] = useState('evening');
+  // The time of day, as minutes after midnight. Starts at 7 PM.
+  const [minutes, setMinutes] = useState(19 * 60);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,8 +36,7 @@ export default function PlanIdea() {
             setDay(new Date(current.getFullYear(), current.getMonth(), current.getDate()));
             setMonth(monthOf(current));
           }
-          const slot = slotOf(current);
-          if (slot) setSlotKey(slot.key);
+          setMinutes(minutesOf(current));
         }
       })
       .catch((e: Error) => {
@@ -74,8 +74,8 @@ export default function PlanIdea() {
     );
   }
 
-  const slot = TIME_SLOTS.find((s) => s.key === slotKey) ?? TIME_SLOTS[0];
-  const when = day === null ? null : combine(day, slot);
+  const when = day === null ? null : atTime(day, minutes);
+  const part = slotFor(minutes);
   const passed = when !== null && when.getTime() < now.getTime();
   const taken = byDay(plannedIdeas(others), (i) => i.planned_for);
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -137,9 +137,22 @@ export default function PlanIdea() {
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {TIME_SLOTS.map((s) => (
-            <Chip key={s.key} label={s.label} selected={s.key === slotKey} onPress={() => setSlotKey(s.key)} />
+            <Chip key={s.key} label={s.label} selected={s.key === part.key} onPress={() => setMinutes(slotMinutes(s))} />
           ))}
         </View>
+        {/* The shortcuts above set a usual time; this sets the exact one. */}
+        <Card style={{ padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Chip label="−" outlined accessibilityLabel={`${TIME_STEP} minutes earlier`} onPress={() => setMinutes(shiftTime(minutes, -1))} />
+          <View style={{ alignItems: 'center' }} accessibilityLiveRegion="polite">
+            <T size={24} weight="black">
+              {minutesLabel(minutes)}
+            </T>
+            <T size={12} color={colors.muted}>
+              Tap − or + to change the time
+            </T>
+          </View>
+          <Chip label="+" outlined accessibilityLabel={`${TIME_STEP} minutes later`} onPress={() => setMinutes(shiftTime(minutes, 1))} />
+        </Card>
       </View>
 
       {when ? (

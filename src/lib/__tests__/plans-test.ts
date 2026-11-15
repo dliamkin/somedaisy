@@ -1,11 +1,17 @@
 import {
+  atTime,
   combine,
   dayLabel,
   dayOptions,
   daysFromToday,
   formatPlan,
   isPast,
+  minutesLabel,
+  minutesOf,
   plannedIdeas,
+  shiftTime,
+  slotFor,
+  slotMinutes,
   slotOf,
   TIME_SLOTS,
   timeLabel,
@@ -15,6 +21,53 @@ import {
 // give the same result in any time zone. "Now" is Saturday 14 November 2026, 3:30 PM.
 const now = new Date(2026, 10, 14, 15, 30);
 const slot = (key: string) => TIME_SLOTS.find((s) => s.key === key)!;
+
+describe('picking an exact time', () => {
+  it('turns a time into minutes after midnight and back into a moment', () => {
+    expect(minutesOf(new Date(2026, 10, 14, 19, 0))).toBe(1140);
+    expect(slotMinutes(slot('lunch'))).toBe(750);
+    expect(atTime(new Date(2026, 10, 21), 11 * 60 + 30)).toEqual(new Date(2026, 10, 21, 11, 30));
+  });
+
+  it('labels a time', () => {
+    expect(minutesLabel(11 * 60 + 30)).toBe('11:30 AM');
+    expect(minutesLabel(19 * 60)).toBe('7 PM');
+    expect(minutesLabel(0)).toBe('12 AM');
+  });
+
+  it('moves a quarter of an hour at a time', () => {
+    expect(shiftTime(750, -1)).toBe(735);
+    expect(shiftTime(750, 1)).toBe(765);
+    expect(shiftTime(750, -4)).toBe(690);
+  });
+
+  it('lands on a quarter hour from a time that is not on one', () => {
+    expect(shiftTime(752, 1)).toBe(765);
+    expect(shiftTime(752, -1)).toBe(750);
+  });
+
+  it('stays within the day', () => {
+    expect(shiftTime(0, -1)).toBe(0);
+    expect(shiftTime(10, -1)).toBe(0);
+    expect(shiftTime(23 * 60 + 45, 1)).toBe(23 * 60 + 45);
+    expect(shiftTime(23 * 60 + 50, 1)).toBe(23 * 60 + 45);
+  });
+
+  it('knows which part of the day a time is in, whatever the minute', () => {
+    expect(slotFor(8 * 60).key).toBe('morning');
+    expect(slotFor(11 * 60 + 15).key).toBe('morning');
+    expect(slotFor(11 * 60 + 30).key).toBe('lunch');
+    expect(slotFor(13 * 60 + 45).key).toBe('lunch');
+    expect(slotFor(14 * 60).key).toBe('afternoon');
+    expect(slotFor(17 * 60).key).toBe('evening');
+    expect(slotFor(20 * 60 + 30).key).toBe('night');
+    expect(slotFor(2 * 60).key).toBe('night');
+  });
+
+  it('puts each shortcut in its own part of the day', () => {
+    for (const s of TIME_SLOTS) expect(slotFor(slotMinutes(s)).key).toBe(s.key);
+  });
+});
 
 describe('dayOptions', () => {
   it('starts today at midnight and runs forward one day at a time', () => {

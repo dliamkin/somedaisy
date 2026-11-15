@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { Daisy, PlusIcon } from '@/components/daisy';
-import { AgainChoice, NewTitle, PointsBar, YouDidIt } from '@/components/together';
+import { AgainChoice, EveryonesIn, NewTitle, PointsBar, YouDidIt } from '@/components/together';
+import { MorphChip } from '@/components/morph-chip';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
@@ -43,6 +44,8 @@ export default function GroupScreen() {
   // Things the group did lately that this person has not said they would do again or not.
   const [prompts, setPrompts] = useState<AgainPrompt[]>([]);
   const pointsRef = useRef<number | null>(null);
+  // True while a "mark as done" is being saved, so a second tap does nothing.
+  const finishingRef = useRef(false);
   // Who is signed in, for `load` to read without being rebuilt when it becomes known. Rebuilding
   // `load` would restart the live-updates channel below, and a channel restarted at once can go quiet.
   const userRef = useRef(userId);
@@ -184,7 +187,10 @@ export default function GroupScreen() {
   };
 
   const finish = async (idea: Idea) => {
-    setConfirmDone(null);
+    // The confirmation stays as it is while this is saved: the card goes when the idea is done,
+    // and the "You did it" screen takes over. Turning the buttons back first would only flicker.
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     const before = group.points;
     try {
       await markDone(idea.id);
@@ -197,8 +203,13 @@ export default function GroupScreen() {
         const total = fresh?.points ?? (before ?? 0) + completion.points;
         setDidIt({ completion, total, reached: before === null ? null : levelUp(before, total), again: null });
       }
+      setConfirmDone(null);
     } catch (e) {
+      // It was not marked as done, so the buttons go back to how they were.
+      setConfirmDone(null);
       setError(e instanceof Error ? e.message : 'Could not mark it as done.');
+    } finally {
+      finishingRef.current = false;
     }
   };
 
@@ -288,22 +299,24 @@ export default function GroupScreen() {
                       {past ? 'Did it happen?' : (group.lists.find((l) => l.id === plan.list_id)?.name ?? '')}
                     </T>
                   </View>
+                  {/* The buttons stay where they are and turn into the confirmation in place,
+                      so the one to tap next is under the same finger. The note goes underneath. */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    <MorphChip
+                      label={confirmDone === plan.id ? 'Yes, mark as done' : 'We did it'}
+                      selected={confirmDone === plan.id}
+                      onPress={() => (confirmDone === plan.id ? void finish(plan) : setConfirmDone(plan.id))}
+                    />
+                    <MorphChip
+                      label={confirmDone === plan.id ? 'Not yet' : 'Change date'}
+                      onPress={() => (confirmDone === plan.id ? setConfirmDone(null) : openPlan(plan))}
+                    />
+                  </View>
                   {confirmDone === plan.id ? (
-                    <View style={{ gap: 8 }}>
-                      <T size={13} color={colors.muted}>
-                        It moves from the list to &quot;Things we did&quot; for everyone.
-                      </T>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                        <Chip label="Yes, we did it" selected onPress={() => finish(plan)} />
-                        <Chip label="Not yet" onPress={() => setConfirmDone(null)} />
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                      <Chip label="We did it" onPress={() => setConfirmDone(plan.id)} />
-                      <Chip label="Change date" onPress={() => openPlan(plan)} />
-                    </View>
-                  )}
+                    <T size={13} color={colors.muted}>
+                      It moves from the list to &quot;Things we did&quot; for everyone.
+                    </T>
+                  ) : null}
                 </Card>
               );
             })}
@@ -476,36 +489,19 @@ export default function GroupScreen() {
       ) : newTitle ? (
         <NewTitle level={newTitle} onClose={() => setNewTitle(null)} />
       ) : celebrate ? (
-        <View
-          accessibilityViewIsModal
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.grape, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 20 }}>
-          <Daisy size={96} petal={colors.white} />
-          <T size={40} weight="black" color={colors.white} center>
-            Everyone&apos;s in!
-          </T>
-          <Card style={{ alignSelf: 'stretch', maxWidth: 420, padding: 16 }}>
-            <T size={18} weight="extra">
-              {celebrate.title}
-            </T>
-            <T size={14} color={colors.muted}>
-              The whole group said yes.
-            </T>
-          </Card>
-          <View style={{ alignSelf: 'stretch', maxWidth: 420, gap: 10 }}>
-            {celebrate.planned_for ? null : (
-              <Button
-                label="Pick a date"
-                kind="soft"
-                onPress={() => {
+        <EveryonesIn
+          title={celebrate.title}
+          onPlan={
+            celebrate.planned_for
+              ? undefined
+              : () => {
                   const idea = celebrate;
                   setCelebrate(null);
                   openPlan(idea);
-                }}
-              />
-            )}
-            <Button label={celebrate.planned_for ? 'Nice' : 'Later'} kind="outline" onPress={() => setCelebrate(null)} />
-          </View>
-        </View>
+                }
+          }
+          onClose={() => setCelebrate(null)}
+        />
       ) : null}
     </View>
   );

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Daisy } from '@/components/daisy';
+import { FlowerOutlines } from '@/components/flower-outlines';
 import { Logo } from '@/components/logo';
 import { NameForm } from '@/components/name-form';
 import { NotificationsCard } from '@/components/notifications-card';
@@ -135,6 +136,7 @@ function Home() {
           onPress={() => router.push(`/group/${g.id}` as never)}>
           <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
             <View style={{ height: 72, backgroundColor: covers[g.cover] ?? colors.sky, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 20 }}>
+              <FlowerOutlines />
               <Daisy size={44} petal={colors.white} />
             </View>
             <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
