@@ -9,7 +9,7 @@ import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Sc
 import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
-import { levelUp, type Completion, type Level } from '@/lib/points';
+import { categoryEmoji, levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,9 @@ function CardAction({ label, accessibilityLabel, onPress, strong }: { label: str
     </Pressable>
   );
 }
+
+// The pastel squares behind each idea's emoji, in turn down the list.
+const TILES = [colors.sky, colors.peach, colors.mint, colors.yellow];
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -360,7 +363,7 @@ export default function GroupScreen() {
           </View>
         ) : null}
 
-        {ideas.map((idea) => {
+        {ideas.map((idea, index) => {
           const rs = group.reactions.filter((r) => r.idea_id === idea.id);
           const count = (e: string) => rs.filter((r) => r.emoji === e).length;
           const mine = (e: string) => rs.some((r) => r.emoji === e && r.user_id === userId);
@@ -373,6 +376,13 @@ export default function GroupScreen() {
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                {/* Every idea gets a picture, so no card is bare: its list's emoji on a pastel tile. */}
+                <View
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: TILES[index % TILES.length], alignItems: 'center', justifyContent: 'center' }}>
+                  <T size={24}>{categoryEmoji(activeList?.name)}</T>
+                </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <T size={17} weight="extra">
                     {idea.title}
