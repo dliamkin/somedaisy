@@ -1,18 +1,22 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
+import { MonthGrid } from '@/components/month-grid';
 import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
+import { byDay, dayKey, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchGroup, markChanged, planIdea, type Idea } from '@/lib/data';
-import { combine, dayLabel, dayOptions, daysFromToday, formatPlan, slotOf, TIME_SLOTS } from '@/lib/plans';
+import { combine, daysFromToday, formatPlan, plannedIdeas, slotOf, TIME_SLOTS } from '@/lib/plans';
 import { colors } from '@/lib/theme';
 
 export default function PlanIdea() {
   const { id, idea: ideaId } = useLocalSearchParams<{ id: string; idea?: string }>();
   const [now] = useState(() => new Date());
-  const [days] = useState(() => dayOptions(now));
   const [idea, setIdea] = useState<Idea | null | undefined>(undefined);
-  const [dayIndex, setDayIndex] = useState<number | null>(null);
+  // The group's other plans, so the calendar can show which days are already taken.
+  const [others, setOthers] = useState<Idea[]>([]);
+  const [day, setDay] = useState<Date | null>(null);
+  const [month, setMonth] = useState<Month>(() => monthOf(new Date()));
   const [slotKey, setSlotKey] = useState('evening');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,11 +27,14 @@ export default function PlanIdea() {
       .then((g) => {
         const found = g?.ideas.find((i) => i.id === ideaId) ?? null;
         setIdea(found);
-        // Changing an existing plan starts from the date it already has.
+        setOthers((g?.ideas ?? []).filter((i) => i.id !== ideaId));
+        // Changing an existing plan starts from the date it already has, if that is still to come.
         if (found?.planned_for) {
           const current = new Date(found.planned_for);
-          const index = daysFromToday(current, now);
-          if (index >= 0 && index < days.length) setDayIndex(index);
+          if (daysFromToday(current, now) >= 0) {
+            setDay(new Date(current.getFullYear(), current.getMonth(), current.getDate()));
+            setMonth(monthOf(current));
+          }
           const slot = slotOf(current);
           if (slot) setSlotKey(slot.key);
         }
@@ -36,7 +43,7 @@ export default function PlanIdea() {
         setError(e.message);
         setIdea(null);
       });
-  }, [id, ideaId, now, days]);
+  }, [id, ideaId, now]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
 
@@ -68,8 +75,17 @@ export default function PlanIdea() {
   }
 
   const slot = TIME_SLOTS.find((s) => s.key === slotKey) ?? TIME_SLOTS[0];
-  const when = dayIndex === null ? null : combine(days[dayIndex], slot);
+  const when = day === null ? null : combine(day, slot);
   const passed = when !== null && when.getTime() < now.getTime();
+  const taken = byDay(plannedIdeas(others), (i) => i.planned_for);
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const isDay = (d: Date) => day !== null && dayKey(day) === dayKey(d);
+
+  // Pick a day, and bring its month into view.
+  const pick = (d: Date) => {
+    setDay(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+    setMonth(monthOf(d));
+  };
 
   return (
     <Screen
@@ -95,11 +111,24 @@ export default function PlanIdea() {
         <T size={16} weight="extra">
           Which day?
         </T>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flexGrow: 0 }}>
-          {days.map((d, i) => (
-            <Chip key={d.getTime()} label={dayLabel(d, now)} selected={i === dayIndex} onPress={() => setDayIndex(i)} />
-          ))}
-        </ScrollView>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Chip label="Today" selected={isDay(now)} onPress={() => pick(now)} />
+          <Chip label="Tomorrow" selected={isDay(tomorrow)} onPress={() => pick(tomorrow)} />
+        </View>
+        <Card style={{ padding: 14 }}>
+          <MonthGrid
+            month={month}
+            onTurn={(by) => setMonth(shiftMonth(month, by))}
+            picked={day}
+            today={now}
+            onPick={pick}
+            earliest={now}
+            marks={(key) => ({ plans: taken[key]?.length })}
+          />
+          <T size={12} color={colors.muted} center>
+            A dot marks a day the group already has a plan.
+          </T>
+        </Card>
       </View>
 
       <View style={{ gap: 8 }}>
