@@ -161,6 +161,11 @@ describe('addIdea', () => {
     expect(stepsFor(calls, 'reactions')).toHaveLength(0);
   });
 
+  it("gives back the new idea's id", async () => {
+    fakeClient({ ideas: [{ data: { id: 'i1' } }] });
+    expect(await addIdea({ ...input, thumbsUp: false })).toBe('i1');
+  });
+
   it("adds the author's thumbs up to the new idea when asked", async () => {
     const { calls } = fakeClient({ ideas: [{ data: { id: 'i1' } }] });
     await addIdea({ ...input, link: 'https://example.com', note: 'Bring snacks', thumbsUp: true });
@@ -394,7 +399,8 @@ describe('fetchGroup', () => {
   it('asks for each idea\'s planned date', async () => {
     const { calls } = fakeClient();
     await fetchGroup('g1');
-    expect(String(argsOf(stepsFor(calls, 'ideas')[0], 'select')?.[0])).toContain('planned_for');
+    // "*" brings every column, the planned date among them, and any added by later updates.
+    expect(argsOf(stepsFor(calls, 'ideas')[0], 'select')).toEqual(['*']);
   });
 
   it('returns null when the group does not exist', async () => {

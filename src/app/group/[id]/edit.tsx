@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { deleteIdea, fetchGroup, markChanged, updateIdea, type Idea, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
+import { attachPreview } from '@/lib/preview';
 import { colors } from '@/lib/theme';
 
 /** Change an idea's words or list, or remove it. Any member of the group can. */
@@ -53,6 +54,8 @@ export default function EditIdea() {
     setError(null);
     try {
       await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId });
+      // A new link gets its own preview picture, looked up in the background. So does a link that has none yet.
+      if (tidy.link && (tidy.link !== idea.link || !idea.image_url)) void attachPreview(idea.id, tidy.link);
       markChanged(id);
       back();
     } catch (e) {

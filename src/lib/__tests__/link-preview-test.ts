@@ -1,0 +1,164 @@
+// Tests for the server-side helper in supabase/functions/link-preview/index.ts. It runs on
+// Supabase, not in the app, but its page-reading and safety rules are plain functions that can
+// be checked here. The Supabase wrapper it imports only exists on the server, so it is replaced.
+
+jest.mock('npm:@supabase/server@^1', () => ({ withSupabase: (_options: unknown, handler: unknown) => handler }), { virtual: true });
+
+type Helper = {
+  safeTarget: (input: unknown) => URL | null;
+  pictureFrom: (html: string, pageUrl: string) => string | null;
+  previewPicture: (input: unknown, fetcher: (url: string, init?: unknown) => Promise<Response>) => Promise<string | null>;
+  default: { fetch: (req: Request) => Promise<Response> };
+};
+const helper = jest.requireActual<Helper>('../../../supabase/functions/link-preview/index');
+const { safeTarget, pictureFrom, previewPicture } = helper;
+
+const page = (head: string) => `<!doctype html><html><head>${head}</head><body>hi</body></html>`;
+
+describe('safeTarget', () => {
+  it('accepts ordinary web addresses', () => {
+    expect(safeTarget('https://example.org/menu?x=1')?.toString()).toBe('https://example.org/menu?x=1');
+    expect(safeTarget('http://www.example.org')?.hostname).toBe('www.example.org');
+    expect(safeTarget('https://example.org:443/a')).not.toBeNull();
+  });
+
+  it('refuses anything that is not a web address', () => {
+    for (const bad of [null, 42, '', 'tacos', 'ftp://example.org/a', 'file:///etc/passwd', 'javascript:alert(1)', 'data:text/html,hi']) {
+      expect(safeTarget(bad)).toBeNull();
+    }
+  });
+
+  it('refuses addresses that point at the server itself or a private network', () => {
+    for (const bad of [
+      'http://localhost/admin',
+      'http://127.0.0.1/',
+      'http://10.0.0.5/',
+      'http://192.168.1.1/router',
+      'http://169.254.169.254/latest/meta-data',
+      'http://[::1]/',
+      'http://0x7f.0.0.1/',
+      'http://2130706433/',
+      'http://intranet/',
+      'http://db.internal/',
+      'http://printer.local/',
+      'http://example.org.127.0.0.1/',
+    ]) {
+      expect(safeTarget(bad)).toBeNull();
+    }
+  });
+
+  it('refuses odd ports, sign-in details in the address, and very long addresses', () => {
+    expect(safeTarget('https://example.org:8443/')).toBeNull();
+    expect(safeTarget('https://example.org:22/')).toBeNull();
+    expect(safeTarget('https://user:pass@example.org/')).toBeNull();
+    expect(safeTarget(`https://example.org/${'a'.repeat(2000)}`)).toBeNull();
+  });
+});
+
+describe('pictureFrom', () => {
+  it('finds the picture a page names for sharing', () => {
+    expect(pictureFrom(page('<meta property="og:image" content="https://cdn.example.org/a.jpg">'), 'https://example.org/x')).toBe('https://cdn.example.org/a.jpg');
+  });
+
+  it('reads the attributes in either order and with either kind of quote, or none', () => {
+    expect(pictureFrom(page(`<meta content='https://cdn.example.org/b.jpg' property='og:image' />`), 'https://example.org')).toBe('https://cdn.example.org/b.jpg');
+    expect(pictureFrom(page('<META NAME=twitter:image CONTENT=https://cdn.example.org/c.jpg>'), 'https://example.org')).toBe('https://cdn.example.org/c.jpg');
+  });
+
+  it('prefers the sharing picture over the Twitter one, wherever they sit', () => {
+    const html = page('<meta name="twitter:image" content="https://cdn.example.org/t.jpg"><meta property="og:image" content="https://cdn.example.org/o.jpg">');
+    expect(pictureFrom(html, 'https://example.org')).toBe('https://cdn.example.org/o.jpg');
+  });
+
+  it('completes a picture given as a path, and undoes the page\'s own escaping', () => {
+    expect(pictureFrom(page('<meta property="og:image" content="/img/a.jpg?w=1&amp;h=2">'), 'https://example.org/posts/1')).toBe('https://example.org/img/a.jpg?w=1&h=2');
+    expect(pictureFrom(page('<meta property="og:image" content="//cdn.example.org/a.jpg">'), 'https://example.org/')).toBe('https://cdn.example.org/a.jpg');
+  });
+
+  it('always answers with a secure address', () => {
+    expect(pictureFrom(page('<meta property="og:image" content="http://cdn.example.org/a.jpg">'), 'http://example.org/')).toBe('https://cdn.example.org/a.jpg');
+  });
+
+  it('refuses a picture that is not an ordinary web address, and falls back to the next one', () => {
+    expect(pictureFrom(page('<meta property="og:image" content="javascript:alert(1)">'), 'https://example.org')).toBeNull();
+    expect(pictureFrom(page('<meta property="og:image" content="data:image/png;base64,AAAA">'), 'https://example.org')).toBeNull();
+    expect(pictureFrom(page('<meta property="og:image" content="http://192.168.1.1/cam.jpg">'), 'https://example.org')).toBeNull();
+    const html = page('<meta property="og:image" content="http://localhost/a.jpg"><meta name="twitter:image" content="https://cdn.example.org/t.jpg">');
+    expect(pictureFrom(html, 'https://example.org')).toBe('https://cdn.example.org/t.jpg');
+  });
+
+  it('answers nothing for a page with no picture, or no page at all', () => {
+    expect(pictureFrom(page('<title>Hi</title><meta name="description" content="x">'), 'https://example.org')).toBeNull();
+    expect(pictureFrom('', 'https://example.org')).toBeNull();
+    expect(pictureFrom(page('<meta property="og:image" content="">'), 'https://example.org')).toBeNull();
+  });
+});
+
+describe('previewPicture', () => {
+  const html = (body: string, status = 200, headers: Record<string, string> = { 'content-type': 'text/html; charset=utf-8' }) =>
+    new Response(body, { status, headers });
+  const redirect = (to: string) => new Response(null, { status: 302, headers: { location: to } });
+  const og = page('<meta property="og:image" content="https://cdn.example.org/a.jpg">');
+
+  it('fetches the page and returns its picture', async () => {
+    const fetcher = jest.fn(async () => html(og));
+    expect(await previewPicture('https://example.org/x', fetcher)).toBe('https://cdn.example.org/a.jpg');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]).toMatchObject(['https://example.org/x', { redirect: 'manual' }]);
+  });
+
+  it('never fetches an address it should not touch', async () => {
+    const fetcher = jest.fn(async () => html(og));
+    expect(await previewPicture('http://169.254.169.254/latest/meta-data', fetcher)).toBeNull();
+    expect(await previewPicture('file:///etc/passwd', fetcher)).toBeNull();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('follows a redirect to another site', async () => {
+    const fetcher = jest.fn(async (url: string) => (url === 'https://short.example.org/a' ? redirect('https://example.org/long') : html(og)));
+    expect(await previewPicture('https://short.example.org/a', fetcher)).toBe('https://cdn.example.org/a.jpg');
+    expect(fetcher.mock.calls.map((c) => c[0])).toEqual(['https://short.example.org/a', 'https://example.org/long']);
+  });
+
+  it('stops when a redirect points somewhere it should not go', async () => {
+    const fetcher = jest.fn(async () => redirect('http://127.0.0.1/admin'));
+    expect(await previewPicture('https://example.org/x', fetcher)).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives up after a few redirects', async () => {
+    const fetcher = jest.fn(async () => redirect('https://example.org/again'));
+    expect(await previewPicture('https://example.org/x', fetcher)).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it('answers nothing for a missing page or something that is not a web page', async () => {
+    expect(await previewPicture('https://example.org/x', async () => html('gone', 404))).toBeNull();
+    expect(await previewPicture('https://example.org/x', async () => html(og, 200, { 'content-type': 'application/pdf' }))).toBeNull();
+  });
+
+  it('reads only the start of a very large page', async () => {
+    const big = page('<meta property="og:image" content="https://cdn.example.org/a.jpg">') + 'x'.repeat(400_000) + '<meta property="og:image:secure_url" content="https://cdn.example.org/late.jpg">';
+    expect(await previewPicture('https://example.org/x', async () => html(big))).toBe('https://cdn.example.org/a.jpg');
+  });
+});
+
+describe('the helper itself', () => {
+  const call = (body: unknown, method = 'POST') =>
+    helper.default.fetch(new Request('https://project.example.org/functions/v1/link-preview', { method, body: method === 'POST' ? JSON.stringify(body) : undefined }));
+
+  it('answers with no picture, not an error, for an address it will not fetch', async () => {
+    const response = await call({ url: 'http://localhost/' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ image: null });
+  });
+
+  it('answers with no picture when given nothing sensible', async () => {
+    expect(await (await call({})).json()).toEqual({ image: null });
+    expect(await (await call('nonsense')).json()).toEqual({ image: null });
+  });
+
+  it('only takes POST', async () => {
+    expect((await call(null, 'GET')).status).toBe(405);
+  });
+});

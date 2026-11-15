@@ -5,6 +5,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Daisy, PlusIcon } from '@/components/daisy';
 import { AgainChoice, EveryonesIn, NewTitle, PointsBar, YouDidIt } from '@/components/together';
 import { MorphChip } from '@/components/morph-chip';
+import { PreviewPicture } from '@/components/preview-picture';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
@@ -400,6 +401,7 @@ export default function GroupScreen() {
                   </View>
                 ) : null}
               </View>
+              {idea.link ? <PreviewPicture uri={idea.image_url} label={idea.title} /> : null}
               {idea.note ? (
                 <T size={14} weight="medium">
                   {idea.note}
