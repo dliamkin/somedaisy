@@ -11,6 +11,8 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.somedaisy.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#F6F0FB",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +45,17 @@
     ],
     "experiments": {
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "6c6698f7-59b3-4a02-9fdd-b38a6eb4235d"
+      }
+    },
+    "owner": "somedaisy"
   }
 }

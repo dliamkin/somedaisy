@@ -44,3 +44,6 @@ example
 
 # local settings
 .env
+
+# Firebase service account keys (secret; google-services.json is fine to commit)
+*firebase-adminsdk*.json
