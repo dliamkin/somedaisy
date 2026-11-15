@@ -44,10 +44,24 @@ function fakeClient(opts: { saved?: ReturnType<typeof session> | null; profiles?
 }
 
 describe('readSession', () => {
-  it('starts a guest when nobody is signed in', async () => {
+  const nobody = { userId: null, email: null, profile: null, googlePhoto: null };
+
+  it('signs nobody in just for looking: a visitor leaves no guest behind', async () => {
     const { client, auth } = fakeClient({});
-    expect(await readSession(client)).toEqual({ userId: 'fresh-guest', email: null, profile: null, googlePhoto: null });
+    expect(await readSession(client)).toEqual(nobody);
+    expect(auth.signInAnonymously).not.toHaveBeenCalled();
+  });
+
+  it('starts a guest when asked to, if nobody is signed in', async () => {
+    const { client, auth } = fakeClient({});
+    expect(await readSession(client, { create: true })).toEqual({ userId: 'fresh-guest', email: null, profile: null, googlePhoto: null });
     expect(auth.signInAnonymously).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start a second guest for someone already signed in', async () => {
+    const { client, auth } = fakeClient({ saved: session('new-guest') });
+    expect((await readSession(client, { create: true })).userId).toBe('new-guest');
+    expect(auth.signInAnonymously).not.toHaveBeenCalled();
   });
 
   it('returns the saved person with their name, without asking the server again', async () => {
@@ -64,12 +78,22 @@ describe('readSession', () => {
     expect(auth.signOut).not.toHaveBeenCalled();
   });
 
-  it('gives a removed user a fresh start as a guest', async () => {
+  it('clears a removed user off the device, and signs nobody in', async () => {
     const { client, auth } = fakeClient({
       saved: session('removed'),
       getUserError: { message: 'User from sub claim in JWT does not exist', code: 'user_not_found', status: 403 },
     });
-    expect(await readSession(client)).toEqual({ userId: 'fresh-guest', email: null, profile: null, googlePhoto: null });
+    expect(await readSession(client)).toEqual(nobody);
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(auth.signInAnonymously).not.toHaveBeenCalled();
+  });
+
+  it('gives a removed user a fresh start as a guest when a guest is asked for', async () => {
+    const { client, auth } = fakeClient({
+      saved: session('removed'),
+      getUserError: { message: 'User from sub claim in JWT does not exist', code: 'user_not_found', status: 403 },
+    });
+    expect(await readSession(client, { create: true })).toEqual({ userId: 'fresh-guest', email: null, profile: null, googlePhoto: null });
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 

@@ -8,8 +8,8 @@ import { colors } from '@/lib/theme';
 
 /**
  * "Delete my account", with a second step so it cannot happen by accident. For a guest, who has
- * no account to speak of, the words are about their data instead. Afterwards the app starts over
- * as a fresh guest.
+ * no account to speak of, the words are about their data instead. Afterwards the app goes back
+ * to its welcome screen, with nobody signed in.
  */
 export function DeleteAccount({ guest, disabled }: { guest?: boolean; disabled?: boolean }) {
   const { refresh } = useSession();

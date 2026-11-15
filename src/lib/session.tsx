@@ -12,6 +12,12 @@ type SessionValue = {
   configured: boolean;
   error: string | null;
   userId: string | null;
+  /**
+   * Make sure someone is signed in on this device, starting a guest if nobody is, and give
+   * back their id. Call it when the person does something that needs one, such as opening an
+   * invite. Saving a name does it by itself.
+   */
+  ensureUser: () => Promise<string>;
   /** The account's email, or null for a guest. */
   email: string | null;
   profile: Profile | null;
@@ -29,6 +35,9 @@ const SessionContext = createContext<SessionValue>({
   configured: isConfigured,
   error: null,
   userId: null,
+  ensureUser: async () => {
+    throw new Error('Not connected yet.');
+  },
   email: null,
   profile: null,
   googlePhoto: null,
@@ -37,9 +46,11 @@ const SessionContext = createContext<SessionValue>({
   refresh: async () => {},
 });
 
-type Who = { userId: string; email: string | null; profile: Profile | null; googlePhoto: string | null };
+type Who = { userId: string | null; email: string | null; profile: Profile | null; googlePhoto: string | null };
 
-/** No account needed: everyone starts as a guest. */
+const NOBODY: Who = { userId: null, email: null, profile: null, googlePhoto: null };
+
+/** No account needed: a person becomes a guest the moment they do something that needs one. */
 async function startGuest(client: SupabaseClient) {
   const res = await client.auth.signInAnonymously();
   if (res.error) throw new Error(res.error.message);
@@ -73,16 +84,22 @@ async function userIsGone(client: SupabaseClient): Promise<boolean> {
   return error.code === 'user_not_found' || error.status === 401 || error.status === 403 || error.status === 404;
 }
 
-/** Find out who is using this device, starting a guest if nobody is signed in. */
-export async function readSession(client: SupabaseClient): Promise<Who> {
+/**
+ * Find out who is using this device. Simply looking at the app signs nobody in: a visitor who
+ * only reads a page leaves nothing behind. With `create`, a guest is started if nobody is
+ * signed in, for the moment the person picks a name or opens an invite.
+ */
+export async function readSession(client: SupabaseClient, { create = false }: { create?: boolean } = {}): Promise<Who> {
   const { data: sessionData } = await client.auth.getSession();
-  let session = sessionData.session ?? (await startGuest(client));
+  let session = sessionData.session ?? (create ? await startGuest(client) : null);
+  if (!session) return NOBODY;
   let { data: p, error: pErr } = await readProfile(client, session.user.id);
   if (pErr) throw new Error(pErr.message);
   // A sign-in with no name is either someone new or a user who has been removed. Only the first
-  // can save a name, so check, and give a removed user a fresh start as a guest.
+  // can save a name, so check, and clear a removed user's sign-in off the device.
   if (!p && (await userIsGone(client))) {
     await client.auth.signOut({ scope: 'local' });
+    if (!create) return NOBODY;
     session = await startGuest(client);
     ({ data: p, error: pErr } = await readProfile(client, session.user.id));
     if (pErr) throw new Error(pErr.message);
@@ -106,6 +123,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const mounted = useRef(true);
+  // A guest being started right now, so two things asking at once share the one guest.
+  const starting = useRef<Promise<string> | null>(null);
 
   const show = useCallback((who: Who) => {
     if (!mounted.current) return;
@@ -138,10 +157,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, [show, showError]);
 
+  const ensureUser = useCallback(async (): Promise<string> => {
+    if (!supabase) throw new Error('Not connected yet.');
+    if (userId) return userId;
+    const client = supabase;
+    starting.current ??= readSession(client, { create: true })
+      .then((who) => {
+        if (!who.userId) throw new Error('Could not start a session.');
+        show(who);
+        return who.userId;
+      })
+      .finally(() => {
+        starting.current = null;
+      });
+    return starting.current;
+  }, [userId, show]);
+
   const saveProfile = useCallback(
     async (name: string, color: string) => {
-      if (!supabase || !userId) throw new Error('Not connected yet.');
-      const row = { id: userId, name: name.trim(), color };
+      if (!supabase) throw new Error('Not connected yet.');
+      // Picking a name is what makes someone a guest, if they are not signed in already.
+      const id = userId ?? (await ensureUser());
+      const row = { id, name: name.trim(), color };
       const { error: err } = await supabase.from('profiles').upsert(row);
       if (err) throw new Error(err.message);
       // Someone naming themselves for the first time after signing in with Google gets their photo too.
@@ -149,7 +186,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setProfile(saved);
       void syncPush();
     },
-    [userId, profile, photo],
+    [userId, ensureUser, profile, photo],
   );
 
   const showPhoto = useCallback(
@@ -164,8 +201,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ ready, configured: isConfigured, error, userId, email, profile, googlePhoto: photo, saveProfile, showPhoto, refresh }),
-    [ready, error, userId, email, profile, photo, saveProfile, showPhoto, refresh],
+    () => ({ ready, configured: isConfigured, error, userId, ensureUser, email, profile, googlePhoto: photo, saveProfile, showPhoto, refresh }),
+    [ready, error, userId, ensureUser, email, profile, photo, saveProfile, showPhoto, refresh],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
