@@ -71,6 +71,7 @@ export default function GroupScreen() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [newList, setNewList] = useState<string | null>(null);
   const [newLook, setNewLook] = useState<LookChoice>({ icon: null, color: null });
+  const [savingList, setSavingList] = useState(false);
   const [slideFrom, setSlideFrom] = useState<1 | -1>(1);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
@@ -218,19 +219,25 @@ export default function GroupScreen() {
     }
   };
 
+  const closeNewList = () => {
+    setNewList(null);
+    setNewLook({ icon: null, color: null });
+  };
   const saveList = async () => {
     const name = (newList ?? '').trim();
-    if (!name) return;
+    if (!name || savingList) return;
+    setSavingList(true);
     try {
       await addList(group.id, name, group.lists.length + 1, newLook);
-      setNewList(null);
-      setNewLook({ icon: null, color: null });
+      closeNewList();
       const fresh = await load();
       notifyRef.current();
       const created = fresh?.lists.find((l) => l.name === name);
       if (created) setListId(created.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add the list.');
+    } finally {
+      setSavingList(false);
     }
   };
 
@@ -294,7 +301,14 @@ export default function GroupScreen() {
     <View style={{ flex: 1 }}>
       <Screen
         footer={
-          group.lists.length > 0 ? (
+          // While a list is being made, the pinned buttons belong to that form. "Add an idea" there
+          // looked like the way to finish it, and the real button sat below every icon.
+          newList !== null ? (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button label="Cancel" kind="soft" onPress={closeNewList} style={{ flex: 1 }} />
+              <Button label="Add list" onPress={() => void saveList()} disabled={!newList.trim()} busy={savingList} style={{ flex: 2 }} />
+            </View>
+          ) : group.lists.length > 0 ? (
             <Button label="Add an idea" onPress={() => router.push(`/group/${group.id}/add${activeList ? `?list=${activeList.id}` : ''}` as never)} />
           ) : null
         }>
@@ -390,14 +404,15 @@ export default function GroupScreen() {
           {group.lists.map((l) => (
             <Chip key={l.id} label={l.name} dark selected={l.id === activeList?.id} onPress={() => pickList(l.id)} />
           ))}
-          <Chip label="+ List" dashed accessibilityLabel="Add a list" onPress={() => setNewList(newList === null ? '' : null)} />
+          <Chip label="+ List" dashed accessibilityLabel="Add a list" onPress={() => (newList === null ? setNewList('') : closeNewList())} />
         </ScrollView>
 
         {newList !== null ? (
           <Card>
-            <Field label="New list name" value={newList} onChangeText={setNewList} placeholder="Shows, Games, Trips..." maxLength={40} autoFocus onSubmit={saveList} />
+            {/* The keyboard does not open by itself, so the whole form shows first. Its Done key only
+                puts the keyboard away: the list is added with the button pinned at the bottom. */}
+            <Field label="New list name" value={newList} onChangeText={setNewList} placeholder="Shows, Games, Trips..." maxLength={40} />
             <ListLookPicker name={newList} place={group.lists.length} value={newLook} onChange={setNewLook} />
-            <Button label="Add list" small onPress={saveList} disabled={!newList.trim()} />
           </Card>
         ) : null}
 

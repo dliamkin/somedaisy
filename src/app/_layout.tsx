@@ -11,6 +11,10 @@ import { Loading } from '@/components/ui';
 import { onPushTapped, showPushesWhileOpen } from '@/lib/push';
 import { SessionProvider } from '@/lib/session';
 import { colors } from '@/lib/theme';
+import { steadyWebPage } from '@/lib/web-page';
+
+// Once, when the website opens. Does nothing in the phone app.
+steadyWebPage();
 
 export default function RootLayout() {
   const [loaded] = useFonts({ Nunito_500Medium, Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black });
