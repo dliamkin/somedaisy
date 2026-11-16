@@ -7,6 +7,9 @@ import { colors } from '@/lib/theme';
 import { ListIcon, ListTile } from './list-tile';
 import { Field, T } from './ui';
 
+// Six choices to a row, each in an equal share of the width, so a row always reaches both edges.
+const CELL = { width: '16.666%', alignItems: 'center', paddingVertical: 2 } as const;
+
 /** What someone has chosen for a list. Null means "not chosen": the app picks for them. */
 export type LookChoice = { icon: IconName | null; color: string | null };
 
@@ -51,12 +54,12 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
         <T size={14} weight="extra">
           Colour
         </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {TILE_COLORS.map((color) => {
             const on = shown.color === color;
             return (
+              <View key={color} style={CELL}>
               <Pressable
-                key={color}
                 accessibilityRole="button"
                 accessibilityLabel={`Colour ${color}`}
                 accessibilityState={{ selected: on }}
@@ -64,6 +67,7 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
                 style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: on ? colors.text : 'transparent' }}>
                 <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: color }} />
               </Pressable>
+              </View>
             );
           })}
         </View>
@@ -79,12 +83,12 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
         <T size={14} weight="extra">
           Icon
         </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {ICONS.map((icon) => {
             const on = shown.icon === icon;
             return (
+              <View key={icon} style={CELL}>
               <Pressable
-                key={icon}
                 accessibilityRole="button"
                 accessibilityLabel={ICON_LABELS[icon]}
                 accessibilityState={{ selected: on }}
@@ -101,6 +105,7 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
                 }}>
                 <ListIcon name={icon} size={26} color={colors.text} />
               </Pressable>
+              </View>
             );
           })}
         </View>
