@@ -28,4 +28,12 @@ if (fs.existsSync(skipped)) {
   }
 }
 
+// The title, description and link-preview tags (see scripts/web-head.js).
+const { withHead } = require('./web-head');
+const page = path.join(dist, 'index.html');
+fs.writeFileSync(page, withHead(fs.readFileSync(page, 'utf8')));
+for (const file of ['og.png', 'manifest.json', 'robots.txt', 'sitemap.xml', 'icons/apple-touch-icon.png']) {
+  if (!fs.existsSync(path.join(dist, file))) throw new Error(`The built site is missing ${file}, which the page's tags point at.`);
+}
+
 run('npx wrangler@latest pages deploy dist --project-name somedaisy --branch main --commit-dirty=true');

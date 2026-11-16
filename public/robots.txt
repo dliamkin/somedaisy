@@ -1,0 +1,6 @@
+# Everything may be read. Groups and their ideas sit behind sign-in, so there is nothing private
+# to keep out, and invite links must stay readable for chat apps to show their preview.
+User-agent: *
+Allow: /
+
+Sitemap: https://somedaisy.com/sitemap.xml
