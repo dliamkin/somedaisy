@@ -223,7 +223,12 @@ export function YouDidIt({
   answer,
   onAnswer,
   onClose,
+  onUndo,
+  undoing,
 }: {
+  /** Takes the mark back, with its points and stamp. Left out when undo is not on offer. */
+  onUndo?: () => void;
+  undoing?: boolean;
   completion: Completion;
   /** The group's points now, this completion included. */
   total: number;
@@ -292,6 +297,21 @@ export function YouDidIt({
       <PopIn delay={700}>
         <Button label="Nice" kind="outline" onPress={onClose} />
       </PopIn>
+      {onUndo ? (
+        <PopIn delay={820}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Undo, we have not done this"
+            disabled={undoing}
+            onPress={onUndo}
+            hitSlop={10}
+            style={{ alignSelf: 'center', paddingVertical: 6 }}>
+            <T size={14} weight="extra" color={colors.white} center style={{ textDecorationLine: 'underline' }}>
+              {undoing ? 'Undoing...' : 'Tapped by mistake? Undo'}
+            </T>
+          </Pressable>
+        </PopIn>
+      ) : null}
     </Overlay>
   );
 }

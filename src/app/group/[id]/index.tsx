@@ -20,7 +20,7 @@ import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { colors, MORE_REACTIONS } from '@/lib/theme';
-import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, type AgainPrompt } from '@/lib/together';
+import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, undoDone, type AgainPrompt } from '@/lib/together';
 
 /** One of the plain-word actions along the bottom of an idea card. */
 /** One of the group's other pages, as a small button with a drawn icon over its name. */
@@ -72,6 +72,7 @@ export default function GroupScreen() {
   const [newList, setNewList] = useState<string | null>(null);
   const [newLook, setNewLook] = useState<LookChoice>({ icon: null, color: null });
   const [savingList, setSavingList] = useState(false);
+  const [undoing, setUndoing] = useState(false);
   const [slideFrom, setSlideFrom] = useState<1 | -1>(1);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
@@ -265,6 +266,26 @@ export default function GroupScreen() {
       setError(e instanceof Error ? e.message : 'Could not mark it as done.');
     } finally {
       finishingRef.current = false;
+    }
+  };
+
+  // "We did it" was tapped by mistake: the idea goes back on its list and its points and stamp go.
+  const undoDidIt = async () => {
+    const ideaId = didIt?.completion.idea_id;
+    if (!ideaId || undoing) return;
+    setUndoing(true);
+    try {
+      const undone = await undoDone(ideaId);
+      setDidIt(null);
+      setNewTitle(null);
+      if (!undone) setError('It is too late to undo that one, so it stays done.');
+      await load();
+      notifyRef.current();
+    } catch (e) {
+      setDidIt(null);
+      setError(e instanceof Error ? e.message : 'Could not undo that.');
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -621,6 +642,8 @@ export default function GroupScreen() {
             setDidIt({ ...didIt, again });
             void answerAgain(ideaId, again);
           }}
+          onUndo={didIt.completion.idea_id ? () => void undoDidIt() : undefined}
+          undoing={undoing}
           onClose={() => {
             // This screen already announced any new title.
             setDidIt(null);

@@ -10,7 +10,7 @@ import { dayLabel } from '@/lib/plans';
 import { answersFor, myAnswer, onShelf, type DoAgainVote } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
-import { doItAgain, fetchDoAgainVotes, setDoAgain } from '@/lib/together';
+import { canUndoDone, doItAgain, fetchDoAgainVotes, setDoAgain, undoDone, UNDO_MINUTES } from '@/lib/together';
 
 type Loaded = { group: GroupData | null; done: DoneIdea[]; votes: DoAgainVote[] | null };
 
@@ -146,6 +146,28 @@ export default function ThingsWeDid() {
               <T size={14} weight="medium">
                 {idea.note}
               </T>
+            ) : null}
+            {/* Only while the mark is fresh, and only once undo is set up alongside points. */}
+            {votes && canUndoDone(idea.done_at, now) ? (
+              <View style={{ gap: 6, alignItems: 'flex-start' }}>
+                <Chip
+                  soft
+                  label={busyId === idea.id ? 'Undoing...' : 'Marked by mistake? Undo'}
+                  accessibilityLabel={`Undo, we have not done ${idea.title}`}
+                  onPress={() =>
+                    change(
+                      idea.id,
+                      async () => {
+                        if (!(await undoDone(idea.id))) throw new Error('It is too late to undo that one, so it stays done.');
+                      },
+                      'Could not undo that.',
+                    )
+                  }
+                />
+                <T size={13} color={colors.muted}>
+                  For {UNDO_MINUTES} minutes after marking. It goes back on its list and its points and stamp are taken back.
+                </T>
+              </View>
             ) : null}
             {votes && answers && userId ? (
               <View style={{ gap: 6 }}>

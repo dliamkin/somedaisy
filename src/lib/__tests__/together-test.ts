@@ -1,5 +1,5 @@
 import { db } from '../supabase';
-import { doItAgain, fetchAgainPrompts, fetchCompletions, fetchDoAgainVotes, fetchFreshCompletion, fetchPointsByGroup, setDoAgain } from '../together';
+import { canUndoDone, doItAgain, fetchAgainPrompts, fetchCompletions, fetchDoAgainVotes, fetchFreshCompletion, fetchPointsByGroup, setDoAgain, undoDone, UNDO_MINUTES } from '../together';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
 
@@ -163,5 +163,45 @@ describe('fetchAgainPrompts', () => {
   it('asks nothing when answers are not set up, rather than asking what cannot be saved', async () => {
     fakeClient({ ideas: [{ data: done }], do_again_votes: [missing] });
     expect(await fetchAgainPrompts('g1', 'ann', now)).toEqual([]);
+  });
+});
+
+describe('canUndoDone', () => {
+  it('is true for ten minutes after the mark, and not after', () => {
+    expect(canUndoDone('2026-11-14T11:59:00.000Z', now)).toBe(true);
+    expect(canUndoDone('2026-11-14T11:50:01.000Z', now)).toBe(true);
+    expect(canUndoDone('2026-11-14T11:50:00.000Z', now)).toBe(false);
+    expect(canUndoDone('2026-11-13T12:00:00.000Z', now)).toBe(false);
+    expect(UNDO_MINUTES).toBe(10);
+  });
+
+  it('allows for a phone clock a little ahead, and is false with no time at all', () => {
+    expect(canUndoDone('2026-11-14T12:00:30.000Z', now)).toBe(true);
+    expect(canUndoDone('2026-11-14T12:05:00.000Z', now)).toBe(false);
+    expect(canUndoDone(null, now)).toBe(false);
+    expect(canUndoDone(undefined, now)).toBe(false);
+  });
+});
+
+describe('undoDone', () => {
+  const withRpc = (result: Result) => {
+    const rpc = jest.fn(() => Promise.resolve({ data: null, error: null, ...result }));
+    jest.mocked(db).mockReturnValue({ rpc } as never);
+    return rpc;
+  };
+
+  it('asks the database to undo that idea, and says whether it did', async () => {
+    const rpc = withRpc({ data: true });
+    expect(await undoDone('i1')).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('undo_done', { p_idea: 'i1' });
+    withRpc({ data: false });
+    expect(await undoDone('i1')).toBe(false);
+  });
+
+  it('explains itself when undo is not set up, and passes on any other failure', async () => {
+    withRpc({ error: { message: 'Could not find the function public.undo_done', code: 'PGRST202' } });
+    await expect(undoDone('i1')).rejects.toThrow('Undo is not set up yet');
+    withRpc({ error: { message: 'You are not in that group' } });
+    await expect(undoDone('i1')).rejects.toThrow('You are not in that group');
   });
 });
