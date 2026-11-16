@@ -8,7 +8,7 @@
     "scheme": "somedaisy",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/icon/square/somedaisy-icon-square-1024.png"
     },
     "android": {
       "package": "com.somedaisy.app",
@@ -51,9 +51,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#6D2FC4",
+          "backgroundColor": "#8A4BE6",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120
         }
       ],
       "react-native-nitro-google-signin"

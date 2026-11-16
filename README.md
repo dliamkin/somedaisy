@@ -275,3 +275,16 @@ npx expo export -p web   # production web build into dist/
 
 Apple and Facebook sign-in,
 dark mode, and the app store listings.
+
+## Splash screen, icons and link previews
+
+The phone shows `assets/images/splash-icon.png` on violet while the app starts (set in `app.json`
+under `expo-splash-screen`), and `src/components/launch.tsx` carries on from there with the name
+and tagline. The colour and the width of the mark are written in both places and must match. A
+phone cannot show a full-screen picture at this point, so the artwork in `assets/splash/` is a
+reference only. Test the splash in a preview or production build: Expo Go does not show it.
+
+What a shared link looks like, and what search engines read, is set in `scripts/web-head.js` and
+added to the site by `npm run deploy:web`. The picture is `public/og.png` (1200 x 630). The files
+in `public/` (the picture, `manifest.json`, `robots.txt`, `sitemap.xml`, the home-screen icons)
+are published as they are.

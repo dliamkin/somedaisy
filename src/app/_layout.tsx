@@ -5,8 +5,10 @@ import { Nunito_900Black } from '@expo-google-fonts/nunito/900Black';
 import { useFonts } from 'expo-font';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
+import { Launch } from '@/components/launch';
 import { Loading } from '@/components/ui';
 import { onPushTapped, showPushesWhileOpen } from '@/lib/push';
 import { SessionProvider } from '@/lib/session';
@@ -26,6 +28,23 @@ export default function RootLayout() {
     return onPushTapped((route) => router.push(route as never));
   }, [loaded]);
 
+  // In the phone app the opening screen stays for a moment, so the name can be read. Without
+  // this the fonts are ready so fast that it would be gone before anyone saw it.
+  const [opening, setOpening] = useState(Platform.OS !== 'web');
+  useEffect(() => {
+    const timer = setTimeout(() => setOpening(false), 1100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (Platform.OS !== 'web' && (!loaded || opening)) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <Launch />
+      </>
+    );
+  }
+  // The website starts on whatever page was asked for, so it only waits, with no opening screen.
   if (!loaded) return <Loading />;
   return (
     <SessionProvider>
