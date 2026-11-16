@@ -145,6 +145,33 @@ export function PopIn({ children, delay = 0, style }: { children: ReactNode; del
   );
 }
 
+/**
+ * Slides its contents in from one side while they fade up, once, when it first appears. Give it
+ * a new `key` to play it again, as when switching from one list to another. `from` is 1 to come
+ * in from the right and -1 from the left. People who have asked for less motion get no movement.
+ */
+export function SlideIn({ children, from = 1, style }: { children: ReactNode; from?: 1 | -1; style?: StyleProp<ViewStyle> }) {
+  const reduced = useReducedMotion();
+  const [progress] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    if (reduced === null) return;
+    if (reduced) {
+      progress.setValue(1);
+      return;
+    }
+    const run = Animated.timing(progress, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE });
+    run.start();
+    return () => run.stop();
+  }, [reduced, progress]);
+
+  return (
+    <Animated.View style={[style, { opacity: progress, transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [36 * from, 0] }) }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 type Corner = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight';
 
 const CORNERS: Record<Corner, ViewStyle> = {

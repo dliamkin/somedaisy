@@ -2,14 +2,15 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
+import { PopIn } from '@/components/celebrate';
 import { PointsBar, StampMark } from '@/components/together';
 import { Button, Card, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
+import { colorForName, TILE_COLORS } from '@/lib/looks';
 import { dayLabel } from '@/lib/plans';
 import { levelFor, stampsFor, TITLES, totalPoints, type Completion, type Stamp } from '@/lib/points';
 import { colors } from '@/lib/theme';
 import { fetchCompletions } from '@/lib/together';
 
-const PASTELS = [colors.sky, colors.peach, colors.mint, colors.yellow];
 
 /** The group's passport: its title and points, and a stamp for everything it has done. */
 export default function Stamps() {
@@ -99,7 +100,7 @@ export default function Stamps() {
 
       {completions.length === 0 ? (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 24 }}>
-          <StampMark emoji="🌼" color={colors.today} size={72} />
+          <StampMark icon="daisy" color={TILE_COLORS[0]} size={72} tilt={-6} />
           <T size={20} weight="black" center>
             No stamps yet
           </T>
@@ -109,22 +110,53 @@ export default function Stamps() {
         </View>
       ) : null}
 
-      {special.length > 0 ? <StampGrid title="Special stamps" stamps={special} now={now} /> : null}
+      {completions.length > 0 ? (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Tally count={ordinary.length} label={ordinary.length === 1 ? 'stamp' : 'stamps'} />
+          <Tally count={special.length} label={special.length === 1 ? 'special stamp' : 'special stamps'} />
+          <Tally count={new Set(ordinary.map((s) => s.tone)).size} label={new Set(ordinary.map((s) => s.tone)).size === 1 ? 'list tried' : 'lists tried'} />
+        </View>
+      ) : null}
+
+      {special.length > 0 ? <StampGrid title="Special stamps" stamps={special} now={now} big /> : null}
       {ordinary.length > 0 ? <StampGrid title="Everything you did" stamps={ordinary} now={now} /> : null}
     </Screen>
   );
 }
 
-function StampGrid({ title, stamps, now }: { title: string; stamps: Stamp[]; now: Date }) {
+/** One number from the page's tally, on a small white tile. */
+function Tally({ count, label }: { count: number; label: string }) {
   return (
-    <View style={{ gap: 10 }}>
+    <View
+      accessible
+      accessibilityLabel={`${count} ${label}`}
+      style={{ flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.edge }}>
+      <T size={22} weight="black" color={colors.grape}>
+        {count}
+      </T>
+      <T size={12} weight="extra" color={colors.muted} center>
+        {label}
+      </T>
+    </View>
+  );
+}
+
+// Each stamp sits a little crooked, as if pressed on by hand. The turns repeat down the page.
+const TILTS = [-7, 5, -3, 8, -5, 3];
+
+function StampGrid({ title, stamps, now, big }: { title: string; stamps: Stamp[]; now: Date; big?: boolean }) {
+  return (
+    <Card style={{ padding: 18, gap: 14 }}>
       <T size={16} weight="black">
         {title}
       </T>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {stamps.map((stamp, i) => (
           <View key={stamp.key} style={{ width: '33.33%', alignItems: 'center', gap: 4, paddingHorizontal: 4, paddingBottom: 16 }}>
-            <StampMark emoji={stamp.emoji} color={PASTELS[i % PASTELS.length]} size={64} special={stamp.special} />
+            {/* The stamps land one after another. Only the first dozen wait their turn, so a long page is not slow. */}
+            <PopIn delay={Math.min(i, 12) * 70}>
+              <StampMark icon={stamp.icon} color={colorForName(stamp.tone)} size={big ? 72 : 60} special={stamp.special} tilt={TILTS[i % TILTS.length]} />
+            </PopIn>
             <T size={13} weight="extra" center lines={2}>
               {stamp.title}
             </T>
@@ -137,6 +169,6 @@ function StampGrid({ title, stamps, now }: { title: string; stamps: Stamp[]; now
           </View>
         ))}
       </View>
-    </View>
+    </Card>
   );
 }

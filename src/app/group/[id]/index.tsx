@@ -5,7 +5,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Daisy, PlusIcon } from '@/components/daisy';
 import { AgainChoice, EveryonesIn, NewTitle, PointsBar, YouDidIt } from '@/components/together';
 import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
-import { ListTile } from '@/components/list-tile';
+import { SlideIn } from '@/components/celebrate';
+import { ListIcon, ListTile } from '@/components/list-tile';
 import { MorphChip } from '@/components/morph-chip';
 import { PreviewPicture } from '@/components/preview-picture';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
@@ -13,7 +14,7 @@ import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, se
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
-import { lookFor } from '@/lib/looks';
+import { lookFor, type IconName } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
@@ -22,6 +23,34 @@ import { colors, MORE_REACTIONS } from '@/lib/theme';
 import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, type AgainPrompt } from '@/lib/together';
 
 /** One of the plain-word actions along the bottom of an idea card. */
+/** One of the group's other pages, as a small button with a drawn icon over its name. */
+function QuickLink({ icon, label, accessibilityLabel, onPress }: { icon: IconName; label: string; accessibilityLabel?: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      onPress={onPress}
+      style={{
+        flex: 1,
+        minHeight: 60,
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        backgroundColor: colors.white,
+        borderWidth: 1,
+        borderColor: colors.edge,
+      }}>
+      <ListIcon name={icon} size={22} color={colors.grape} />
+      <T size={12} weight="extra" color={colors.link} center lines={1}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
 function CardAction({ label, accessibilityLabel, onPress, strong }: { label: string; accessibilityLabel: string; onPress: () => void; strong?: boolean }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={{ minHeight: 44, justifyContent: 'center' }}>
@@ -42,6 +71,7 @@ export default function GroupScreen() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [newList, setNewList] = useState<string | null>(null);
   const [newLook, setNewLook] = useState<LookChoice>({ icon: null, color: null });
+  const [slideFrom, setSlideFrom] = useState<1 | -1>(1);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
   // The "you did it" screen for the person who tapped "We did it", with their do-again answer.
@@ -244,6 +274,13 @@ export default function GroupScreen() {
   // One question at a time, and not the one already being asked on the "you did it" screen.
   const prompt = prompts.find((p) => p.id !== didIt?.completion.idea_id) ?? null;
 
+  // Which side the ideas slide in from: the right when moving to a tab further along, else the left.
+  const pickList = (next: string | null) => {
+    const placeOf = (listKey: string | null) => (listKey ? group.lists.findIndex((l) => l.id === listKey) + 1 : 0);
+    setSlideFrom(placeOf(next) >= placeOf(activeList?.id ?? null) ? 1 : -1);
+    setListId(next);
+  };
+
   const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
   const openComments = (idea: Idea) => router.push(`/group/${group.id}/comments?idea=${idea.id}` as never);
   const openEdit = (idea: Idea) => router.push(`/group/${group.id}/edit?idea=${idea.id}` as never);
@@ -272,6 +309,12 @@ export default function GroupScreen() {
           }
         />
         {group.points !== null ? <PointsBar points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : null}
+        {/* The group's other pages, kept at the top so nobody has to scroll past every idea to reach them. */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <QuickLink icon="calendar" label="Calendar" onPress={() => router.push(`/group/${group.id}/calendar` as never)} />
+          <QuickLink icon="trophy" label="Things we did" onPress={() => router.push(`/group/${group.id}/done` as never)} />
+          <QuickLink icon="sliders" label="Settings" accessibilityLabel="Group settings" onPress={() => router.push(`/group/${group.id}/settings` as never)} />
+        </View>
         <ErrorNote message={error} />
 
         {prompt && !didIt ? (
@@ -343,9 +386,9 @@ export default function GroupScreen() {
         ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flexGrow: 0 }}>
-          {group.lists.length > 0 ? <Chip label="Newest" dark selected={!activeList} onPress={() => setListId(null)} /> : null}
+          {group.lists.length > 0 ? <Chip label="Newest" dark selected={!activeList} onPress={() => pickList(null)} /> : null}
           {group.lists.map((l) => (
-            <Chip key={l.id} label={l.name} dark selected={l.id === activeList?.id} onPress={() => setListId(l.id)} />
+            <Chip key={l.id} label={l.name} dark selected={l.id === activeList?.id} onPress={() => pickList(l.id)} />
           ))}
           <Chip label="+ List" dashed accessibilityLabel="Add a list" onPress={() => setNewList(newList === null ? '' : null)} />
         </ScrollView>
@@ -369,6 +412,8 @@ export default function GroupScreen() {
           </Card>
         ) : null}
 
+        {/* The ideas slide in afresh each time a different list is picked, from the side that list's tab is on. */}
+        <SlideIn key={activeList?.id ?? 'newest'} from={slideFrom} style={{ gap: 18 }}>
         {group.lists.length > 0 && ideas.length === 0 ? (
           <View style={{ alignItems: 'center', gap: 10, paddingVertical: 32 }}>
             <Daisy size={64} petal={colors.today} />
@@ -434,12 +479,12 @@ export default function GroupScreen() {
                 </Pressable>
               ) : null}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                <Chip label={count('👍') ? `👍 I'm down · ${count('👍')}` : "👍 I'm down"} accessibilityLabel={`I'm down, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
-                <Chip label={count('👎') ? `👎 Eh · ${count('👎')}` : '👎 Eh'} accessibilityLabel={`Eh, ${count('👎')}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
+                <Chip soft label={count('👍') ? `I'm down · ${count('👍')}` : "I'm down"} accessibilityLabel={`I'm down, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
+                <Chip soft label={count('👎') ? `Eh · ${count('👎')}` : 'Eh'} accessibilityLabel={`Eh, ${count('👎')}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
                 {extras.map((e) => (
-                  <Chip key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
+                  <Chip soft key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
                 ))}
-                <Chip label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
+                <Chip soft label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
               </View>
               {pickerFor === idea.id ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
@@ -457,8 +502,8 @@ export default function GroupScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: 2,
-                        borderColor: mine(e) ? colors.pink : 'transparent',
-                        backgroundColor: mine(e) ? colors.pinkTint : colors.ground,
+                        borderColor: mine(e) ? colors.grape : 'transparent',
+                        backgroundColor: mine(e) ? colors.grapeTint : colors.ground,
                       }}>
                       <T size={22}>{e}</T>
                     </Pressable>
@@ -539,15 +584,14 @@ export default function GroupScreen() {
             </Card>
           );
         })}
+        </SlideIn>
 
         <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', paddingTop: 4 }}>
           {group.members.map((m) => (
             <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
           ))}
         </View>
-        <Button label="Calendar" kind="ghost" small onPress={() => router.push(`/group/${group.id}/calendar` as never)} />
-        <Button label="Things we did" kind="ghost" small onPress={() => router.push(`/group/${group.id}/done` as never)} />
-        <Button label="Group settings" kind="ghost" small onPress={() => router.push(`/group/${group.id}/settings` as never)} />
+
       </Screen>
 
       {didIt ? (
