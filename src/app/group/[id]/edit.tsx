@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { deleteIdea, fetchGroup, markChanged, updateIdea, type Idea, type List } from '@/lib/data';
+import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { attachPreview } from '@/lib/preview';
 import { colors } from '@/lib/theme';
@@ -54,8 +54,9 @@ export default function EditIdea() {
     setError(null);
     try {
       await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId });
-      // A new link gets its own preview picture, looked up in the background. So does a link that has none yet.
-      if (tidy.link && (tidy.link !== idea.link || !idea.image_url)) void attachPreview(idea.id, tidy.link);
+      // The link's preview picture is looked up afresh in the background on every save, so a
+      // picture that has stopped loading is replaced, and a link that had none gets another try.
+      if (tidy.link) void attachPreview(idea.id, tidy.link).then((saved) => saved && lateChange(id));
       markChanged(id);
       back();
     } catch (e) {

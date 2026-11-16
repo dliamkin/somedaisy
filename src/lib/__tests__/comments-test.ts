@@ -1,4 +1,4 @@
-import { addComment, cleanComment, COMMENT_MAX, countByIdea, fetchComments, removeComment, timeAgo } from '../comments';
+import { addComment, cleanComment, COMMENT_MAX, countByIdea, fetchComments, latestByIdea, removeComment, timeAgo } from '../comments';
 import { db } from '../supabase';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
@@ -34,6 +34,22 @@ describe('cleanComment', () => {
 
   it('cuts text the database would refuse as too long', () => {
     expect(cleanComment('x'.repeat(COMMENT_MAX + 50))).toHaveLength(COMMENT_MAX);
+  });
+});
+
+describe('latestByIdea', () => {
+  const row = (id: string, idea: string, day: number) => ({ id, idea_id: idea, user_id: 'u', body: id, created_at: `2026-01-0${day}T10:00:00Z` });
+
+  it('keeps the newest two per idea, older one first, whatever order the rows come in', () => {
+    const latest = latestByIdea([row('c3', 'a', 3), row('b1', 'b', 2), row('c1', 'a', 1), row('c2', 'a', 2)]);
+    expect(latest.a.map((c) => c.id)).toEqual(['c2', 'c3']);
+    expect(latest.b.map((c) => c.id)).toEqual(['b1']);
+  });
+
+  it('can keep a different number, and is empty when there are no rows', () => {
+    expect(latestByIdea([row('c1', 'a', 1), row('c2', 'a', 2)], 1).a.map((c) => c.id)).toEqual(['c2']);
+    expect(latestByIdea([])).toEqual({});
+    expect(latestByIdea(null)).toEqual({});
   });
 });
 

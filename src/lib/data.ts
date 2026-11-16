@@ -1,4 +1,4 @@
-import { countByIdea } from './comments';
+import { countByIdea, latestByIdea, type Comment } from './comments';
 import { db } from './supabase';
 
 /** `photo_url` and `photo_hidden` need supabase/updates/004-profile-photo.sql; without it they are simply absent. */
@@ -6,7 +6,8 @@ export type Profile = { id: string; name: string; color: string; photo_url?: str
 /** `photo` is the person's Google picture, when they have one and show it. */
 export type Member = { user_id: string; name: string; color: string; photo: string | null };
 export type GroupSummary = { id: string; name: string; cover: string; members: Member[] };
-export type List = { id: string; name: string; position: number };
+/** `icon` and `color` need supabase/updates/012-list-looks.sql; without it they are simply absent. */
+export type List = { id: string; name: string; position: number; icon?: string | null; color?: string | null };
 export type Idea = {
   id: string;
   list_id: string;
@@ -33,6 +34,8 @@ export type GroupData = {
   reactions: Reaction[];
   /** How many comments each idea has, by idea id. Ideas with none are left out. */
   commentCounts: Record<string, number>;
+  /** The newest two comments on each idea, older one first, to show on its card. */
+  latestComments: Record<string, Comment[]>;
   /** The points the group has earned by doing things. Null when points are not set up in the database yet (update 008). */
   points: number | null;
 };
@@ -70,7 +73,8 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
   const [g, m, l, i, r, c, p] = await Promise.all([
     client.from('groups').select('id, name, cover, invite_code, created_by').eq('id', id).maybeSingle(),
     client.from('group_members').select('user_id, profiles(*)').eq('group_id', id).order('joined_at'),
-    client.from('lists').select('id, name, position').eq('group_id', id).order('position'),
+    // "*" takes whatever a list has, so this works before and after update 012 (icons and colours).
+    client.from('lists').select('*').eq('group_id', id).order('position'),
     client
       .from('ideas')
       // "*" takes whatever an idea has, so this works before and after update 011 (preview pictures).
@@ -79,7 +83,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
       .is('done_at', null)
       .order('created_at', { ascending: false }),
     client.from('reactions').select('idea_id, user_id, emoji').eq('group_id', id),
-    client.from('comments').select('idea_id').eq('group_id', id),
+    client.from('comments').select('id, idea_id, user_id, body, created_at').eq('group_id', id),
     client.from('completions').select('points').eq('group_id', id),
   ]);
   fail(g.error ?? m.error ?? l.error ?? i.error ?? r.error);
@@ -97,6 +101,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     reactions: (r.data ?? []) as Reaction[],
     // A failure here (comments not set up in the database yet) must not hide the whole group.
     commentCounts: c.error ? {} : countByIdea(c.data as { idea_id: string }[] | null),
+    latestComments: c.error ? {} : latestByIdea(c.data as Comment[] | null),
     // The same goes for points: without them the group still shows, just with no bar.
     points: p.error ? null : ((p.data ?? []) as { points: number }[]).reduce((sum, row) => sum + row.points, 0),
   };
@@ -195,8 +200,31 @@ export async function resetInviteCode(groupId: string): Promise<string> {
   return settingsCall<string>('reset_invite_code', { p_group: groupId });
 }
 
-export async function addList(groupId: string, name: string, position: number): Promise<void> {
-  const { error } = await db().from('lists').insert({ group_id: groupId, name, position });
+/** The database saying it has no such column: the update that adds it has not been run. */
+const noSuchColumn = (error: unknown) => ['PGRST204', '42703'].includes((error as { code?: string } | null)?.code ?? '');
+
+/** What someone chose for a list's icon and colour. Null leaves the choice to the app. */
+export type ListLookChoice = { icon: string | null; color: string | null };
+
+export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice): Promise<void> {
+  const row = { group_id: groupId, name, position };
+  const chosen = look && (look.icon || look.color) ? { icon: look.icon, color: look.color } : null;
+  const { error } = await db()
+    .from('lists')
+    .insert(chosen ? { ...row, ...chosen } : row);
+  // Before update 012 a list cannot keep an icon or colour. The list itself still gets made.
+  if (chosen && noSuchColumn(error)) {
+    const plain = await db().from('lists').insert(row);
+    fail(plain.error);
+    return;
+  }
+  fail(error);
+}
+
+/** Change a list's icon and colour (update 012). Null hands the choice back to the app. */
+export async function setListLook(listId: string, look: ListLookChoice): Promise<void> {
+  const { error } = await db().from('lists').update({ icon: look.icon, color: look.color }).eq('id', listId);
+  if (noSuchColumn(error)) throw new Error('This is not available yet. Try again later.');
   fail(error);
 }
 
@@ -343,4 +371,24 @@ export function markChanged(groupId: string): void {
 }
 export function takeChanged(groupId: string): boolean {
   return dirty.delete(groupId);
+}
+
+// For a change that lands a moment after its screen has closed (a preview picture being found):
+// the group page listens here while it is open, and shows the change at once instead of waiting
+// for its next routine reload.
+const watchers = new Map<string, Set<() => void>>();
+export function onLateChange(groupId: string, listener: () => void): () => void {
+  const set = watchers.get(groupId) ?? new Set();
+  watchers.set(groupId, set);
+  set.add(listener);
+  return () => {
+    set.delete(listener);
+    if (set.size === 0) watchers.delete(groupId);
+  };
+}
+export function lateChange(groupId: string): void {
+  const set = watchers.get(groupId);
+  // Nobody is looking at the group right now: leave a mark for when its page next opens.
+  if (!set || set.size === 0) dirty.add(groupId);
+  else for (const listener of [...set]) listener();
 }

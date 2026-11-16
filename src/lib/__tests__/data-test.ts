@@ -15,10 +15,14 @@ import {
   removeList,
   removeMember,
   renameList,
+  setListLook,
+  addList,
   resetInviteCode,
   restoreIdea,
   setReaction,
   takeChanged,
+  onLateChange,
+  lateChange,
   updateGroup,
   updateIdea,
   type Member,
@@ -85,6 +89,28 @@ describe('everyoneIn', () => {
 
   it('is never true for a group of one', () => {
     expect(everyoneIn('i1', [member('ann')], [react('i1', 'ann', '👍')])).toBe(false);
+  });
+});
+
+describe('onLateChange / lateChange', () => {
+  it('tells the open group page at once, and only that group', () => {
+    const heard = jest.fn();
+    const stop = onLateChange('late1', heard);
+    lateChange('late2');
+    expect(heard).not.toHaveBeenCalled();
+    lateChange('late1');
+    expect(heard).toHaveBeenCalledTimes(1);
+    expect(takeChanged('late1')).toBe(false);
+    stop();
+    expect(takeChanged('late2')).toBe(true);
+  });
+
+  it('leaves a mark for later when the group page is not open', () => {
+    const heard = jest.fn();
+    onLateChange('late3', heard)();
+    lateChange('late3');
+    expect(heard).not.toHaveBeenCalled();
+    expect(takeChanged('late3')).toBe(true);
   });
 });
 
@@ -232,6 +258,42 @@ describe('group settings', () => {
     const [update] = stepsFor(calls, 'groups');
     expect(argsOf(update, 'update')).toEqual([{ name: 'Best friends', cover: 'mint' }]);
     expect(argsOf(update, 'eq')).toEqual(['id', 'g1']);
+  });
+
+  it('adds a list, with an icon and colour only when some were chosen', async () => {
+    const { calls } = fakeClient();
+    await addList('g1', 'Camping', 3);
+    await addList('g1', 'Films', 4, { icon: null, color: null });
+    await addList('g1', 'Beach', 5, { icon: 'wave', color: null });
+    expect(stepsFor(calls, 'lists').map((steps) => argsOf(steps, 'insert'))).toEqual([
+      [{ group_id: 'g1', name: 'Camping', position: 3 }],
+      [{ group_id: 'g1', name: 'Films', position: 4 }],
+      [{ group_id: 'g1', name: 'Beach', position: 5, icon: 'wave', color: null }],
+    ]);
+  });
+
+  it('still adds the list when the database cannot keep icons and colours yet', async () => {
+    const { calls } = fakeClient({ lists: [{ error: { message: 'no icon column', code: 'PGRST204' } as never }] });
+    await addList('g1', 'Beach', 5, { icon: 'wave', color: '#2F7BE8' });
+    expect(stepsFor(calls, 'lists').map((steps) => argsOf(steps, 'insert'))).toEqual([
+      [{ group_id: 'g1', name: 'Beach', position: 5, icon: 'wave', color: '#2F7BE8' }],
+      [{ group_id: 'g1', name: 'Beach', position: 5 }],
+    ]);
+  });
+
+  it('fails to add a list for any other reason', async () => {
+    fakeClient({ lists: [{ error: { message: 'not a member' } }] });
+    await expect(addList('g1', 'Beach', 5, { icon: 'wave', color: null })).rejects.toThrow('not a member');
+  });
+
+  it('saves a list\'s icon and colour, and says so plainly when the database is not ready', async () => {
+    const { calls } = fakeClient();
+    await setListLook('l1', { icon: 'tent', color: '#1FA98A' });
+    const [update] = stepsFor(calls, 'lists');
+    expect(argsOf(update, 'update')).toEqual([{ icon: 'tent', color: '#1FA98A' }]);
+    expect(argsOf(update, 'eq')).toEqual(['id', 'l1']);
+    fakeClient({ lists: [{ error: { message: 'no icon column', code: '42703' } as never }] });
+    await expect(setListLook('l1', { icon: 'tent', color: null })).rejects.toThrow('not available yet');
   });
 
   it('renames a list', async () => {
@@ -425,7 +487,15 @@ describe('fetchGroup', () => {
       lists: [{ data: [list] }],
       ideas: [{ data: [idea] }],
       reactions: [{ data: [react('i1', 'ann', '👍')] }],
-      comments: [{ data: [{ idea_id: 'i1' }, { idea_id: 'i1' }] }],
+      comments: [
+        {
+          data: [
+            { id: 'c3', idea_id: 'i1', user_id: 'bo', body: 'Third', created_at: '2026-01-03T10:00:00Z' },
+            { id: 'c1', idea_id: 'i1', user_id: 'ann', body: 'First', created_at: '2026-01-01T10:00:00Z' },
+            { id: 'c2', idea_id: 'i1', user_id: 'bo', body: 'Second', created_at: '2026-01-02T10:00:00Z' },
+          ],
+        },
+      ],
       completions: [{ data: [{ points: 20 }, { points: 15 }] }],
     });
     expect(await fetchGroup('g1')).toEqual({
@@ -442,7 +512,13 @@ describe('fetchGroup', () => {
       lists: [list],
       ideas: [idea],
       reactions: [react('i1', 'ann', '👍')],
-      commentCounts: { i1: 2 },
+      commentCounts: { i1: 3 },
+      latestComments: {
+        i1: [
+          { id: 'c2', idea_id: 'i1', user_id: 'bo', body: 'Second', created_at: '2026-01-02T10:00:00Z' },
+          { id: 'c3', idea_id: 'i1', user_id: 'bo', body: 'Third', created_at: '2026-01-03T10:00:00Z' },
+        ],
+      },
       points: 35,
     });
   });
@@ -465,7 +541,9 @@ describe('fetchGroup', () => {
       groups: [{ data: { id: 'g1', name: 'Friends', cover: '🌼', invite_code: 'abc' } }],
       comments: [{ error: { message: 'relation "comments" does not exist' } }],
     });
-    expect((await fetchGroup('g1'))?.commentCounts).toEqual({});
+    const group = await fetchGroup('g1');
+    expect(group?.commentCounts).toEqual({});
+    expect(group?.latestComments).toEqual({});
   });
 
   it('leaves out ideas that are marked done', async () => {

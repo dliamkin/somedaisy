@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Switch, View } from 'react-native';
 
 import { Button, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { addIdea, fetchGroup, markChanged, type List } from '@/lib/data';
+import { addIdea, fetchGroup, lateChange, markChanged, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { attachPreview } from '@/lib/preview';
 import { useSession } from '@/lib/session';
@@ -45,7 +45,7 @@ export default function AddIdea() {
     try {
       const ideaId = await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp });
       // The link's preview picture is looked up in the background and appears on the card shortly after.
-      if (tidy.link) void attachPreview(ideaId, tidy.link);
+      if (tidy.link) void attachPreview(ideaId, tidy.link).then((saved) => saved && lateChange(id));
       markChanged(id);
       back();
     } catch (e) {
@@ -78,10 +78,10 @@ export default function AddIdea() {
             Count me in
           </T>
           <T size={14} color={colors.muted}>
-            Adds your thumbs up right away
+            {`Adds your "I'm down" right away`}
           </T>
         </View>
-        <Switch accessibilityLabel="Add my thumbs up" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.grape, false: '#8E80A3' }} thumbColor={colors.white} />
+        <Switch accessibilityLabel="Add my I'm down" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.grape, false: '#8E80A3' }} thumbColor={colors.white} />
       </View>
       <ErrorNote message={error} />
     </Screen>
