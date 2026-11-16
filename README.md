@@ -217,7 +217,12 @@ in `supabase/updates/008-you-did-it.sql`, and the titles in `src/lib/points.ts`.
 
 When everyone in a group says they would do something again, it goes on the do-again shelf in
 Things we did. "Do it again" there puts it back on its list, to be planned and done once more.
-That is the only way a done idea goes back.
+That is the only way a done idea goes back, apart from undo.
+
+A "We did it" tapped by mistake can be undone for 10 minutes, from the celebration screen or from
+Things we did, by anyone in the group. The idea returns to its list and the points and stamp it
+has just earned are removed. This is the one case where points go down, and it needs
+`supabase/updates/013-undo-done.sql`; without it the app says undo is not set up yet.
 
 All of this needs update 008. Without it the app works as before: no bar, no stamps, and done
 ideas keep their plain "Put it back on the list".

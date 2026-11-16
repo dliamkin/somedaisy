@@ -88,3 +88,26 @@ export async function fetchAgainPrompts(groupId: string, userId: string, now: Da
   const answered = new Set(((votes.data ?? []) as { idea_id: string }[]).map((v) => v.idea_id));
   return ((done.data ?? []) as AgainPrompt[]).filter((i) => !answered.has(i.id)).map((i) => ({ id: i.id, title: i.title }));
 }
+
+/** How long after "We did it" the mark can still be undone, points and stamp included. */
+export const UNDO_MINUTES = 10;
+
+/** True while something marked as done at that time can still be undone. */
+export function canUndoDone(doneAt: string | null | undefined, now: Date = new Date()): boolean {
+  if (!doneAt) return false;
+  const age = now.getTime() - new Date(doneAt).getTime();
+  // A phone's clock can run a little ahead of the database's, hence the minute of leeway.
+  return age > -60 * 1000 && age < UNDO_MINUTES * 60 * 1000;
+}
+
+/**
+ * Take back a mistaken "We did it": the idea returns to its list and the points and stamp it has
+ * just earned are removed. False when it is too late and nothing was changed.
+ * Needs supabase/updates/013-undo-done.sql.
+ */
+export async function undoDone(ideaId: string): Promise<boolean> {
+  const { data, error } = await db().rpc('undo_done', { p_idea: ideaId });
+  if (error?.code === 'PGRST202') throw new Error('Undo is not set up yet. Try again later.');
+  if (error) throw new Error(error.message);
+  return data === true;
+}
