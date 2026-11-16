@@ -42,5 +42,12 @@ export const shadow = {
   elevation: 3,
 };
 
-export const REACTIONS = ['👍', '👎', '😍', '🍿', '😂', '🤔'];
+// The emoji offered under "+ emoji" on an idea. Thumbs up and down have their own buttons.
+export const MORE_REACTIONS = [
+  '😍', '🔥', '🎉', '😂', '🤔', '🍿', '❤️', '🤩',
+  '🙌', '👏', '🥳', '😎', '😋', '🤤', '😮', '👀',
+  '💯', '✨', '🤝', '🙈', '😬', '😴', '💸', '🌧️',
+  '☀️', '🏖️', '⛰️', '🚗', '✈️', '🍕', '🍷', '🎶',
+];
+export const REACTIONS = ['👍', '👎', ...MORE_REACTIONS];
 export const STARTER_LISTS = ['Movies', 'Places', 'Food', 'Shows', 'Games', 'Trips', 'Day trips'];

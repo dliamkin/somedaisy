@@ -45,6 +45,21 @@ export function countByIdea(rows: { idea_id: string }[] | null | undefined): Rec
   return counts;
 }
 
+/**
+ * The newest few comments on each idea, oldest of them first so they read like a conversation.
+ * The rows can come in any order. Ideas with no comments are left out.
+ */
+export function latestByIdea(rows: Comment[] | null | undefined, keep = 2): Record<string, Comment[]> {
+  const latest: Record<string, Comment[]> = {};
+  const inOrder = [...(rows ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  for (const row of inOrder) {
+    const list = (latest[row.idea_id] ??= []);
+    list.push(row);
+    if (list.length > keep) list.shift();
+  }
+  return latest;
+}
+
 /** When a comment was written, said briefly: "just now", "5 min ago", "3 hr ago", then the date. */
 export function timeAgo(iso: string, now: Date): string {
   const then = new Date(iso);

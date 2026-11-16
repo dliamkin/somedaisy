@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 
+import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { Avatar, Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import {
   fetchGroup,
@@ -11,6 +12,7 @@ import {
   removeList,
   removeMember,
   renameList,
+  setListLook,
   resetInviteCode,
   setGroupMuted,
   updateGroup,
@@ -18,6 +20,7 @@ import {
   type List,
   type Member,
 } from '@/lib/data';
+import { cleanHex, isIcon } from '@/lib/looks';
 import { useSession } from '@/lib/session';
 import { colors, covers } from '@/lib/theme';
 
@@ -31,7 +34,7 @@ export default function GroupSettings() {
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
   const [name, setName] = useState('');
   const [cover, setCover] = useState('sky');
-  const [editing, setEditing] = useState<{ list: List; name: string } | null>(null);
+  const [editing, setEditing] = useState<{ list: List; name: string; look: LookChoice } | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,11 +196,16 @@ export default function GroupSettings() {
           Lists
         </T>
         <T size={14} weight="medium" color={colors.muted}>
-          Tap a list to rename it. A list with nothing on it can be removed.
+          Tap a list to rename it or change its icon and colour. A list with nothing on it can be removed.
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {group.lists.map((l) => (
-            <Chip key={l.id} label={l.name} selected={editing?.list.id === l.id} onPress={() => setEditing(editing?.list.id === l.id ? null : { list: l, name: l.name })} />
+            <Chip
+              key={l.id}
+              label={l.name}
+              selected={editing?.list.id === l.id}
+              onPress={() => setEditing(editing?.list.id === l.id ? null : { list: l, name: l.name, look: { icon: isIcon(l.icon) ? l.icon : null, color: cleanHex(l.color) } })}
+            />
           ))}
         </View>
         {editing ? (
@@ -211,6 +219,22 @@ export default function GroupSettings() {
                 void run(() => renameList(list.id, next.trim()), 'List renamed.').then((ok) => ok && setEditing(null));
               }}
               disabled={!editing.name.trim() || editing.name.trim() === editing.list.name || busy}
+            />
+            <ListLookPicker
+              key={editing.list.id}
+              name={editing.name}
+              place={Math.max(0, group.lists.findIndex((l) => l.id === editing.list.id))}
+              value={editing.look}
+              onChange={(look) => setEditing({ ...editing, look })}
+            />
+            <Button
+              label="Save icon and colour"
+              small
+              onPress={() => {
+                const { list, look } = editing;
+                void run(() => setListLook(list.id, look), 'Icon and colour saved.').then((ok) => ok && setEditing(null));
+              }}
+              disabled={busy || (editing.look.icon === (isIcon(editing.list.icon) ? editing.list.icon : null) && editing.look.color === cleanHex(editing.list.color))}
             />
             <Button
               label="Remove this list"

@@ -99,12 +99,54 @@ describe('previewPicture', () => {
     new Response(body, { status, headers });
   const redirect = (to: string) => new Response(null, { status: 302, headers: { location: to } });
   const og = page('<meta property="og:image" content="https://cdn.example.org/a.jpg">');
+  const jpeg = () => new Response('', { status: 200, headers: { 'content-type': 'image/jpeg' } });
+  // A pretend web: anything on cdn.example.org is a photo, everything else is answered by `pages`.
+  const web = (pages: (url: string) => Response) => jest.fn(async (url: string) => (url.startsWith('https://cdn.example.org/') ? jpeg() : pages(url)));
 
-  it('fetches the page and returns its picture', async () => {
-    const fetcher = jest.fn(async () => html(og));
+  it('fetches the page, checks its picture and returns it', async () => {
+    const fetcher = web(() => html(og));
     expect(await previewPicture('https://example.org/x', fetcher)).toBe('https://cdn.example.org/a.jpg');
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls.map((c) => c[0])).toEqual(['https://example.org/x', 'https://cdn.example.org/a.jpg']);
     expect(fetcher.mock.calls[0]).toMatchObject(['https://example.org/x', { redirect: 'manual' }]);
+  });
+
+  it('passes over a named picture that is really a web page, and uses the first photo on the page', async () => {
+    const body =
+      '<img class="logo" src="https://cdn.example.org/logo.png"><img src="/art/drawing.svg"><img src="https://cdn.example.org/tiny.jpg" width="40">' +
+      '<img class="Hero-image" src="//cdn.example.org/hero.jpg" alt=""><img src="https://cdn.example.org/second.jpg">';
+    const broken = `<html><head><meta property="og:image" content="https://example.org/"></head><body>${body}</body></html>`;
+    const fetcher = web(() => html(broken));
+    expect(await previewPicture('https://example.org/place', fetcher)).toBe('https://cdn.example.org/hero.jpg');
+    expect(fetcher.mock.calls.map((c) => c[0])).toEqual(['https://example.org/place', 'https://example.org/', 'https://cdn.example.org/hero.jpg']);
+  });
+
+  it('stops at a site that only lets browsers in, and takes nothing from its puzzle page', async () => {
+    const puzzle = () => html(og, 202, { 'content-type': 'text/html', 'x-amzn-waf-action': 'challenge' });
+    const fetcher = web(puzzle);
+    expect(await previewPicture('https://example.org/x', fetcher)).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes over a named picture that is gone', async () => {
+    const fetcher = jest.fn(async (url: string) => (url.endsWith('.jpg') ? html('gone', 404) : html(og)));
+    expect(await previewPicture('https://example.org/x', fetcher)).toBeNull();
+  });
+
+  it('keeps a named picture when its site will not say either way', async () => {
+    const refused = jest.fn(async (url: string) => (url.endsWith('.jpg') ? html('no robots', 403) : html(og)));
+    expect(await previewPicture('https://example.org/x', refused)).toBe('https://cdn.example.org/a.jpg');
+    const down = jest.fn(async (url: string) => {
+      if (url.endsWith('.jpg')) throw new Error('network');
+      return html(og);
+    });
+    expect(await previewPicture('https://example.org/x', down)).toBe('https://cdn.example.org/a.jpg');
+  });
+
+  it('only uses a photo from the page when it certainly loads, and tries no more than three', async () => {
+    const photos = [1, 2, 3, 4].map((n) => `<img src="https://photos.example.org/${n}.jpg">`).join('');
+    const fetcher = jest.fn(async (url: string) => (url.endsWith('.jpg') ? html('no robots', 403) : html(page('') + photos)));
+    expect(await previewPicture('https://example.org/x', fetcher)).toBeNull();
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
   it('never fetches an address it should not touch', async () => {
@@ -115,9 +157,9 @@ describe('previewPicture', () => {
   });
 
   it('follows a redirect to another site', async () => {
-    const fetcher = jest.fn(async (url: string) => (url === 'https://short.example.org/a' ? redirect('https://example.org/long') : html(og)));
+    const fetcher = web((url) => (url === 'https://short.example.org/a' ? redirect('https://example.org/long') : html(og)));
     expect(await previewPicture('https://short.example.org/a', fetcher)).toBe('https://cdn.example.org/a.jpg');
-    expect(fetcher.mock.calls.map((c) => c[0])).toEqual(['https://short.example.org/a', 'https://example.org/long']);
+    expect(fetcher.mock.calls.map((c) => c[0])).toEqual(['https://short.example.org/a', 'https://example.org/long', 'https://cdn.example.org/a.jpg']);
   });
 
   it('stops when a redirect points somewhere it should not go', async () => {
@@ -137,9 +179,35 @@ describe('previewPicture', () => {
     expect(await previewPicture('https://example.org/x', async () => html(og, 200, { 'content-type': 'application/pdf' }))).toBeNull();
   });
 
-  it('reads only the start of a very large page', async () => {
+  it('works out a video picture from the address without fetching anything', async () => {
+    const fetcher = jest.fn(async () => html(og));
+    const picture = 'https://i.ytimg.com/vi/IeFWNtMo1Fs/hqdefault.jpg';
+    expect(await previewPicture('https://www.youtube.com/watch?v=IeFWNtMo1Fs', fetcher)).toBe(picture);
+    expect(await previewPicture('https://youtu.be/IeFWNtMo1Fs?t=10', fetcher)).toBe(picture);
+    expect(await previewPicture('https://m.youtube.com/shorts/IeFWNtMo1Fs', fetcher)).toBe(picture);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('reads the page as usual for a video site address that is not a video', async () => {
+    const fetcher = web(() => html(og));
+    expect(await previewPicture('https://www.youtube.com/@somechannel', fetcher)).toBe('https://cdn.example.org/a.jpg');
+    expect(await previewPicture('https://www.youtube.com/watch?v=bad id!', fetcher)).toBe('https://cdn.example.org/a.jpg');
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it('stops reading at the end of the heading section', async () => {
     const big = page('<meta property="og:image" content="https://cdn.example.org/a.jpg">') + 'x'.repeat(400_000) + '<meta property="og:image:secure_url" content="https://cdn.example.org/late.jpg">';
-    expect(await previewPicture('https://example.org/x', async () => html(big))).toBe('https://cdn.example.org/a.jpg');
+    expect(await previewPicture('https://example.org/x', web(() => html(big)))).toBe('https://cdn.example.org/a.jpg');
+  });
+
+  it('finds a picture named a long way into the heading section, as video sites do', async () => {
+    const deep = page(`<style>${'x'.repeat(800_000)}</style><meta property="og:image" content="https://cdn.example.org/a.jpg">`);
+    expect(await previewPicture('https://example.org/x', web(() => html(deep)))).toBe('https://cdn.example.org/a.jpg');
+  });
+
+  it('gives up on a page that names its picture beyond the first 2 MB', async () => {
+    const endless = page(`<style>${'x'.repeat(2_100_000)}</style><meta property="og:image" content="https://cdn.example.org/a.jpg">`);
+    expect(await previewPicture('https://example.org/x', web(() => html(endless)))).toBeNull();
   });
 });
 

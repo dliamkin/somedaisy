@@ -4,17 +4,21 @@ import { Pressable, ScrollView, View } from 'react-native';
 
 import { Daisy, PlusIcon } from '@/components/daisy';
 import { AgainChoice, EveryonesIn, NewTitle, PointsBar, YouDidIt } from '@/components/together';
+import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
+import { ListTile } from '@/components/list-tile';
 import { MorphChip } from '@/components/morph-chip';
 import { PreviewPicture } from '@/components/preview-picture';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
+import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
-import { categoryEmoji, levelUp, type Completion, type Level } from '@/lib/points';
+import { timeAgo } from '@/lib/comments';
+import { lookFor } from '@/lib/looks';
+import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
-import { colors, REACTIONS } from '@/lib/theme';
+import { colors, MORE_REACTIONS } from '@/lib/theme';
 import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, type AgainPrompt } from '@/lib/together';
 
 /** One of the plain-word actions along the bottom of an idea card. */
@@ -28,8 +32,6 @@ function CardAction({ label, accessibilityLabel, onPress, strong }: { label: str
   );
 }
 
-// The pastel squares behind each idea's emoji, in turn down the list.
-const TILES = [colors.sky, colors.peach, colors.mint, colors.yellow];
 
 export default function GroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,6 +41,7 @@ export default function GroupScreen() {
   const [listId, setListId] = useState<string | null>(null);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [newList, setNewList] = useState<string | null>(null);
+  const [newLook, setNewLook] = useState<LookChoice>({ icon: null, color: null });
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
   // The "you did it" screen for the person who tapped "We did it", with their do-again answer.
@@ -111,6 +114,15 @@ export default function GroupScreen() {
     };
   }, [id, load]);
 
+  // A change that lands just after its screen closed, such as a preview picture being found:
+  // show it straight away and tell the other members.
+  useEffect(() => {
+    if (!id) return;
+    return onLateChange(id, () => {
+      void load().then(() => notifyRef.current());
+    });
+  }, [id, load]);
+
   // Reload when the screen comes back into view, and every 20 seconds as a safety net.
   useFocusEffect(
     useCallback(() => {
@@ -122,9 +134,10 @@ export default function GroupScreen() {
     }, [id, load]),
   );
 
+  // No list picked means "Newest": every list's ideas together, most recent first.
   const activeList = useMemo(() => {
-    if (!group) return null;
-    return group.lists.find((l) => l.id === listId) ?? group.lists[0] ?? null;
+    if (!group || !listId) return null;
+    return group.lists.find((l) => l.id === listId) ?? null;
   }, [group, listId]);
 
   if (group === undefined && !error) return <Loading />;
@@ -179,8 +192,9 @@ export default function GroupScreen() {
     const name = (newList ?? '').trim();
     if (!name) return;
     try {
-      await addList(group.id, name, group.lists.length + 1);
+      await addList(group.id, name, group.lists.length + 1, newLook);
       setNewList(null);
+      setNewLook({ icon: null, color: null });
       const fresh = await load();
       notifyRef.current();
       const created = fresh?.lists.find((l) => l.name === name);
@@ -235,15 +249,16 @@ export default function GroupScreen() {
   const openEdit = (idea: Idea) => router.push(`/group/${group.id}/edit?idea=${idea.id}` as never);
 
   const plans = plannedIdeas(group.ideas);
-  const ideas = activeList ? group.ideas.filter((i) => i.list_id === activeList.id) : [];
+  const newestFirst = [...group.ideas].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const ideas = activeList ? newestFirst.filter((i) => i.list_id === activeList.id) : newestFirst;
   const nameOf = (uid: string | null) => (uid === userId ? 'you' : (group.members.find((m) => m.user_id === uid)?.name ?? 'someone'));
 
   return (
     <View style={{ flex: 1 }}>
       <Screen
         footer={
-          activeList ? (
-            <Button label="Add an idea" onPress={() => router.push(`/group/${group.id}/add?list=${activeList.id}` as never)} />
+          group.lists.length > 0 ? (
+            <Button label="Add an idea" onPress={() => router.push(`/group/${group.id}/add${activeList ? `?list=${activeList.id}` : ''}` as never)} />
           ) : null
         }>
         <TopBar
@@ -328,6 +343,7 @@ export default function GroupScreen() {
         ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flexGrow: 0 }}>
+          {group.lists.length > 0 ? <Chip label="Newest" dark selected={!activeList} onPress={() => setListId(null)} /> : null}
           {group.lists.map((l) => (
             <Chip key={l.id} label={l.name} dark selected={l.id === activeList?.id} onPress={() => setListId(l.id)} />
           ))}
@@ -337,6 +353,7 @@ export default function GroupScreen() {
         {newList !== null ? (
           <Card>
             <Field label="New list name" value={newList} onChangeText={setNewList} placeholder="Shows, Games, Trips..." maxLength={40} autoFocus onSubmit={saveList} />
+            <ListLookPicker name={newList} place={group.lists.length} value={newLook} onChange={setNewLook} />
             <Button label="Add list" small onPress={saveList} disabled={!newList.trim()} />
           </Card>
         ) : null}
@@ -352,11 +369,11 @@ export default function GroupScreen() {
           </Card>
         ) : null}
 
-        {activeList && ideas.length === 0 ? (
+        {group.lists.length > 0 && ideas.length === 0 ? (
           <View style={{ alignItems: 'center', gap: 10, paddingVertical: 32 }}>
             <Daisy size={64} petal={colors.today} />
             <T size={22} weight="black" center>
-              Nothing in {activeList.name} yet
+              {activeList ? `Nothing in ${activeList.name} yet` : 'No ideas yet'}
             </T>
             <T weight="medium" color={colors.muted} center>
               Add the first idea and see who else is in.
@@ -364,31 +381,33 @@ export default function GroupScreen() {
           </View>
         ) : null}
 
-        {ideas.map((idea, index) => {
+        {ideas.map((idea) => {
+          const place = group.lists.findIndex((l) => l.id === idea.list_id);
+          const ideaList = place === -1 ? null : group.lists[place];
+          const look = lookFor(ideaList, Math.max(0, place));
           const rs = group.reactions.filter((r) => r.idea_id === idea.id);
           const count = (e: string) => rs.filter((r) => r.emoji === e).length;
           const mine = (e: string) => rs.some((r) => r.emoji === e && r.user_id === userId);
           const allIn = everyoneIn(idea.id, group.members, group.reactions);
           const waiting = group.members.filter((m) => !rs.some((r) => r.user_id === m.user_id && (r.emoji === '👍' || r.emoji === '👎')));
-          const extras = REACTIONS.filter((e) => e !== '👍' && e !== '👎' && count(e) > 0);
+          // Every other emoji someone has used on this idea, in the order they were first used.
+          const extras = [...new Set(rs.map((r) => r.emoji))].filter((e) => e !== '👍' && e !== '👎');
           const comments = group.commentCounts[idea.id] ?? 0;
+          const latest = group.latestComments[idea.id] ?? [];
           // The clock stops once the idea has a date.
           const clock = idea.planned_for ? null : somedayLabel(idea.created_at, now);
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                {/* Every idea gets a picture, so no card is bare: its list's emoji on a pastel tile. */}
-                <View
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                  style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: TILES[index % TILES.length], alignItems: 'center', justifyContent: 'center' }}>
-                  <T size={24}>{categoryEmoji(activeList?.name)}</T>
-                </View>
+                {/* Every idea gets a picture, so no card is bare: its list's icon on the list's colour. */}
+                <ListTile icon={look.icon} color={look.color} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <T size={17} weight="extra">
                     {idea.title}
                   </T>
                   <T size={13} color={colors.muted}>
+                    {/* Under "Newest" the lists are mixed together, so each card says which it is from. */}
+                    {!activeList && ideaList ? `${ideaList.name} · ` : ''}
                     Added by {nameOf(idea.added_by)}
                     {clock ? ` · ${clock}` : ''}
                   </T>
@@ -401,7 +420,7 @@ export default function GroupScreen() {
                   </View>
                 ) : null}
               </View>
-              {idea.link ? <PreviewPicture uri={idea.image_url} label={idea.title} /> : null}
+              {idea.link ? <PreviewPicture uri={idea.image_url} label={idea.title} onPress={() => openLink(idea.link as string)} /> : null}
               {idea.note ? (
                 <T size={14} weight="medium">
                   {idea.note}
@@ -415,17 +434,34 @@ export default function GroupScreen() {
                 </Pressable>
               ) : null}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                <Chip label={count('👍') ? `👍 ${count('👍')}` : '👍'} accessibilityLabel={`Thumbs up, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
-                <Chip label={count('👎') ? `👎 ${count('👎')}` : '👎'} accessibilityLabel={`Thumbs down, ${count('👎')}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
+                <Chip label={count('👍') ? `👍 I'm down · ${count('👍')}` : "👍 I'm down"} accessibilityLabel={`I'm down, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
+                <Chip label={count('👎') ? `👎 Eh · ${count('👎')}` : '👎 Eh'} accessibilityLabel={`Eh, ${count('👎')}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
                 {extras.map((e) => (
                   <Chip key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
                 ))}
                 <Chip label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
               </View>
               {pickerFor === idea.id ? (
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {REACTIONS.filter((e) => e !== '👍' && e !== '👎').map((e) => (
-                    <Chip key={e} label={e} selected={mine(e)} onPress={() => react(idea, e)} />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                  {MORE_REACTIONS.map((e) => (
+                    <Pressable
+                      key={e}
+                      accessibilityRole="button"
+                      accessibilityLabel={`React with ${e}`}
+                      accessibilityState={{ selected: mine(e) }}
+                      onPress={() => react(idea, e)}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 2,
+                        borderColor: mine(e) ? colors.pink : 'transparent',
+                        backgroundColor: mine(e) ? colors.pinkTint : colors.ground,
+                      }}>
+                      <T size={22}>{e}</T>
+                    </Pressable>
                   ))}
                 </View>
               ) : null}
@@ -461,6 +497,40 @@ export default function GroupScreen() {
                 </View>
                 <CardAction label="Edit" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
               </View>
+              {/* The newest two comments, right on the card. Tapping them opens the whole conversation. */}
+              {latest.length > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={comments > latest.length ? `See all ${comments} comments` : 'Open the comments'}
+                  onPress={() => openComments(idea)}
+                  style={{ gap: 8 }}>
+                  {comments > latest.length ? (
+                    <T size={13} weight="extra" color={colors.muted}>
+                      See all {comments} comments
+                    </T>
+                  ) : null}
+                  {latest.map((comment) => {
+                    const by = group.members.find((m) => m.user_id === comment.user_id);
+                    return (
+                      <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                        <Avatar name={by?.name ?? 'Someone'} color={by?.color ?? colors.sky} photo={by?.photo} size={26} />
+                        <View style={{ flex: 1, backgroundColor: colors.ground, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}>
+                          <T size={13} weight="extra">
+                            {comment.user_id === userId ? 'You' : (by?.name ?? 'Someone')}
+                            <T size={12} color={colors.muted}>
+                              {'  '}
+                              {timeAgo(comment.created_at, now)}
+                            </T>
+                          </T>
+                          <T size={14} weight="medium" lines={3}>
+                            {comment.body}
+                          </T>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </Pressable>
+              ) : null}
               {!allIn && waiting.length > 0 && group.members.length > 1 ? (
                 <T size={13} color={colors.muted}>
                   Waiting on {waiting.map((m) => (m.user_id === userId ? 'you' : m.name)).join(', ')}
