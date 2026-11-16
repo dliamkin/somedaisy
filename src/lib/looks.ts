@@ -53,6 +53,62 @@ export const ICONS = [
   'fish',
   'anchor',
   'flag',
+  'umbrella',
+  'cloud',
+  'rain',
+  'bolt',
+  'flame',
+  'drop',
+  'rainbow',
+  'leaf',
+  'tulip',
+  'cactus',
+  'butterfly',
+  'boat',
+  'train',
+  'rocket',
+  'compass',
+  'city',
+  'museum',
+  'store',
+  'cart',
+  'box',
+  'burger',
+  'utensils',
+  'icecream',
+  'cookie',
+  'apple',
+  'wine',
+  'beer',
+  'piano',
+  'headphones',
+  'palette',
+  'scissors',
+  'shirt',
+  'puzzle',
+  'cards',
+  'target',
+  'trophy',
+  'medal',
+  'crown',
+  'gem',
+  'ring',
+  'coin',
+  'balloon',
+  'candle',
+  'wand',
+  'ghost',
+  'smile',
+  'eye',
+  'school',
+  'laptop',
+  'phone',
+  'chat',
+  'bell',
+  'clock',
+  'calendar',
+  'key',
+  'sliders',
 ] as const;
 
 export type IconName = (typeof ICONS)[number];
@@ -106,6 +162,62 @@ export const ICON_LABELS: Record<IconName, string> = {
   fish: 'Fish',
   anchor: 'Anchor',
   flag: 'Flag',
+  umbrella: 'Umbrella',
+  cloud: 'Cloud',
+  rain: 'Rain',
+  bolt: 'Lightning',
+  flame: 'Flame',
+  drop: 'Water drop',
+  rainbow: 'Rainbow',
+  leaf: 'Leaf',
+  tulip: 'Tulip',
+  cactus: 'Cactus',
+  butterfly: 'Butterfly',
+  boat: 'Sailing boat',
+  train: 'Train',
+  rocket: 'Rocket',
+  compass: 'Compass',
+  city: 'City',
+  museum: 'Museum',
+  store: 'Shop',
+  cart: 'Shopping trolley',
+  box: 'Box',
+  burger: 'Burger',
+  utensils: 'Knife and fork',
+  icecream: 'Ice cream',
+  cookie: 'Cookie',
+  apple: 'Apple',
+  wine: 'Wine',
+  beer: 'Beer',
+  piano: 'Piano',
+  headphones: 'Headphones',
+  palette: 'Paint palette',
+  scissors: 'Scissors',
+  shirt: 'T-shirt',
+  puzzle: 'Puzzle piece',
+  cards: 'Playing card',
+  target: 'Target',
+  trophy: 'Trophy',
+  medal: 'Medal',
+  crown: 'Crown',
+  gem: 'Gem',
+  ring: 'Ring',
+  coin: 'Coin',
+  balloon: 'Balloon',
+  candle: 'Candle',
+  wand: 'Magic wand',
+  ghost: 'Ghost',
+  smile: 'Smile',
+  eye: 'Eye',
+  school: 'Graduation cap',
+  laptop: 'Laptop',
+  phone: 'Phone',
+  chat: 'Speech bubble',
+  bell: 'Bell',
+  clock: 'Clock',
+  calendar: 'Calendar',
+  key: 'Key',
+  sliders: 'Sliders',
 };
 
 export function isIcon(value: unknown): value is IconName {
@@ -135,7 +247,11 @@ export function guessIcon(listName: string | null | undefined): IconName {
 }
 
 /** The colours offered as ready-made choices, and handed out in turn to lists that have not chosen. */
-export const TILE_COLORS = ['#7B3FE4', '#2F7BE8', '#E0489E', '#1FA98A', '#4B5FE0', '#B8339A', '#0F9BB5', '#5BAA3C', '#D43D6B', '#3D4A6B'];
+export const TILE_COLORS = [
+  '#7B3FE4', '#2F7BE8', '#E0489E', '#1FA98A', '#4B5FE0', '#B8339A', '#0F9BB5', '#5BAA3C', '#D43D6B', '#3D4A6B',
+  '#9B5DE5', '#5E35B1', '#3F51B5', '#1565C0', '#42A5F5', '#00ACC1', '#00897B', '#2E7D32', '#7CB342', '#C2185B',
+  '#EC407A', '#F48FB1', '#AB47BC', '#6C63FF', '#E53935', '#546E7A', '#26A69A', '#80CBC4', '#F2C94C', '#111827',
+];
 
 /** A colour as "#RRGGBB" in capitals, from what someone typed ("#abc", "A1B2C3"), or null if it is not one. */
 export function cleanHex(input: unknown): string | null {
@@ -198,6 +314,16 @@ export function blendFor(color: string): TileBlend {
   const n = parseInt(color.slice(1), 16);
   const bright = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
   return { from: color, to, ink: bright > 0.72 ? '#2C2040' : '#FFFFFF' };
+}
+
+/**
+ * A colour for something known only by a name, such as a stamp for a list that may since have
+ * been renamed or removed. The same name always gets the same colour, from the first ten.
+ */
+export function colorForName(name: string | null | undefined): string {
+  let sum = 7;
+  for (const letter of (name ?? '').trim().toLowerCase()) sum = (sum * 131 + (letter.codePointAt(0) ?? 0)) % 1000003;
+  return TILE_COLORS[sum % 10];
 }
 
 export type ListLook = { icon: IconName; color: string };

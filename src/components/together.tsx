@@ -2,11 +2,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { breakdown, categoryEmoji, levelFor, TITLES, type Completion, type Level } from '@/lib/points';
+import { colorForName, guessIcon, type IconName } from '@/lib/looks';
+import { breakdown, levelFor, TITLES, type Completion, type Level } from '@/lib/points';
 import { colors } from '@/lib/theme';
 
 import { Blooming, Confetti, Overlay, PopIn, useReducedMotion } from './celebrate';
 import { Daisy } from './daisy';
+import { ListTile } from './list-tile';
 import { Button, Card, Chip, T } from './ui';
 
 /**
@@ -240,7 +242,7 @@ export function YouDidIt({
         <Blooming delay={900} corners={['topRight', 'bottomLeft', 'topLeft']}>
           <Card style={{ padding: 18, gap: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <StampMark emoji={categoryEmoji(completion.list_name)} color={colors.mint} special />
+              <StampMark icon={guessIcon(completion.list_name)} color={colorForName(completion.list_name)} size={48} special tilt={-6} />
               <View style={{ flex: 1, gap: 2 }}>
                 <T size={19} weight="black">
                   {completion.title}
@@ -338,22 +340,36 @@ export function EveryonesIn({ title, onPlan, onClose }: { title: string; /** Abs
   );
 }
 
-/** A round stamp: an emoji on a pastel circle with a dashed edge, drawn in the app (no image file). */
-export function StampMark({ emoji, color, size = 56, special }: { emoji: string; color: string; size?: number; special?: boolean }) {
+/**
+ * A round stamp, drawn in the app (no image file): a list's icon on its colour, with outlined
+ * flowers scattered behind it, inside a dashed ring like the edge of a postage stamp. `tilt`
+ * turns it a few degrees, as if pressed on by hand. A special stamp has a heavier ring in the
+ * daisy's yellow and a small star on its shoulder.
+ */
+export function StampMark({ icon, color, size = 56, special, tilt = 0 }: { icon: IconName; color: string; size?: number; special?: boolean; tilt?: number }) {
+  const ring = special ? 3 : 2;
+  const gap = 3;
+  const outer = size + (ring + gap) * 2;
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: color,
-        borderWidth: special ? 3 : 2,
-        borderStyle: 'dashed',
-        borderColor: special ? colors.pink : colors.dash,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-      <T size={Math.round(size * 0.45)}>{emoji}</T>
+    <View style={{ width: outer, height: outer, transform: [{ rotate: `${tilt}deg` }] }}>
+      <View
+        style={{
+          width: outer,
+          height: outer,
+          borderRadius: outer / 2,
+          borderWidth: ring,
+          borderStyle: 'dashed',
+          borderColor: special ? '#E8B923' : colors.dash,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        <ListTile icon={icon} color={color} size={size} round flowers flat />
+      </View>
+      {special ? (
+        <View pointerEvents="none" style={{ position: 'absolute', top: -4, right: -4 }}>
+          <Spark size={Math.round(size * 0.4)} />
+        </View>
+      ) : null}
     </View>
   );
 }

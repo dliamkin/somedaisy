@@ -6,6 +6,8 @@ export const colors = {
   link: '#5A25A6',
   pink: '#B8339A',
   pinkTint: '#FBE3F4',
+  grapeTint: '#EFE6FF',
+  edge: '#CFC6DC',
   today: '#E6D2FF',
   line: '#E7DBF3',
   dash: '#B49FCF',

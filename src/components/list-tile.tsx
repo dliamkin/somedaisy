@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import Svg, { Circle, ClipPath, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { blendFor, type IconName } from '@/lib/looks';
 import { shadow } from '@/lib/theme';
@@ -55,6 +55,62 @@ const DRAWINGS: Record<Exclude<IconName, 'daisy'>, string[]> = {
   fish: ['M8 12c2.5-4 6-5.5 9-5.5 2 0 3.5 2.5 5 5.5-1.5 3-3 5.5-5 5.5-3 0-6.5-1.5-9-5.5z', 'M8 12L3 8v8z', dot(17.5, 11, 0.5)],
   anchor: [dot(12, 5, 2), 'M12 7v14', 'M8 11h8', 'M4 14a8 8 0 0 0 16 0'],
   flag: ['M5 21V4', 'M5 4.5c3-1.5 5.5 1.5 8.5 0s4-1 5.5-.5v9c-1.5-.5-2.5-1-5.5.5s-5.5-1.5-8.5 0'],
+  umbrella: ['M3 12a9 9 0 0 1 18 0z', 'M12 12v7a2 2 0 0 0 4 0', 'M12 3V2'],
+  cloud: ['M7 18a4 4 0 0 1-.5-8A6 6 0 0 1 18 9.5a4.3 4.3 0 0 1-.5 8.5z'],
+  rain: ['M7 14a3.5 3.5 0 0 1-.4-7A5.5 5.5 0 0 1 17 6.5a3.8 3.8 0 0 1 0 7.5z', 'M8 17l-1 3M12 17l-1 3M16 17l-1 3'],
+  bolt: ['M13 2L4 14h7l-1 8 9-12h-7z'],
+  flame: ['M12 22c-4 0-7-3-7-7 0-3 2-5 3.5-7 .5 2 1.5 3 2.5 3 0-3 1-6 3-9 .5 4 5 7 5 13 0 4-3 7-7 7z'],
+  drop: ['M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z'],
+  rainbow: ['M3 18a9 9 0 0 1 18 0', 'M6.5 18a5.5 5.5 0 0 1 11 0', 'M10 18a2 2 0 0 1 4 0'],
+  leaf: ['M5 19C5 10 10 4 20 4c0 10-5 15-13 15', 'M5 20c2-5 5-8 9-10'],
+  tulip: ['M12 13c-3 0-5-2-5-5V4l2.5 2L12 3l2.5 3L17 4v4c0 3-2 5-5 5z', 'M12 13v8', 'M12 18c-2 0-4-1-5-3M12 18c2 0 4-1 5-3'],
+  cactus: ['M10 21V6a2 2 0 0 1 4 0v15', 'M10 14H8a2 2 0 0 1-2-2V9M14 16h2a2 2 0 0 0 2-2v-3', 'M7 21h10'],
+  butterfly: ['M12 7v12', 'M12 9C10 5 4 4 4 8c0 3 3 4 5 4-3 0-5 2-4 5 1 2.5 5 1 7-4', 'M12 9c2-4 8-5 8-1 0 3-3 4-5 4 3 0 5 2 4 5-1 2.5-5 1-7-4'],
+  boat: ['M3 17h18l-2.5 4h-13z', 'M12 3v11', 'M12 4l6 9h-6z', 'M12 7l-4 6h4'],
+  train: ['M7 3h10a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z', 'M4 10h16', 'M12 3v7', 'M8 18l-2 3M16 18l2 3', dot(8, 14, 0.5), dot(16, 14, 0.5)],
+  rocket: ['M12 2c4 3 5 8 4 13H8C7 10 8 5 12 2z', 'M8 13l-3 3v3l3-2M16 13l3 3v3l-3-2', 'M10.5 18.5c0 1.5 1.5 2 1.5 3.5 0-1.5 1.5-2 1.5-3.5', dot(12, 8.5, 1.6)],
+  compass: [dot(12, 12, 9), 'M15.5 8.5l-2 5-5 2 2-5z'],
+  city: ['M4 21V8l6-3v16M10 21V3h7v18M17 10h3v11M2.5 21h19'],
+  museum: ['M3 9l9-6 9 6z', 'M5 9v9M9.5 9v9M14.5 9v9M19 9v9', 'M3 18.5h18M2.5 21h19'],
+  store: ['M4 10v10h16V10', 'M3 10l2-6h14l2 6a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z', 'M10 20v-5h4v5'],
+  cart: ['M3 4h2.5L8 15h10l2-8H7', dot(9.5, 19, 1.2), dot(17, 19, 1.2)],
+  box: ['M3 8l9-5 9 5v8l-9 5-9-5z', 'M3 8l9 5 9-5M12 13v8'],
+  burger: ['M4 10a8 6 0 0 1 16 0z', 'M3 13.5h18', 'M4.5 17h15v1a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3z'],
+  utensils: ['M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10', 'M17 3c-2 1.5-3 4-3 7h3zM17 3v18'],
+  icecream: ['M6.5 10a5.5 5.5 0 0 1 11 0z', 'M7.5 10.5L12 22l4.5-11.5'],
+  cookie: [dot(12, 12, 9), dot(9, 9, 0.6), dot(14.5, 8.5, 0.6), dot(15, 14, 0.6), dot(9.5, 15, 0.6), dot(12, 12, 0.6)],
+  apple: ['M12 7c-2-2-7-1.5-7 4 0 5 3 10 5.5 10 .8 0 1-.5 1.5-.5s.7.5 1.5.5C16 21 19 16 19 11c0-5.5-5-6-7-4z', 'M12 7c0-2 1-3.5 3-4'],
+  wine: ['M7 3h10c0 5-1 9-5 9s-5-4-5-9z', 'M12 12v8', 'M8 20.5h8'],
+  beer: ['M6 6h10v13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z', 'M16 9h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2', 'M6 6a2.5 2.5 0 0 1 3-3 3 3 0 0 1 5 0 2.5 2.5 0 0 1 2 3', 'M9.5 10v7M12.5 10v7'],
+  piano: ['M3 5h18v14H3z', 'M8 5v9M12 5v9M16 5v9', 'M3 14h18'],
+  headphones: ['M4 16v-3a8 8 0 0 1 16 0v3', 'M4 14.5h2.5a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2zM20 14.5h-2.5a1 1 0 0 0-1 1V19a1 1 0 0 0 1 1h.5a2 2 0 0 0 2-2z'],
+  palette: ['M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5 1-1.5 2-1.5H18a3 3 0 0 0 3-3c0-5-4-9-9-9z', dot(8, 10, 0.7), dot(12, 7.5, 0.7), dot(16, 10, 0.7), dot(7.5, 14, 0.7)],
+  scissors: [dot(6, 6.5, 2.5), dot(6, 17.5, 2.5), 'M8 8l12 10M8 16L20 6'],
+  shirt: ['M8 3l4 2 4-2 5 4-2.5 3L17 9v12H7V9l-1.5 1L3 7z'],
+  puzzle: ['M4 8h4.5a2 2 0 1 1 3.5 0H16v4.2a2 2 0 1 1 0 3.6V20H4z'],
+  cards: ['M8 3h9a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M12.5 15c-2.2-1.6-3-2.7-3-3.8a1.6 1.6 0 0 1 3-.8 1.6 1.6 0 0 1 3 .8c0 1.1-.8 2.2-3 3.8z'],
+  target: [dot(12, 12, 9), dot(12, 12, 5), dot(12, 12, 1)],
+  trophy: ['M8 4h8v6a4 4 0 0 1-8 0z', 'M8 5.5H5a3 3 0 0 0 3 4.5M16 5.5h3a3 3 0 0 1-3 4.5', 'M12 14v4', 'M8 20.5h8'],
+  medal: [dot(12, 15.5, 5), 'M8 3l2.5 7.5M16 3l-2.5 7.5M8 3h8'],
+  crown: ['M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z', 'M5 21h14'],
+  gem: ['M7 4h10l4 5-9 11L3 9z', 'M3 9h18M9 4l-1 5 4 11 4-11-1-5'],
+  ring: [dot(12, 15, 6), 'M9 6l3-3 3 3-3 3z'],
+  coin: [dot(12, 12, 9), 'M14.5 9.5c-.5-1-1.5-1.5-2.5-1.5-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2c-1.1 0-2.1-.5-2.6-1.5M12 6.5V8M12 16v1.5'],
+  balloon: ['M12 3a6 6 0 0 1 6 6c0 4-3 7-6 7s-6-3-6-7a6 6 0 0 1 6-6z', 'M12 16v1.5', 'M12 17.5c-1.5 1.5 1.5 2.5 0 4'],
+  candle: ['M9 11h6v10H9z', 'M12 11V9', 'M12 7.5c-1.3-1.5 0-3 0-4.5 0 1.5 1.3 3 0 4.5z'],
+  wand: ['M4 20L16 8M14 6l4 4', 'M18 2v3M16.5 3.5h3M20 12v2M19 13h2M7 3v2M6 4h2'],
+  ghost: ['M5 21V10a7 7 0 0 1 14 0v11l-2.3-2-2.4 2-2.3-2-2.3 2-2.4-2z', dot(9.5, 10.5, 0.8), dot(14.5, 10.5, 0.8)],
+  smile: [dot(12, 12, 9), 'M8.5 14a4 4 0 0 0 7 0', dot(9, 9.5, 0.6), dot(15, 9.5, 0.6)],
+  eye: ['M2 12c3-5 6.5-7 10-7s7 2 10 7c-3 5-6.5 7-10 7s-7-2-10-7z', dot(12, 12, 3)],
+  school: ['M2 9l10-5 10 5-10 5z', 'M6 11.5V16c2 2 10 2 12 0v-4.5', 'M22 9v6'],
+  laptop: ['M5 5h14a1 1 0 0 1 1 1v10H4V6a1 1 0 0 1 1-1z', 'M2 19.5h20'],
+  phone: ['M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2z', 'M10.5 18.5h3'],
+  chat: ['M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-5 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z'],
+  bell: ['M6 17v-6a6 6 0 0 1 12 0v6l1.5 2h-15z', 'M10 21.5h4', 'M12 5V3.5'],
+  clock: [dot(12, 12, 9), 'M12 7v5l3.5 2'],
+  calendar: ['M4 6h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z', 'M3 10.5h18M8 3.5v4M16 3.5v4', dot(8, 14.5, 0.5), dot(12, 14.5, 0.5), dot(16, 14.5, 0.5)],
+  key: [dot(8, 15, 4), 'M11 12l9-9M17 6l2.5 2.5M14.5 8.5l2 2'],
+  sliders: ['M4 7h9M17 7h3M4 17h3M11 17h9', dot(15, 7, 2), dot(9, 17, 2)],
 };
 
 const PETALS = [0, 45, 90, 135, 180, 225, 270, 315];
@@ -79,34 +135,75 @@ export function ListIcon({ name, size = 28, color = '#FFFFFF' }: { name: IconNam
   );
 }
 
+/** A small daisy in outline, for the scattering behind a stamp's icon. */
+function OutlineDaisy({ x, y, r, turn }: { x: number; y: number; r: number; turn: number }) {
+  return (
+    <G transform={`rotate(${turn} ${x} ${y})`}>
+      {PETALS.map((a) => (
+        <Ellipse key={a} cx={x} cy={y - r * 0.62} rx={r * 0.2} ry={r * 0.38} transform={`rotate(${a} ${x} ${y})`} />
+      ))}
+      <Circle cx={x} cy={y} r={r * 0.22} />
+    </G>
+  );
+}
+
 /**
  * The square at the start of an idea's card: its list's icon on a blend of the list's colour,
  * with a soft highlight across the top. Decorative, so it is not read out.
+ *
+ * `round` makes it a circle and `flowers` scatters outlined daisies behind the icon, which is
+ * how a stamp is drawn.
  */
-export function ListTile({ icon, color, size = 48, flat }: { icon: IconName; color: string; size?: number; flat?: boolean }) {
+export function ListTile({
+  icon,
+  color,
+  size = 48,
+  flat,
+  round,
+  flowers,
+}: {
+  icon: IconName;
+  color: string;
+  size?: number;
+  flat?: boolean;
+  round?: boolean;
+  flowers?: boolean;
+}) {
   const blend = blendFor(color);
   const id = `tile-${color.slice(1)}`;
+  const radius = round ? size / 2 : size / 3;
   return (
+    // The outer box carries the shadow and has the same rounded corners as the colour inside it,
+    // so nothing shows at the corners. The inner box cuts the colour and highlight to that shape.
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, flat ? null : shadow]}>
-      <Svg width={size} height={size} viewBox="0 0 48 48" style={{ position: 'absolute', top: 0, left: 0 }}>
-        <Defs>
-          <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={blend.from} />
-            <Stop offset="1" stopColor={blend.to} />
-          </LinearGradient>
-          <ClipPath id="tile-edge">
-            <Rect width={48} height={48} rx={16} />
-          </ClipPath>
-        </Defs>
-        <Rect width={48} height={48} rx={16} fill={`url(#${id})`} />
-        <Ellipse cx={14} cy={9} rx={25} ry={13} fill="#FFFFFF" opacity={0.16} clipPath="url(#tile-edge)" />
-      </Svg>
-      {/* Lifted above the colour, which is placed absolutely and would otherwise cover it on the web. */}
-      <View style={{ zIndex: 1 }}>
-        <ListIcon name={icon} size={size * 0.56} color={blend.ink} />
+      style={[{ width: size, height: size, borderRadius: radius, backgroundColor: blend.from }, flat ? null : shadow]}>
+      <View style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+        <Svg width={size} height={size} viewBox="0 0 48 48" style={{ position: 'absolute', top: 0, left: 0 }}>
+          <Defs>
+            <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={blend.from} />
+              <Stop offset="1" stopColor={blend.to} />
+            </LinearGradient>
+          </Defs>
+          <Rect width={48} height={48} fill={`url(#${id})`} />
+          <Ellipse cx={14} cy={9} rx={25} ry={13} fill="#FFFFFF" opacity={0.16} />
+          {flowers ? (
+            <G fill="none" stroke={blend.ink} strokeWidth={1} opacity={0.38}>
+              <OutlineDaisy x={7} y={10} r={12} turn={10} />
+              <OutlineDaisy x={41} y={8} r={10} turn={30} />
+              <OutlineDaisy x={6} y={38} r={10} turn={-15} />
+              <OutlineDaisy x={42} y={40} r={13} turn={5} />
+              <OutlineDaisy x={24} y={45} r={8} turn={20} />
+              <OutlineDaisy x={24} y={3} r={8} turn={-10} />
+            </G>
+          ) : null}
+        </Svg>
+        {/* Lifted above the colour, which is placed absolutely and would otherwise cover it on the web. */}
+        <View style={{ zIndex: 1 }}>
+          <ListIcon name={icon} size={size * (flowers ? 0.48 : 0.56)} color={blend.ink} />
+        </View>
       </View>
     </View>
   );

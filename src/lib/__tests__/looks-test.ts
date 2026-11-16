@@ -1,4 +1,4 @@
-import { blendFor, cleanHex, guessIcon, ICON_LABELS, ICONS, isIcon, lookFor, TILE_COLORS } from '../looks';
+import { blendFor, cleanHex, colorForName, guessIcon, ICON_LABELS, ICONS, isIcon, lookFor, TILE_COLORS } from '../looks';
 
 /** The hue of a colour, 0 to 360, to check which way a blend leans. */
 function hue(hex: string): number {
@@ -80,6 +80,36 @@ describe('blendFor', () => {
     expect(blendFor('#1FA98A').ink).toBe('#FFFFFF');
     expect(blendFor('#FFE08A').ink).toBe('#2C2040');
     expect(blendFor('#FFFFFF').ink).toBe('#2C2040');
+  });
+});
+
+describe('colorForName', () => {
+  it('gives the same name the same colour, whatever its capitals or spacing', () => {
+    expect(colorForName('Movies')).toBe(colorForName('  movies '));
+    expect(TILE_COLORS.slice(0, 10)).toContain(colorForName('Movies'));
+  });
+
+  it('spreads different names over more than one colour, and copes with no name', () => {
+    const used = new Set(['Movies', 'Places', 'Food', 'Shows', 'Games', 'Trips', 'Day trips', 'Books'].map(colorForName));
+    expect(used.size).toBeGreaterThan(3);
+    expect(TILE_COLORS).toContain(colorForName(null));
+    expect(TILE_COLORS).toContain(colorForName(''));
+  });
+});
+
+describe('the ready-made colours', () => {
+  it('are all proper colour codes with no repeats, and none of them is an orange or a brown', () => {
+    expect(new Set(TILE_COLORS).size).toBe(TILE_COLORS.length);
+    expect(TILE_COLORS.length).toBeGreaterThanOrEqual(30);
+    for (const color of TILE_COLORS) {
+      expect(cleanHex(color)).toBe(color);
+      const n = parseInt(color.slice(1), 16);
+      const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      const grey = Math.max(r, g, b) - Math.min(r, g, b) < 40;
+      const h = hue(color);
+      // Orange and brown sit between red and yellow.
+      expect(grey || h < 8 || h > 42).toBe(true);
+    }
   });
 });
 

@@ -4,6 +4,8 @@
 // and they never go down. This file only reads what is recorded: it adds the points up, turns
 // the total into a title, and describes each completion as a stamp. Nothing here stores anything.
 
+import { guessIcon, type IconName } from './looks';
+
 /** One time a group did one of its ideas, as recorded by the database. */
 export type Completion = {
   id: string;
@@ -122,6 +124,10 @@ export const WORTH_THE_WAIT_DAYS = 100;
 export type Stamp = {
   key: string;
   emoji: string;
+  /** The drawn icon on the stamp. */
+  icon: IconName;
+  /** The name the stamp takes its colour from: its list, so a list's stamps match. */
+  tone: string;
   /** What is written on the stamp. */
   title: string;
   /** The small line under it. */
@@ -141,6 +147,8 @@ export function stampsFor(completions: Completion[]): { special: Stamp[]; ordina
   const ordinary = newestFirst.map((c) => ({
     key: c.id,
     emoji: categoryEmoji(c.list_name),
+    icon: guessIcon(c.list_name),
+    tone: c.list_name ?? '',
     title: c.title,
     caption: c.repeat ? `${c.list_name ?? 'Done'}, again` : (c.list_name ?? 'Done'),
     done_at: c.done_at,
@@ -151,6 +159,8 @@ export function stampsFor(completions: Completion[]): { special: Stamp[]; ordina
     .map((c) => ({
       key: `first-${c.id}`,
       emoji: categoryEmoji(c.list_name),
+      icon: guessIcon(c.list_name),
+      tone: c.list_name ?? '',
       title: c.list_name ? `First from ${c.list_name}` : 'A first',
       caption: c.title,
       done_at: c.done_at,
@@ -161,6 +171,8 @@ export function stampsFor(completions: Completion[]): { special: Stamp[]; ordina
     special.push({
       key: `wait-${waited.id}`,
       emoji: '⏳',
+      icon: 'clock',
+      tone: 'Worth the wait',
       title: 'Worth the wait',
       caption: `${waited.title}, after ${waited.waited_days} days`,
       done_at: waited.done_at,

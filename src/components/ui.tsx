@@ -168,6 +168,7 @@ export function Chip({
   dark,
   dashed,
   outlined,
+  soft,
   accessibilityLabel,
 }: {
   label: string;
@@ -177,9 +178,15 @@ export function Chip({
   dashed?: boolean;
   /** A visible edge even when not selected, for a chip sitting on a white card. */
   outlined?: boolean;
+  /**
+   * For a choice on a white card, such as a reaction: a hairline grey edge so it reads as a
+   * button, and purple rather than pink once chosen.
+   */
+  soft?: boolean;
   accessibilityLabel?: string;
 }) {
   const active = Boolean(selected);
+  const hairline = Boolean(soft) && !active;
   return (
     <Pressable
       accessibilityRole="button"
@@ -188,14 +195,15 @@ export function Chip({
       onPress={onPress}
       style={{
         minHeight: 44,
-        paddingHorizontal: 14,
+        // One point more padding with the hairline edge, so choosing does not change the chip's size.
+        paddingHorizontal: hairline ? 15 : 14,
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 2,
+        borderWidth: hairline ? 1 : 2,
         borderStyle: dashed ? 'dashed' : 'solid',
-        borderColor: dashed ? colors.dash : active && !dark ? colors.pink : outlined ? colors.dash : 'transparent',
-        backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.text : colors.pinkTint) : colors.white,
+        borderColor: dashed ? colors.dash : hairline ? colors.edge : active && soft ? colors.grape : active && !dark ? colors.pink : outlined ? colors.dash : 'transparent',
+        backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.text : soft ? colors.grapeTint : colors.pinkTint) : colors.white,
       }}>
       <T size={15} weight="extra" color={active && dark ? colors.white : colors.text}>
         {label}
