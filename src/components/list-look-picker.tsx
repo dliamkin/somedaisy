@@ -96,8 +96,8 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 2,
-                  borderColor: on ? colors.pink : 'transparent',
-                  backgroundColor: on ? colors.pinkTint : colors.ground,
+                  borderColor: on ? colors.grape : 'transparent',
+                  backgroundColor: on ? colors.grapeTint : colors.ground,
                 }}>
                 <ListIcon name={icon} size={26} color={colors.text} />
               </Pressable>
