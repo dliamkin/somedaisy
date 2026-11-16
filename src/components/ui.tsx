@@ -12,7 +12,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts, shadow } from '@/lib/theme';
 
@@ -48,15 +48,17 @@ export function T({
 
 /** Page wrapper: pastel background, phone-width column, optional pinned footer. */
 export function Screen({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.ground }}>
       <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 24, paddingBottom: 16, gap: 18, flexGrow: 1 }}>
+          contentContainerStyle={{ padding: 24, paddingBottom: footer ? 12 : 16, gap: 18, flexGrow: 1 }}>
           {children}
         </ScrollView>
-        {footer ? <View style={{ paddingHorizontal: 24, paddingBottom: 20, paddingTop: 4, gap: 8 }}>{footer}</View> : null}
+        {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
+        {footer ? <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
       </View>
     </SafeAreaView>
   );
