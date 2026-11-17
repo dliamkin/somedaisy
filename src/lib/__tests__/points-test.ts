@@ -167,6 +167,18 @@ describe('stampsFor', () => {
     expect(special).toEqual([]);
   });
 
+  it('gives each stamp the look of its list, and tells lists apart for the tally', () => {
+    const lists = [{ id: 'l1', name: 'Websites', icon: 'laptop', color: '#1FA98A' }];
+    const { ordinary, special } = stampsFor(
+      [done({ list_id: 'l1', list_name: 'Websites', first_in_list: true }), done({ list_id: null, list_name: 'Food' }), done({ list_id: null, list_name: ' food ' })],
+      lists,
+    );
+    const site = ordinary.find((s) => s.caption === 'Websites');
+    expect([site?.icon, site?.color]).toEqual(['laptop', '#1FA98A']);
+    expect([special[0].icon, special[0].color]).toEqual(['laptop', '#1FA98A']);
+    expect(new Set(ordinary.map((s) => s.list)).size).toBe(2);
+  });
+
   it('marks a repeat', () => {
     expect(stampsFor([done({ repeat: true })]).ordinary[0].caption).toBe('Food, again');
   });

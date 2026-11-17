@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { colorForName, guessIcon, type IconName } from '@/lib/looks';
+import { stampLook, type IconName, type StampList } from '@/lib/looks';
 import { breakdown, levelFor, TITLES, type Completion, type Level } from '@/lib/points';
 import { colors } from '@/lib/theme';
 
@@ -225,7 +225,10 @@ export function YouDidIt({
   onClose,
   onUndo,
   undoing,
+  lists,
 }: {
+  /** The group's lists in their usual order, so the stamp matches its list's icon and colour. */
+  lists?: StampList[];
   /** Takes the mark back, with its points and stamp. Left out when undo is not on offer. */
   onUndo?: () => void;
   undoing?: boolean;
@@ -240,6 +243,7 @@ export function YouDidIt({
   onClose: () => void;
 }) {
   const lines = breakdown(completion);
+  const look = stampLook(completion.list_id, completion.list_name, lists);
   return (
     <Overlay behind={<Confetti count={reached ? 70 : 44} />}>
       <Headline small={reached ? 'You did it! Your new title:' : undefined} title={reached ? reached.title : 'You did it!'} />
@@ -247,7 +251,7 @@ export function YouDidIt({
         <Blooming delay={900} corners={['topRight', 'bottomLeft', 'topLeft']}>
           <Card style={{ padding: 18, gap: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <StampMark icon={guessIcon(completion.list_name)} color={colorForName(completion.list_name)} size={48} special tilt={-6} />
+              <StampMark icon={look.icon} color={look.color} size={48} special tilt={-6} />
               <View style={{ flex: 1, gap: 2 }}>
                 <T size={19} weight="black">
                   {completion.title}

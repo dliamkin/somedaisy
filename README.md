@@ -208,6 +208,8 @@ Marking a plan as done opens one "You did it" screen: the points it earned, the 
 title if the group reached one, and the question "Would you do it again?". Each group has one
 shared bar and rises through eight titles, from Homebodies to Legends. The bar sits under the
 group's name, the title shows on the home screen, and the stamps page lists everything done.
+A stamp has the icon and colour its list has today (`stampLook` in `src/lib/looks.ts`); if the
+list has been removed, both are worked out from the name the list had.
 
 Points come only from doing things: 10 for an idea (5 for a repeat), 5 for everyone being there
 (always given for now; the app does not ask who came), 5 for the first thing done from a list,

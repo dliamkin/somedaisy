@@ -1,4 +1,31 @@
-import { blendFor, cleanHex, colorForName, guessIcon, ICON_LABELS, ICONS, isIcon, lookFor, TILE_COLORS } from '../looks';
+import { blendFor, cleanHex, colorForName, guessIcon, ICON_LABELS, ICONS, isIcon, lookFor, stampLook, TILE_COLORS } from '../looks';
+
+describe('stampLook', () => {
+  const lists = [
+    { id: 'a', name: 'Movies' },
+    { id: 'b', name: 'Websites', icon: 'laptop', color: '#1fa98a' },
+  ];
+
+  it('uses the icon and colour its list has chosen', () => {
+    expect(stampLook('b', 'Websites', lists)).toEqual({ icon: 'laptop', color: '#1FA98A' });
+  });
+
+  it('matches a list that has not chosen: guessed icon, colour by its place', () => {
+    expect(stampLook('a', 'Movies', lists)).toEqual(lookFor(lists[0], 0));
+    expect(stampLook('a', 'Movies', lists)).toEqual({ icon: 'movie', color: TILE_COLORS[0] });
+  });
+
+  it('follows the list as it is now, not the name it had when the thing was done', () => {
+    expect(stampLook('b', 'Old name', lists).icon).toBe('laptop');
+  });
+
+  it('falls back to the name when the list is gone or the lists are not known', () => {
+    const byName = { icon: guessIcon('Food'), color: colorForName('Food') };
+    expect(stampLook(null, 'Food', lists)).toEqual(byName);
+    expect(stampLook('gone', 'Food', lists)).toEqual(byName);
+    expect(stampLook('a', 'Food', undefined)).toEqual(byName);
+  });
+});
 
 /** The hue of a colour, 0 to 360, to check which way a blend leans. */
 function hue(hex: string): number {
