@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Pressable,
   ScrollView,
   Text,
@@ -51,7 +52,8 @@ export function Screen({ children, footer }: { children: ReactNode; footer?: Rea
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.ground }}>
-      <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
+      {/* Makes room for the keyboard: the page gets shorter, so the box being typed in and the pinned buttons stay in view. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: 24, paddingBottom: footer ? 12 : 16, gap: 18, flexGrow: 1 }}>
@@ -59,7 +61,7 @@ export function Screen({ children, footer }: { children: ReactNode; footer?: Rea
         </ScrollView>
         {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
         {footer ? <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
