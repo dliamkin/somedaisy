@@ -229,6 +229,17 @@ has just earned are removed. This is the one case where points go down, and it n
 All of this needs update 008. Without it the app works as before: no bar, no stamps, and done
 ideas keep their plain "Put it back on the list".
 
+### Shareable idea cards
+
+"Share" on an idea's card, and "Share as a picture" in Things we did, open a card with the idea's
+name, its list and its date: "We're finally doing this" for a plan, "We did it!" for something
+done, "Who's in?" otherwise (`src/lib/share.ts`). No names, notes or links are on it. The
+picture is made on the device, 1080 by 1350, and nothing is uploaded or stored
+(`src/lib/share-picture.ts`). In the app it goes to the phone's share sheet through
+`react-native-view-shot` and `expo-sharing`, which are native code, so this needs a build made
+after they were added. On the website it goes to the browser's share sheet where there is one,
+and is saved as a download otherwise.
+
 ### Pick for us
 
 For when the group is free and cannot decide. "Pick for us" on a group's page asks how much time
@@ -272,6 +283,7 @@ private browser window or on another device.
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
 | `src/app/group/[id]/stamps.tsx` | The group's title, points and stamps |
 | `src/app/group/[id]/pick.tsx` | Pick for us |
+| `src/app/group/[id]/share.tsx` | Share an idea as a picture |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
 | `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
