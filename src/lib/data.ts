@@ -320,6 +320,16 @@ export async function updateIdea(
   fail(error);
 }
 
+/** One idea as the share screen needs it: with its group, and when it was done if it has been. */
+export type SharedIdea = Idea & { group_id: string; done_at: string | null };
+
+/** One idea by its id, done or not. Null when it is gone, or is not in one of this person's groups. */
+export async function fetchIdea(ideaId: string): Promise<SharedIdea | null> {
+  const { data, error } = await db().from('ideas').select('*').eq('id', ideaId).maybeSingle();
+  fail(error);
+  return (data as SharedIdea | null) ?? null;
+}
+
 /** Remove an idea for everyone in the group, along with its reactions and comments. */
 export async function deleteIdea(ideaId: string): Promise<void> {
   const { error } = await db().from('ideas').delete().eq('id', ideaId);

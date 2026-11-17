@@ -584,7 +584,10 @@ export default function GroupScreen() {
                     <CardAction label="📅 Pick a date" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
                   )}
                 </View>
-                <CardAction label="Edit" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 18 }}>
+                  <CardAction label="Share" accessibilityLabel={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
+                  <CardAction label="Edit" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
+                </View>
               </View>
               {/* The newest two comments, right on the card. Tapping them opens the whole conversation. */}
               {latest.length > 0 ? (

@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Daisy } from '@/components/daisy';
 import { AgainChoice, PointsBar } from '@/components/together';
@@ -147,6 +147,15 @@ export default function ThingsWeDid() {
                 {idea.note}
               </T>
             ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Share ${idea.title} as a picture`}
+              onPress={() => router.push(`/group/${id}/share?idea=${idea.id}` as never)}
+              style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}>
+              <T size={14} weight="extra" color={colors.link}>
+                Share as a picture
+              </T>
+            </Pressable>
             {/* Only while the mark is fresh, and only once undo is set up alongside points. */}
             {votes && canUndoDone(idea.done_at, now) ? (
               <View style={{ gap: 6, alignItems: 'flex-start' }}>
