@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 import { Switch, View } from 'react-native';
 
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
+import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
 import { Button, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addIdea, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
+import { formShows } from '@/lib/list-options';
 import { attachPreview } from '@/lib/preview';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
@@ -35,9 +37,14 @@ export default function AddIdea() {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
 
+  // Each list says which boxes it wants. What was typed in a box that is then hidden is not sent.
+  const shows = formShows((lists ?? []).find((l) => l.id === listId), { link: false, note: false });
+  // The picture the idea will get, looked up while the link is being typed.
+  const preview = useLinkPreview(shows.link ? link : '');
+
   const submit = async () => {
     if (!id || !userId || !listId || !title.trim() || busy) return;
-    const tidy = tidyLink(link);
+    const tidy = tidyLink(shows.link ? link : '');
     if (!tidy.ok) {
       setError('That link does not look like a web address. Check it, or leave it empty.');
       return;
@@ -45,9 +52,20 @@ export default function AddIdea() {
     setBusy(true);
     setError(null);
     try {
-      const ideaId = await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp, tags });
-      // The link's preview picture is looked up in the background and appears on the card shortly after.
-      if (tidy.link) void attachPreview(ideaId, tidy.link).then((saved) => saved && lateChange(id));
+      const ideaId = await addIdea({
+        groupId: id,
+        listId,
+        title: title.trim(),
+        link: tidy.link ?? undefined,
+        note: shows.note ? note.trim() : '',
+        userId,
+        thumbsUp,
+        tags: shows.tags ? tags : undefined,
+      });
+      // The link's picture is saved in the background and appears on the card shortly after. If
+      // it was already found while typing, that one is used and it is not looked up again.
+      const found = preview.state === 'found' && preview.link === tidy.link ? preview.picture : null;
+      if (tidy.link) void attachPreview(ideaId, tidy.link, found).then((saved) => saved && lateChange(id));
       markChanged(id);
       back();
     } catch (e) {
@@ -72,9 +90,14 @@ export default function AddIdea() {
           ))}
         </View>
       </View>
-      <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
-      <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} />
-      <IdeaTagsPicker value={tags} onChange={setTags} />
+      {shows.link ? (
+        <View style={{ gap: 8 }}>
+          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
+          <LinkPreviewNote preview={preview} label={title.trim()} />
+        </View>
+      ) : null}
+      {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
+      {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <T size={16} weight="extra">

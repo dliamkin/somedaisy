@@ -2,11 +2,13 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { Daisy, PlusIcon } from '@/components/daisy';
+import { ActionIcon, IconAction } from '@/components/action-icons';
+import { Daisy } from '@/components/daisy';
 import { AgainChoice, EveryonesIn, NewTitle, PointsBar, YouDidIt } from '@/components/together';
 import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { SlideIn } from '@/components/celebrate';
 import { ListIcon, ListTile } from '@/components/list-tile';
+import { ListOptionsPicker } from '@/components/list-options-picker';
 import { MorphChip } from '@/components/morph-chip';
 import { PreviewPicture } from '@/components/preview-picture';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
@@ -15,6 +17,7 @@ import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
 import { FlowerOutlines } from '@/components/flower-outlines';
+import { ALL_ON, optionsOf, type ListOptions } from '@/lib/list-options';
 import { lookFor, type IconName } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
@@ -23,7 +26,6 @@ import { supabase } from '@/lib/supabase';
 import { colors, MORE_REACTIONS } from '@/lib/theme';
 import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, undoDone, type AgainPrompt } from '@/lib/together';
 
-/** One of the plain-word actions along the bottom of an idea card. */
 /** One of the group's other pages, as a small button with a drawn icon over its name. */
 function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: IconName; label: string; accessibilityLabel?: string; part: 'start' | 'middle' | 'end'; onPress: () => void }) {
   return (
@@ -45,8 +47,8 @@ function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: I
         borderColor: colors.edge,
         overflow: 'hidden',
       }}>
-      {/* The same flowers as on a group's cover, in soft lavender. Each button shows a different stretch of them. */}
-      <FlowerOutlines color={colors.today} opacity={1} part={part} />
+      {/* The same flowers as on a group's cover, in lavender. Each button shows a different stretch of them. */}
+      <FlowerOutlines color={colors.bloom} opacity={1} part={part} />
       <ListIcon name={icon} size={22} color={colors.grape} />
       <T size={12} weight="extra" color={colors.link} center lines={1}>
         {label}
@@ -55,15 +57,6 @@ function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: I
   );
 }
 
-function CardAction({ label, accessibilityLabel, onPress, strong }: { label: string; accessibilityLabel: string; onPress: () => void; strong?: boolean }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} style={{ minHeight: 44, justifyContent: 'center' }}>
-      <T size={14} weight="extra" color={strong ? colors.pink : colors.link}>
-        {label}
-      </T>
-    </Pressable>
-  );
-}
 
 
 export default function GroupScreen() {
@@ -75,6 +68,7 @@ export default function GroupScreen() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [newList, setNewList] = useState<string | null>(null);
   const [newLook, setNewLook] = useState<LookChoice>({ icon: null, color: null });
+  const [newOptions, setNewOptions] = useState<ListOptions>(ALL_ON);
   const [savingList, setSavingList] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [slideFrom, setSlideFrom] = useState<1 | -1>(1);
@@ -227,13 +221,14 @@ export default function GroupScreen() {
   const closeNewList = () => {
     setNewList(null);
     setNewLook({ icon: null, color: null });
+    setNewOptions(ALL_ON);
   };
   const saveList = async () => {
     const name = (newList ?? '').trim();
     if (!name || savingList) return;
     setSavingList(true);
     try {
-      await addList(group.id, name, group.lists.length + 1, newLook);
+      await addList(group.id, name, group.lists.length + 1, newLook, newOptions);
       closeNewList();
       const fresh = await load();
       notifyRef.current();
@@ -320,11 +315,14 @@ export default function GroupScreen() {
   const plans = plannedIdeas(group.ideas);
   const newestFirst = [...group.ideas].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const ideas = activeList ? newestFirst.filter((i) => i.list_id === activeList.id) : newestFirst;
+  // Whether the ideas on a list can be given a date. A list such as "Song titles" may say no.
+  const canDate = (idea: Idea) => optionsOf(group.lists.find((l) => l.id === idea.list_id)).dates;
   const nameOf = (uid: string | null) => (uid === userId ? 'you' : (group.members.find((m) => m.user_id === uid)?.name ?? 'someone'));
 
   return (
     <View style={{ flex: 1 }}>
       <Screen
+        flowers
         footer={
           // While a list is being made, the pinned buttons belong to that form. "Add an idea" there
           // looked like the way to finish it, and the real button sat below every icon.
@@ -347,7 +345,7 @@ export default function GroupScreen() {
           backTo="/"
           right={
             <CircleButton label="Invite people" onPress={() => router.push(`/group/${group.id}/invite` as never)}>
-              <PlusIcon />
+              <ActionIcon name="invite" color={colors.text} />
             </CircleButton>
           }
         />
@@ -391,37 +389,57 @@ export default function GroupScreen() {
             </View>
             {plans.map((plan) => {
               const past = isPast(plan.planned_for, now);
+              const planPlace = group.lists.findIndex((l) => l.id === plan.list_id);
+              const planList = planPlace === -1 ? null : group.lists[planPlace];
+              const planLook = lookFor(planList, Math.max(0, planPlace));
               return (
-                <Card key={plan.id} style={{ backgroundColor: colors.today }}>
-                  <View style={{ gap: 2 }}>
-                    <T size={13} weight="extra" color={colors.link}>
-                      {formatPlan(plan.planned_for, now)}
-                    </T>
-                    <T size={17} weight="extra">
-                      {plan.title}
-                    </T>
-                    <T size={13} color={colors.muted}>
-                      {past ? 'Did it happen?' : (group.lists.find((l) => l.id === plan.list_id)?.name ?? '')}
-                    </T>
+                // The card carries the shadow. The box inside it cuts the flowers to the card's rounded shape.
+                <Card key={plan.id} style={{ padding: 0 }}>
+                  <View style={{ borderRadius: 24, overflow: 'hidden', padding: 14, gap: 12 }}>
+                    {/* Faint flowers behind the plan, in two rows so they stay small on a tall card. */}
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+                      <View style={{ flex: 1 }}>
+                        <FlowerOutlines color={colors.bloom} opacity={0.4} part="end" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <FlowerOutlines color={colors.bloom} opacity={0.4} part="start" />
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <ListTile icon={planLook.icon} color={planLook.color} />
+                      <View style={{ flex: 1, gap: 1 }}>
+                        <T size={13} weight="black" color={colors.pink}>
+                          {formatPlan(plan.planned_for, now)}
+                        </T>
+                        <T size={18} weight="black">
+                          {plan.title}
+                        </T>
+                        <T size={13} color={colors.muted}>
+                          {past ? 'Did it happen?' : (planList?.name ?? '')}
+                        </T>
+                      </View>
+                    </View>
+                    {/* The buttons stay where they are and turn into the confirmation in place,
+                        so the one to tap next is under the same finger. The note goes underneath. */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                      <MorphChip
+                        tone="primary"
+                        label={confirmDone === plan.id ? 'Yes, mark as done' : 'We did it!'}
+                        selected={confirmDone === plan.id}
+                        onPress={() => (confirmDone === plan.id ? void finish(plan) : setConfirmDone(plan.id))}
+                      />
+                      <MorphChip
+                        tone="quiet"
+                        label={confirmDone === plan.id ? 'Not yet' : 'Change date'}
+                        onPress={() => (confirmDone === plan.id ? setConfirmDone(null) : openPlan(plan))}
+                      />
+                    </View>
+                    {confirmDone === plan.id ? (
+                      <T size={13} color={colors.muted}>
+                        It moves from the list to &quot;Things we did&quot; for everyone.
+                      </T>
+                    ) : null}
                   </View>
-                  {/* The buttons stay where they are and turn into the confirmation in place,
-                      so the one to tap next is under the same finger. The note goes underneath. */}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    <MorphChip
-                      label={confirmDone === plan.id ? 'Yes, mark as done' : 'We did it'}
-                      selected={confirmDone === plan.id}
-                      onPress={() => (confirmDone === plan.id ? void finish(plan) : setConfirmDone(plan.id))}
-                    />
-                    <MorphChip
-                      label={confirmDone === plan.id ? 'Not yet' : 'Change date'}
-                      onPress={() => (confirmDone === plan.id ? setConfirmDone(null) : openPlan(plan))}
-                    />
-                  </View>
-                  {confirmDone === plan.id ? (
-                    <T size={13} color={colors.muted}>
-                      It moves from the list to &quot;Things we did&quot; for everyone.
-                    </T>
-                  ) : null}
                 </Card>
               );
             })}
@@ -441,6 +459,7 @@ export default function GroupScreen() {
             {/* The keyboard does not open by itself, so the whole form shows first. Its Done key only
                 puts the keyboard away: the list is added with the button pinned at the bottom. */}
             <Field label="New list name" value={newList} onChangeText={setNewList} placeholder="Shows, Games, Trips..." maxLength={40} />
+            <ListOptionsPicker value={newOptions} onChange={setNewOptions} />
             <ListLookPicker name={newList} place={group.lists.length} value={newLook} onChange={setNewLook} />
           </Card>
         ) : null}
@@ -485,6 +504,7 @@ export default function GroupScreen() {
           const latest = group.latestComments[idea.id] ?? [];
           // The clock stops once the idea has a date.
           const clock = idea.planned_for ? null : somedayLabel(idea.created_at, now);
+          const dated = canDate(idea);
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
@@ -509,7 +529,8 @@ export default function GroupScreen() {
                   </View>
                 ) : null}
               </View>
-              {idea.link ? <PreviewPicture uri={idea.image_url} label={idea.title} onPress={() => openLink(idea.link as string)} /> : null}
+              {/* The picture runs from one edge of the card to the other, so it does not read as a card inside a card. */}
+              {idea.link ? <PreviewPicture uri={idea.image_url} label={idea.title} bleed={14} onPress={() => openLink(idea.link as string)} /> : null}
               {idea.note ? (
                 <T size={14} weight="medium">
                   {idea.note}
@@ -554,39 +575,37 @@ export default function GroupScreen() {
                   ))}
                 </View>
               ) : null}
-              {allIn && !idea.planned_for ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
-              {/* What you can do with the idea, kept apart from the reactions above: plain words on their own line, with Edit at the far end. */}
+              {allIn && !idea.planned_for && dated ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
+              {/* What you can do with the idea, kept apart from the reactions above: one line of drawn icons.
+                  Each says what it does to a screen reader, and on a computer when the pointer is over it. */}
               <View
                 style={{
                   flexDirection: 'row',
-                  flexWrap: 'wrap',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  columnGap: 16,
+                  gap: 8,
                   borderTopWidth: 1,
                   borderTopColor: colors.line,
                   marginTop: 2,
+                  paddingTop: 2,
                 }}>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 18, flexShrink: 1 }}>
-                  <CardAction
-                    label={comments === 1 ? '💬 1 comment' : comments ? `💬 ${comments} comments` : '💬 Comment'}
-                    accessibilityLabel={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 }}>
+                  <IconAction
+                    icon="comment"
+                    label={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
+                    text={comments ? String(comments) : null}
                     onPress={() => openComments(idea)}
                   />
+                  {/* A date already set always shows, and can be changed or taken off, even on a list that no longer has dates. */}
                   {idea.planned_for ? (
-                    <CardAction
-                      label={`📅 ${formatPlan(idea.planned_for, now)}`}
-                      accessibilityLabel={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`}
-                      strong
-                      onPress={() => openPlan(idea)}
-                    />
-                  ) : allIn ? null : (
-                    <CardAction label="📅 Pick a date" accessibilityLabel="Pick a date" onPress={() => openPlan(idea)} />
-                  )}
+                    <IconAction icon="date" strong label={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`} text={formatPlan(idea.planned_for, now)} onPress={() => openPlan(idea)} />
+                  ) : dated && !allIn ? (
+                    <IconAction icon="date" label="Pick a date" onPress={() => openPlan(idea)} />
+                  ) : null}
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', columnGap: 18 }}>
-                  <CardAction label="Share" accessibilityLabel={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
-                  <CardAction label="Edit" accessibilityLabel={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <IconAction icon="share" label={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
+                  <IconAction icon="edit" label={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
                 </View>
               </View>
               {/* The newest two comments, right on the card. Tapping them opens the whole conversation. */}
@@ -668,7 +687,7 @@ export default function GroupScreen() {
         <EveryonesIn
           title={celebrate.title}
           onPlan={
-            celebrate.planned_for
+            celebrate.planned_for || !canDate(celebrate)
               ? undefined
               : () => {
                   const idea = celebrate;

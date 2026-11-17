@@ -83,7 +83,7 @@ export default function Stamps() {
           {TITLES.map((t, i) => (
             <View
               key={t.title}
-              accessibilityLabel={`${t.title}, ${t.at} points${i === level.index ? ', your title now' : i < level.index ? ', reached' : ''}`}
+              accessibilityLabel={`${t.title}, ${t.at} points${i === level.index ? ', your rank now' : i < level.index ? ', reached' : ''}`}
               style={{
                 paddingHorizontal: 10,
                 paddingVertical: 6,

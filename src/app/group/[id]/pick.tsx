@@ -7,6 +7,7 @@ import { Daisy } from '@/components/daisy';
 import { ListTile } from '@/components/list-tile';
 import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { fetchGroup, type GroupData, type Idea } from '@/lib/data';
+import { optionsOf } from '@/lib/list-options';
 import { lookFor } from '@/lib/looks';
 import { ANY, pickOne, pickPool, SETTINGS, tagLine, TAKES, type PickFilter } from '@/lib/pick';
 import { colors } from '@/lib/theme';
@@ -209,7 +210,8 @@ export default function PickForUs() {
                 {chosen.note}
               </T>
             ) : null}
-            <Button label="Pick a date" small onPress={() => router.push(`/group/${group.id}/plan?idea=${chosen.id}` as never)} />
+            {/* Not on a list whose ideas have no dates, such as one of song titles. */}
+            {optionsOf(list).dates ? <Button label="Pick a date" small onPress={() => router.push(`/group/${group.id}/plan?idea=${chosen.id}` as never)} /> : null}
           </Card>
         </PopIn>
       ) : pool.length === 0 ? (

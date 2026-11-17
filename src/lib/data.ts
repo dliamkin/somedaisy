@@ -1,4 +1,5 @@
 import { countByIdea, latestByIdea, type Comment } from './comments';
+import { ALL_ON, sameOptions, type ListOptions } from './list-options';
 import { db } from './supabase';
 
 /** `photo_url` and `photo_hidden` need supabase/updates/004-profile-photo.sql; without it they are simply absent. */
@@ -6,8 +7,21 @@ export type Profile = { id: string; name: string; color: string; photo_url?: str
 /** `photo` is the person's Google picture, when they have one and show it. */
 export type Member = { user_id: string; name: string; color: string; photo: string | null };
 export type GroupSummary = { id: string; name: string; cover: string; members: Member[] };
-/** `icon` and `color` need supabase/updates/012-list-looks.sql; without it they are simply absent. */
-export type List = { id: string; name: string; position: number; icon?: string | null; color?: string | null };
+/**
+ * `icon` and `color` need supabase/updates/012-list-looks.sql, and `dates`, `links` and `notes`
+ * need 015-list-options.sql; without those updates they are simply absent. See `optionsOf` in
+ * `src/lib/list-options.ts` for what an absent choice means.
+ */
+export type List = {
+  id: string;
+  name: string;
+  position: number;
+  icon?: string | null;
+  color?: string | null;
+  dates?: boolean | null;
+  links?: boolean | null;
+  notes?: boolean | null;
+};
 export type Idea = {
   id: string;
   list_id: string;
@@ -220,18 +234,26 @@ const noSuchColumn = (error: unknown) => ['PGRST204', '42703'].includes((error a
 /** What someone chose for a list's icon and colour. Null leaves the choice to the app. */
 export type ListLookChoice = { icon: string | null; color: string | null };
 
-export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice): Promise<void> {
+export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice, options?: ListOptions): Promise<void> {
   const row = { group_id: groupId, name, position };
   const chosen = look && (look.icon || look.color) ? { icon: look.icon, color: look.color } : null;
-  const { error } = await db()
-    .from('lists')
-    .insert(chosen ? { ...row, ...chosen } : row);
-  // Before update 012 a list cannot keep an icon or colour. The list itself still gets made.
-  if (chosen && noSuchColumn(error)) {
-    const plain = await db().from('lists').insert(row);
-    fail(plain.error);
+  // Only said when something is turned off: a list starts with everything on anyway.
+  const asked = options && !sameOptions(options, ALL_ON) ? options : null;
+  // Before update 012 a list cannot keep an icon or colour, and before 015 it cannot keep what
+  // it asks for. The list itself still gets made, with as much as the database can hold.
+  const tries = [{ ...row, ...chosen, ...asked }, ...(asked ? [{ ...row, ...chosen }] : []), ...(chosen ? [row] : [])];
+  for (const [i, attempt] of tries.entries()) {
+    const { error } = await db().from('lists').insert(attempt);
+    if (noSuchColumn(error) && i < tries.length - 1) continue;
+    fail(error);
     return;
   }
+}
+
+/** Change what a list asks for (update 015). */
+export async function setListOptions(listId: string, options: ListOptions): Promise<void> {
+  const { error } = await db().from('lists').update({ dates: options.dates, links: options.links, notes: options.notes }).eq('id', listId);
+  if (noSuchColumn(error)) throw new Error('This is not available yet. Try again later.');
   fail(error);
 }
 

@@ -14,6 +14,27 @@ export function usablePicture(value: unknown): string | null {
   return typeof value === 'string' && value.length <= 2000 && /^https:\/\/\S+$/i.test(value) ? value : null;
 }
 
+/** What the form knows about the picture for the link in its box. */
+export type LinkPreview =
+  | { state: 'none' } // no link, or not a web address yet
+  | { state: 'looking' }
+  | { state: 'found'; link: string; picture: string }
+  | { state: 'missing'; link: string }; // the page has no picture, or could not be read
+
+/** A link and the picture found for it. Null picture: looked, and there is none. */
+export type Looked = { link: string; picture: string | null };
+
+/**
+ * Where the form stands for the link now in its box, given the latest lookup that came back.
+ * A lookup for a different link (the one typed a moment ago) does not count.
+ */
+export function previewState(link: string | null, looked: Looked | null): LinkPreview {
+  if (!link) return { state: 'none' };
+  if (!looked || looked.link !== link) return { state: 'looking' };
+  const picture = usablePicture(looked.picture);
+  return picture ? { state: 'found', link, picture } : { state: 'missing', link };
+}
+
 /** Ask the helper for a page's preview picture. Null when there is none, or the helper is not there. */
 export async function fetchPreviewPicture(link: string): Promise<string | null> {
   try {
@@ -28,10 +49,11 @@ export async function fetchPreviewPicture(link: string): Promise<string | null> 
 /**
  * Find the picture for an idea's link and save it on the idea. Call it after saving the idea,
  * without waiting for it: the picture turns up on the card a moment later. Returns whether a
- * picture was saved.
+ * picture was saved. `known` is the picture, when it has been looked up already.
  */
-export async function attachPreview(ideaId: string, link: string): Promise<boolean> {
-  const picture = await fetchPreviewPicture(link);
+export async function attachPreview(ideaId: string, link: string, known?: string | null): Promise<boolean> {
+  // The form may have found the picture already, while the link was being typed.
+  const picture = usablePicture(known) ?? (await fetchPreviewPicture(link));
   if (!picture) return false;
   try {
     // Saved only if the idea still has this link: it may have been edited again in the meantime.
