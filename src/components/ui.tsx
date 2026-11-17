@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, fonts, shadow } from '@/lib/theme';
 
 import { BackIcon } from './daisy';
+import { FlowerOutlines } from './flower-outlines';
 
 type Weight = 'medium' | 'bold' | 'extra' | 'black';
 
@@ -47,11 +48,16 @@ export function T({
   );
 }
 
-/** Page wrapper: pastel background, phone-width column, optional pinned footer. */
-export function Screen({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+/**
+ * Page wrapper: pastel background, phone-width column, optional pinned footer.
+ * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
+ */
+export function Screen({ children, footer, flowers }: { children: ReactNode; footer?: ReactNode; flowers?: boolean }) {
   const insets = useSafeAreaInsets();
+  const band = Boolean(footer && flowers);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.ground }}>
+    // With the band, the bottom edge is left to the band itself, so its colour runs under the phone's own bar.
+    <SafeAreaView edges={band ? ['top', 'left', 'right'] : undefined} style={{ flex: 1, backgroundColor: colors.ground }}>
       {/* Makes room for the keyboard: the page gets shorter, so the box being typed in and the pinned buttons stay in view. */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
         <ScrollView
@@ -60,7 +66,25 @@ export function Screen({ children, footer }: { children: ReactNode; footer?: Rea
           {children}
         </ScrollView>
         {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
-        {footer ? <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
+        {footer && !band ? <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
+        {footer && band ? (
+          <View
+            style={{
+              paddingHorizontal: 24,
+              paddingTop: 14,
+              paddingBottom: insets.bottom + (insets.bottom > 0 ? 6 : 14),
+              gap: 8,
+              backgroundColor: colors.grapeTint,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              borderTopWidth: 1,
+              borderColor: colors.line,
+              overflow: 'hidden',
+            }}>
+            <FlowerOutlines color={colors.bloom} opacity={1} />
+            {footer}
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

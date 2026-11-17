@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
+import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
 import { Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
+import { formShows } from '@/lib/list-options';
 import { attachPreview } from '@/lib/preview';
 import { colors } from '@/lib/theme';
 
@@ -46,6 +48,12 @@ export default function EditIdea() {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
 
+  // Each list says which boxes it wants. A box with something already in it always shows, so a
+  // link or note the idea came with can be changed or taken off.
+  const shows = formShows(lists.find((l) => l.id === listId), { link: Boolean(idea?.link) || link.trim() !== '', note: Boolean(idea?.note) || note.trim() !== '' });
+  // The picture the idea will have. The one it has now needs no looking up.
+  const preview = useLinkPreview(link, idea?.link ? { link: idea.link, picture: idea.image_url ?? null } : null);
+
   const save = async () => {
     if (!id || !idea || !listId || !title.trim() || busy) return;
     const tidy = tidyLink(link);
@@ -61,7 +69,9 @@ export default function EditIdea() {
       await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId, tags: retagged ? tags : undefined });
       // The link's preview picture is looked up afresh in the background on every save, so a
       // picture that has stopped loading is replaced, and a link that had none gets another try.
-      if (tidy.link) void attachPreview(idea.id, tidy.link).then((saved) => saved && lateChange(id));
+      // A picture found while typing a new link is used as it is.
+      const found = preview.state === 'found' && preview.link === tidy.link && tidy.link !== idea.link ? preview.picture : null;
+      if (tidy.link) void attachPreview(idea.id, tidy.link, found).then((saved) => saved && lateChange(id));
       markChanged(id);
       back();
     } catch (e) {
@@ -111,9 +121,14 @@ export default function EditIdea() {
           ))}
         </View>
       </View>
-      <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
-      <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} />
-      <IdeaTagsPicker value={tags} onChange={setTags} />
+      {shows.link ? (
+        <View style={{ gap: 8 }}>
+          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
+          <LinkPreviewNote preview={preview} label={title.trim()} />
+        </View>
+      ) : null}
+      {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
+      {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18, gap: 10 }}>

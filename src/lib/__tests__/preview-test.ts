@@ -1,4 +1,4 @@
-import { attachPreview, fetchPreviewPicture, usablePicture } from '../preview';
+import { attachPreview, fetchPreviewPicture, usablePicture, previewState } from '../preview';
 import { db } from '../supabase';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
@@ -89,5 +89,29 @@ describe('attachPreview', () => {
   it('stays quiet when the database has no place for pictures yet', async () => {
     fakeClient(async () => ({ data: { image: PIC }, error: null }), { message: 'column "image_url" does not exist' });
     expect(await attachPreview('i1', 'https://example.org/page')).toBe(false);
+  });
+});
+
+describe('previewState', () => {
+  const link = 'https://example.com/film';
+  const picture = 'https://example.com/film.jpg';
+
+  it('has nothing to show without a link', () => {
+    expect(previewState(null, null)).toEqual({ state: 'none' });
+    expect(previewState(null, { link, picture })).toEqual({ state: 'none' });
+  });
+
+  it('is looking until an answer comes back for this link', () => {
+    expect(previewState(link, null)).toEqual({ state: 'looking' });
+    expect(previewState(link, { link: 'https://example.com/fil', picture })).toEqual({ state: 'looking' });
+  });
+
+  it('shows the picture found for this link', () => {
+    expect(previewState(link, { link, picture })).toEqual({ state: 'found', link, picture });
+  });
+
+  it('says there is none when the page has no usable picture', () => {
+    expect(previewState(link, { link, picture: null })).toEqual({ state: 'missing', link });
+    expect(previewState(link, { link, picture: 'http://example.com/not-secure.jpg' })).toEqual({ state: 'missing', link });
   });
 });

@@ -22,7 +22,7 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
         <View style={{ flexShrink: 1 }}>
           <T size={11} weight="extra" color={colors.muted}>
-            YOUR TITLE
+            GROUP RANK
           </T>
           <T size={15} weight="black" lines={1}>
             {level.title}
@@ -30,7 +30,7 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
         </View>
         <View style={{ flexShrink: 1, alignItems: 'flex-end' }}>
           <T size={11} weight="extra" color={colors.muted}>
-            {level.next ? 'NEXT' : 'TOP TITLE'}
+            {level.next ? 'NEXT' : 'TOP RANK'}
           </T>
           <T size={15} weight="extra" color={colors.muted} lines={1}>
             {level.next ? level.next.title : 'You made it'}
@@ -43,7 +43,7 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
         <T size={12} color={colors.muted}>
-          Title {level.index + 1} of {TITLES.length} · {points} {points === 1 ? 'point' : 'points'}
+          Rank {level.index + 1} of {TITLES.length} · {points} {points === 1 ? 'point' : 'points'}
         </T>
         {level.next ? (
           <T size={12} weight="extra" color={colors.link}>
@@ -59,8 +59,8 @@ const percent = (progress: number) => `${Math.round(Math.min(1, Math.max(0, prog
 
 /** What a screen reader says for the bar. */
 function barSays(level: Level): string {
-  const place = `${level.title}, title ${level.index + 1} of ${TITLES.length}, ${level.points} points`;
-  return level.next ? `${place}. ${level.toNext} to go to ${level.next.title}` : `${place}. The top title`;
+  const place = `${level.title}, rank ${level.index + 1} of ${TITLES.length}, ${level.points} points`;
+  return level.next ? `${place}. ${level.toNext} to go to ${level.next.title}` : `${place}. The top rank`;
 }
 
 /** The group's shared bar: its title, the next one, and how far along it is. */
@@ -246,7 +246,7 @@ export function YouDidIt({
   const look = stampLook(completion.list_id, completion.list_name, lists);
   return (
     <Overlay behind={<Confetti count={reached ? 70 : 44} />}>
-      <Headline small={reached ? 'You did it! Your new title:' : undefined} title={reached ? reached.title : 'You did it!'} />
+      <Headline small={reached ? 'You did it! Your new rank:' : undefined} title={reached ? reached.title : 'You did it!'} />
       <PopIn delay={320}>
         <Blooming delay={900} corners={['topRight', 'bottomLeft', 'topLeft']}>
           <Card style={{ padding: 18, gap: 14 }}>
@@ -324,7 +324,7 @@ export function YouDidIt({
 export function NewTitle({ level, onClose }: { level: Level; onClose: () => void }) {
   return (
     <Overlay behind={<Confetti count={70} />}>
-      <Headline small="Your group has a new title" title={level.title} />
+      <Headline small="Your group has a new rank" title={level.title} />
       <PopIn delay={320}>
         <Blooming delay={900}>
           <Card style={{ padding: 18 }}>

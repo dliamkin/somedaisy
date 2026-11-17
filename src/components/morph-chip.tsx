@@ -19,7 +19,18 @@ const TIME = 420;
  * something the person has not had time to read. People who have asked for less motion get the
  * new chip at once.
  */
-export function MorphChip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
+export function MorphChip({
+  label,
+  selected,
+  onPress,
+  tone,
+}: {
+  label: string;
+  selected?: boolean;
+  onPress: () => void;
+  /** "primary" is the filled button for the thing to do. "quiet" is plain words, for the way out. */
+  tone?: 'primary' | 'quiet';
+}) {
   const reduced = useReducedMotion();
   // The words on show, and the words they are replacing while a change is under way.
   const [current, setCurrent] = useState(label);
@@ -73,7 +84,10 @@ export function MorphChip({ label, selected, onPress }: { label: string; selecte
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measured, current, selected, reduced, width, swap, tint]);
 
-  const words = { fontFamily: fonts.extra, fontSize: 15, color: colors.text } as const;
+  const words = { fontFamily: fonts.extra, fontSize: 15, color: tone === 'primary' ? colors.white : tone === 'quiet' ? colors.link : colors.text } as const;
+  // The chip's colours at rest and once chosen, which it glides between.
+  const edge = tone === 'primary' ? [colors.grape, colors.pink] : tone === 'quiet' ? ['rgba(90, 37, 166, 0)', 'rgba(90, 37, 166, 0)'] : ['rgba(184, 51, 154, 0)', colors.pink];
+  const fill = tone === 'primary' ? [colors.grape, colors.pink] : tone === 'quiet' ? ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0)'] : [colors.white, colors.pinkTint];
   const layer = { position: 'absolute', top: 0, bottom: 0, left: -400, right: -400, alignItems: 'center', justifyContent: 'center' } as const;
   return (
     <Pressable
@@ -97,8 +111,8 @@ export function MorphChip({ label, selected, onPress }: { label: string; selecte
           overflow: 'hidden',
           alignItems: 'center',
           justifyContent: 'center',
-          borderColor: tint.interpolate({ inputRange: [0, 1], outputRange: ['rgba(184, 51, 154, 0)', colors.pink] }),
-          backgroundColor: tint.interpolate({ inputRange: [0, 1], outputRange: [colors.white, colors.pinkTint] }),
+          borderColor: tint.interpolate({ inputRange: [0, 1], outputRange: edge }),
+          backgroundColor: tint.interpolate({ inputRange: [0, 1], outputRange: fill }),
         }}>
         {sized ? (
           // Both sets of words sit in a wide, centred layer of their own, so neither is squeezed

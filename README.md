@@ -191,8 +191,11 @@ things, and without either the app simply shows no pictures:
 The helper only answers signed-in people, only reads ordinary web addresses (never addresses
 inside Supabase's own network), and returns nothing but a picture's address. Its rules are
 tested in `src/lib/__tests__/link-preview-test.ts`. The picture is looked up in the background
-after an idea is saved, so it appears on the card a few seconds later. A page with no picture,
-or a picture that will not load, leaves the card as it was.
+While a link is being typed on the form for an idea, the picture is looked up once the typing
+pauses and shown under the link box, so the person knows what the card will get. On saving, a
+picture found that way is used as it is; otherwise it is looked up in the background and
+appears on the card a few seconds later. A page with no picture, or a picture that will not
+load, leaves the card as it was.
 
 ### Guests
 
@@ -206,7 +209,8 @@ Guests with a name, and accounts with an email, are never removed by it.
 
 Marking a plan as done opens one "You did it" screen: the points it earned, the stamp, a new
 title if the group reached one, and the question "Would you do it again?". Each group has one
-shared bar and rises through eight titles, from Homebodies to Legends. The bar sits under the
+shared bar and rises through eight titles, from Homebodies to Legends (shown in the app as the
+group's rank). The bar sits under the
 group's name, the title shows on the home screen, and the stamps page lists everything done.
 A stamp has the icon and colour its list has today (`stampLook` in `src/lib/looks.ts`); if the
 list has been removed, both are worked out from the name the list had.
@@ -239,6 +243,17 @@ picture is made on the device, 1080 by 1350, and nothing is uploaded or stored
 `react-native-view-shot` and `expo-sharing`, which are native code, so this needs a build made
 after they were added. On the website it goes to the browser's share sheet where there is one,
 and is saved as a download otherwise.
+
+### What each list asks for
+
+Every idea needs a name, and nothing else. Each list says whether its ideas can be given a date,
+and whether the form for a new idea shows the link box and the note box. Movies, Places and Food
+want all of that; a list such as "Song titles" can be a list of names only. The choices are made
+when adding a list and changed under Group settings, by any member. They need
+`supabase/updates/015-list-options.sql`; without it every list has everything turned on, as
+before. Turning something off only changes what the app offers: an idea that already has a
+date, a link or a note keeps it, and can still have it changed or taken off. The rules are in
+`src/lib/list-options.ts`.
 
 ### Pick for us
 
