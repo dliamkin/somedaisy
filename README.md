@@ -229,6 +229,18 @@ has just earned are removed. This is the one case where points go down, and it n
 All of this needs update 008. Without it the app works as before: no bar, no stamps, and done
 ideas keep their plain "Put it back on the list".
 
+### Pick for us
+
+For when the group is free and cannot decide. "Pick for us" on a group's page asks how much time
+there is, staying in or going out, and which list, then picks one idea by chance from those
+everyone is in on that have no date yet. It can also take in ideas still waiting on someone, but
+never one somebody said "Eh" to. The rules are in `src/lib/pick.ts`.
+
+An idea can carry two optional tags, set when adding or editing it: how long it takes and
+staying in or going out. An idea without a tag is never left out because of it. The tags need
+`supabase/updates/014-idea-tags.sql`; without it the screen still works, on every idea, and
+tags chosen on the forms are simply not kept.
+
 ## Run it
 
 ```bash
@@ -259,6 +271,7 @@ private browser window or on another device.
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
 | `src/app/group/[id]/stamps.tsx` | The group's title, points and stamps |
+| `src/app/group/[id]/pick.tsx` | Pick for us |
 | `src/app/group/[id]/invite.tsx` | Invite link and members |
 | `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |

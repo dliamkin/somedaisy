@@ -19,7 +19,14 @@ export type Idea = {
   created_at: string;
   /** The preview picture of the page the link goes to. Absent until update 011 has been run. */
   image_url?: string | null;
+  /** How long it takes: "short", "medium" or "long". Absent until update 014 has been run. */
+  takes?: string | null;
+  /** "in" for staying in, "out" for going out. Absent until update 014 has been run. */
+  setting?: string | null;
 };
+
+/** The two optional tags "Pick for us" goes by (see `src/lib/pick.ts`). Null means not said. */
+export type IdeaTags = { takes: string | null; setting: string | null };
 export type Reaction = { idea_id: string; user_id: string; emoji: string };
 export type GroupData = {
   id: string;
@@ -243,20 +250,21 @@ export async function addIdea(input: {
   note?: string;
   userId: string;
   thumbsUp: boolean;
+  tags?: IdeaTags;
 }): Promise<string> {
   const client = db();
-  const { data, error } = await client
-    .from('ideas')
-    .insert({
-      group_id: input.groupId,
-      list_id: input.listId,
-      title: input.title,
-      link: input.link || null,
-      note: input.note || null,
-      added_by: input.userId,
-    })
-    .select('id')
-    .single();
+  const row = {
+    group_id: input.groupId,
+    list_id: input.listId,
+    title: input.title,
+    link: input.link || null,
+    note: input.note || null,
+    added_by: input.userId,
+  };
+  const tags = input.tags && (input.tags.takes || input.tags.setting) ? input.tags : null;
+  let { data, error } = await client.from('ideas').insert(tags ? { ...row, ...tags } : row).select('id').single();
+  // Before update 014 an idea cannot keep tags. The idea itself still gets added.
+  if (tags && noSuchColumn(error)) ({ data, error } = await client.from('ideas').insert(row).select('id').single());
   fail(error);
   if (input.thumbsUp && data) {
     const res = await client
@@ -303,12 +311,12 @@ export async function setReaction(
 /** Change an idea's words or move it to another list. Its reactions, comments and date stay. */
 export async function updateIdea(
   ideaId: string,
-  change: { title: string; link: string | null; note: string | null; listId: string },
+  change: { title: string; link: string | null; note: string | null; listId: string; tags?: IdeaTags },
 ): Promise<void> {
-  const { error } = await db()
-    .from('ideas')
-    .update({ title: change.title, link: change.link || null, note: change.note || null, list_id: change.listId })
-    .eq('id', ideaId);
+  const row = { title: change.title, link: change.link || null, note: change.note || null, list_id: change.listId };
+  let { error } = await db().from('ideas').update(change.tags ? { ...row, ...change.tags } : row).eq('id', ideaId);
+  // Before update 014 an idea cannot keep tags. The rest of the change is still saved.
+  if (change.tags && noSuchColumn(error)) ({ error } = await db().from('ideas').update(row).eq('id', ideaId));
   fail(error);
 }
 

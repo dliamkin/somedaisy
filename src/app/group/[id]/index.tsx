@@ -334,7 +334,11 @@ export default function GroupScreen() {
               <Button label="Add list" onPress={() => void saveList()} disabled={!newList.trim()} busy={savingList} style={{ flex: 2 }} />
             </View>
           ) : group.lists.length > 0 ? (
-            <Button label="Add an idea" onPress={() => router.push(`/group/${group.id}/add${activeList ? `?list=${activeList.id}` : ''}` as never)} />
+            // "Pick for us" appears once there is something to choose between.
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {group.ideas.length > 1 ? <Button label="Pick for us" kind="soft" onPress={() => router.push(`/group/${group.id}/pick` as never)} style={{ flex: 1 }} /> : null}
+              <Button label="Add an idea" onPress={() => router.push(`/group/${group.id}/add${activeList ? `?list=${activeList.id}` : ''}` as never)} style={{ flex: 1 }} />
+            </View>
           ) : null
         }>
         <TopBar

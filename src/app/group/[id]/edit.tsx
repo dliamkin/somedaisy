@@ -2,8 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
+import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea, type List } from '@/lib/data';
+import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { attachPreview } from '@/lib/preview';
 import { colors } from '@/lib/theme';
@@ -17,6 +18,7 @@ export default function EditIdea() {
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
   const [note, setNote] = useState('');
+  const [tags, setTags] = useState<IdeaTags>({ takes: null, setting: null });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export default function EditIdea() {
           setTitle(found.title);
           setLink(found.link ?? '');
           setNote(found.note ?? '');
+          setTags({ takes: found.takes ?? null, setting: found.setting ?? null });
         }
       })
       .catch((e: Error) => {
@@ -53,7 +56,9 @@ export default function EditIdea() {
     setBusy(true);
     setError(null);
     try {
-      await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId });
+      // The tags are only sent when they were changed, so saving anything else leaves them alone.
+      const retagged = tags.takes !== (idea.takes ?? null) || tags.setting !== (idea.setting ?? null);
+      await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId, tags: retagged ? tags : undefined });
       // The link's preview picture is looked up afresh in the background on every save, so a
       // picture that has stopped loading is replaced, and a link that had none gets another try.
       if (tidy.link) void attachPreview(idea.id, tidy.link).then((saved) => saved && lateChange(id));
@@ -108,6 +113,7 @@ export default function EditIdea() {
       </View>
       <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
       <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} />
+      <IdeaTagsPicker value={tags} onChange={setTags} />
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18, gap: 10 }}>

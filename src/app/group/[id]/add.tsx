@@ -2,8 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Switch, View } from 'react-native';
 
+import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { Button, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { addIdea, fetchGroup, lateChange, markChanged, type List } from '@/lib/data';
+import { addIdea, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { attachPreview } from '@/lib/preview';
 import { useSession } from '@/lib/session';
@@ -17,6 +18,7 @@ export default function AddIdea() {
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
   const [note, setNote] = useState('');
+  const [tags, setTags] = useState<IdeaTags>({ takes: null, setting: null });
   const [thumbsUp, setThumbsUp] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export default function AddIdea() {
     setBusy(true);
     setError(null);
     try {
-      const ideaId = await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp });
+      const ideaId = await addIdea({ groupId: id, listId, title: title.trim(), link: tidy.link ?? undefined, note: note.trim(), userId, thumbsUp, tags });
       // The link's preview picture is looked up in the background and appears on the card shortly after.
       if (tidy.link) void attachPreview(ideaId, tidy.link).then((saved) => saved && lateChange(id));
       markChanged(id);
@@ -72,6 +74,7 @@ export default function AddIdea() {
       </View>
       <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
       <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} />
+      <IdeaTagsPicker value={tags} onChange={setTags} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <T size={16} weight="extra">
