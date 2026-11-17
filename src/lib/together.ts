@@ -8,7 +8,7 @@
 import type { Completion, DoAgainVote } from './points';
 import { db } from './supabase';
 
-const COMPLETION = 'id, idea_id, title, list_name, done_at, waited_days, repeat, first_in_list, long_wait, points';
+const COMPLETION = 'id, idea_id, title, list_id, list_name, done_at, waited_days, repeat, first_in_list, long_wait, points';
 
 type Failure = { message: string; code?: string };
 

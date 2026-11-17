@@ -5,7 +5,8 @@ import { View } from 'react-native';
 import { PopIn } from '@/components/celebrate';
 import { PointsBar, StampMark } from '@/components/together';
 import { Button, Card, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
-import { colorForName, TILE_COLORS } from '@/lib/looks';
+import { fetchLists, type List } from '@/lib/data';
+import { TILE_COLORS } from '@/lib/looks';
 import { dayLabel } from '@/lib/plans';
 import { levelFor, stampsFor, TITLES, totalPoints, type Completion, type Stamp } from '@/lib/points';
 import { colors } from '@/lib/theme';
@@ -18,14 +19,17 @@ export default function Stamps() {
   const [now, setNow] = useState(() => new Date());
   const [completions, setCompletions] = useState<Completion[] | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  // The group's lists, for each stamp's icon and colour. Without them the stamps still show, guessed from list names.
+  const [lists, setLists] = useState<List[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       if (!id) return;
       let alive = true;
-      fetchCompletions(id).then(
-        (c) => {
+      Promise.all([fetchCompletions(id), fetchLists(id).catch(() => [] as List[])]).then(
+        ([c, l]) => {
           if (!alive) return;
+          setLists(l);
           setCompletions(c);
           setNow(new Date());
         },
@@ -58,7 +62,8 @@ export default function Stamps() {
 
   const points = totalPoints(completions);
   const level = levelFor(points);
-  const { special, ordinary } = stampsFor(completions);
+  const { special, ordinary } = stampsFor(completions, lists);
+  const listsTried = new Set(ordinary.map((s) => s.list)).size;
 
   return (
     <Screen>
@@ -114,7 +119,7 @@ export default function Stamps() {
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Tally count={ordinary.length} label={ordinary.length === 1 ? 'stamp' : 'stamps'} />
           <Tally count={special.length} label={special.length === 1 ? 'special stamp' : 'special stamps'} />
-          <Tally count={new Set(ordinary.map((s) => s.tone)).size} label={new Set(ordinary.map((s) => s.tone)).size === 1 ? 'list tried' : 'lists tried'} />
+          <Tally count={listsTried} label={listsTried === 1 ? 'list tried' : 'lists tried'} />
         </View>
       ) : null}
 
@@ -155,7 +160,7 @@ function StampGrid({ title, stamps, now, big }: { title: string; stamps: Stamp[]
           <View key={stamp.key} style={{ width: '33.33%', alignItems: 'center', gap: 4, paddingHorizontal: 4, paddingBottom: 16 }}>
             {/* The stamps land one after another. Only the first dozen wait their turn, so a long page is not slow. */}
             <PopIn delay={Math.min(i, 12) * 70}>
-              <StampMark icon={stamp.icon} color={colorForName(stamp.tone)} size={big ? 72 : 60} special={stamp.special} tilt={TILTS[i % TILTS.length]} />
+              <StampMark icon={stamp.icon} color={stamp.color} size={big ? 72 : 60} special={stamp.special} tilt={TILTS[i % TILTS.length]} />
             </PopIn>
             <T size={13} weight="extra" center lines={2}>
               {stamp.title}

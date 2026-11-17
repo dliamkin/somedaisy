@@ -4,13 +4,15 @@
 // and they never go down. This file only reads what is recorded: it adds the points up, turns
 // the total into a title, and describes each completion as a stamp. Nothing here stores anything.
 
-import { guessIcon, type IconName } from './looks';
+import { stampLook, type IconName, type StampList } from './looks';
 
 /** One time a group did one of its ideas, as recorded by the database. */
 export type Completion = {
   id: string;
   idea_id: string | null;
   title: string;
+  /** The list it was on. Null once that list has been removed. */
+  list_id?: string | null;
   list_name: string | null;
   done_at: string;
   waited_days: number;
@@ -121,13 +123,18 @@ export function categoryEmoji(listName: string | null | undefined): string {
 /** How long an idea has to have waited for its special stamp. */
 export const WORTH_THE_WAIT_DAYS = 100;
 
+/** The "Worth the wait" stamp belongs to no list, so it has a colour of its own. */
+const WAIT_COLOR = '#5E35B1';
+
 export type Stamp = {
   key: string;
   emoji: string;
   /** The drawn icon on the stamp. */
   icon: IconName;
-  /** The name the stamp takes its colour from: its list, so a list's stamps match. */
-  tone: string;
+  /** The stamp's colour: its list's, so a list's stamps match its cards. */
+  color: string;
+  /** Which list it is for, to count how many lists the group has tried. */
+  list: string;
   /** What is written on the stamp. */
   title: string;
   /** The small line under it. */
@@ -140,15 +147,16 @@ export type Stamp = {
 /**
  * A group's passport page. Every completion earns a stamp for its list. On top of those come the
  * special stamps: the first thing done from each list, and the first thing that waited over
- * 100 days. Newest first, within each kind.
+ * 100 days. Newest first, within each kind. `lists` are the group's lists in their usual order:
+ * each stamp takes the icon and colour its list has today.
  */
-export function stampsFor(completions: Completion[]): { special: Stamp[]; ordinary: Stamp[] } {
+export function stampsFor(completions: Completion[], lists: StampList[] = []): { special: Stamp[]; ordinary: Stamp[] } {
   const newestFirst = [...completions].sort((a, b) => new Date(b.done_at).getTime() - new Date(a.done_at).getTime());
   const ordinary = newestFirst.map((c) => ({
     key: c.id,
     emoji: categoryEmoji(c.list_name),
-    icon: guessIcon(c.list_name),
-    tone: c.list_name ?? '',
+    ...stampLook(c.list_id, c.list_name, lists),
+    list: c.list_id ?? (c.list_name ?? '').trim().toLowerCase(),
     title: c.title,
     caption: c.repeat ? `${c.list_name ?? 'Done'}, again` : (c.list_name ?? 'Done'),
     done_at: c.done_at,
@@ -159,8 +167,8 @@ export function stampsFor(completions: Completion[]): { special: Stamp[]; ordina
     .map((c) => ({
       key: `first-${c.id}`,
       emoji: categoryEmoji(c.list_name),
-      icon: guessIcon(c.list_name),
-      tone: c.list_name ?? '',
+      ...stampLook(c.list_id, c.list_name, lists),
+      list: c.list_id ?? (c.list_name ?? '').trim().toLowerCase(),
       title: c.list_name ? `First from ${c.list_name}` : 'A first',
       caption: c.title,
       done_at: c.done_at,
@@ -171,8 +179,9 @@ export function stampsFor(completions: Completion[]): { special: Stamp[]; ordina
     special.push({
       key: `wait-${waited.id}`,
       emoji: '⏳',
-      icon: 'clock',
-      tone: 'Worth the wait',
+      icon: 'clock' as IconName,
+      color: WAIT_COLOR,
+      list: '',
       title: 'Worth the wait',
       caption: `${waited.title}, after ${waited.waited_days} days`,
       done_at: waited.done_at,

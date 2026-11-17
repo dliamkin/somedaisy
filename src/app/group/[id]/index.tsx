@@ -14,6 +14,7 @@ import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, se
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
+import { FlowerOutlines } from '@/components/flower-outlines';
 import { lookFor, type IconName } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
@@ -24,7 +25,7 @@ import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, undoDone, type Aga
 
 /** One of the plain-word actions along the bottom of an idea card. */
 /** One of the group's other pages, as a small button with a drawn icon over its name. */
-function QuickLink({ icon, label, accessibilityLabel, onPress }: { icon: IconName; label: string; accessibilityLabel?: string; onPress: () => void }) {
+function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: IconName; label: string; accessibilityLabel?: string; part: 'start' | 'middle' | 'end'; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -42,7 +43,10 @@ function QuickLink({ icon, label, accessibilityLabel, onPress }: { icon: IconNam
         backgroundColor: colors.white,
         borderWidth: 1,
         borderColor: colors.edge,
+        overflow: 'hidden',
       }}>
+      {/* The same flowers as on a group's cover, in soft lavender. Each button shows a different stretch of them. */}
+      <FlowerOutlines color={colors.today} opacity={1} part={part} />
       <ListIcon name={icon} size={22} color={colors.grape} />
       <T size={12} weight="extra" color={colors.link} center lines={1}>
         {label}
@@ -346,9 +350,9 @@ export default function GroupScreen() {
         {group.points !== null ? <PointsBar points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : null}
         {/* The group's other pages, kept at the top so nobody has to scroll past every idea to reach them. */}
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <QuickLink icon="calendar" label="Calendar" onPress={() => router.push(`/group/${group.id}/calendar` as never)} />
-          <QuickLink icon="trophy" label="Things we did" onPress={() => router.push(`/group/${group.id}/done` as never)} />
-          <QuickLink icon="sliders" label="Settings" accessibilityLabel="Group settings" onPress={() => router.push(`/group/${group.id}/settings` as never)} />
+          <QuickLink icon="calendar" label="Calendar" part="start" onPress={() => router.push(`/group/${group.id}/calendar` as never)} />
+          <QuickLink icon="trophy" label="Things we did" part="middle" onPress={() => router.push(`/group/${group.id}/done` as never)} />
+          <QuickLink icon="sliders" label="Settings" accessibilityLabel="Group settings" part="end" onPress={() => router.push(`/group/${group.id}/settings` as never)} />
         </View>
         <ErrorNote message={error} />
 
@@ -633,6 +637,7 @@ export default function GroupScreen() {
       {didIt ? (
         <YouDidIt
           completion={didIt.completion}
+          lists={group.lists}
           total={didIt.total}
           reached={didIt.reached}
           answer={didIt.completion.idea_id ? didIt.again : undefined}

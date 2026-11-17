@@ -142,6 +142,13 @@ export async function updateGroup(groupId: string, change: { name: string; cover
   fail(error);
 }
 
+/** A group's lists in their usual order, with whatever icon and colour each has. */
+export async function fetchLists(groupId: string): Promise<List[]> {
+  const { data, error } = await db().from('lists').select('*').eq('group_id', groupId).order('position');
+  fail(error);
+  return (data ?? []) as List[];
+}
+
 export async function renameList(listId: string, name: string): Promise<void> {
   const { error } = await db().from('lists').update({ name }).eq('id', listId);
   fail(error);

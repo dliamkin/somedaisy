@@ -328,6 +328,20 @@ export function colorForName(name: string | null | undefined): string {
 
 export type ListLook = { icon: IconName; color: string };
 
+/** What a stamp needs to know about the group's lists, in the order the group shows them. */
+export type StampList = { id: string; name?: string | null; icon?: string | null; color?: string | null };
+
+/**
+ * How a stamp looks: the same icon and colour as its list has today, so a list's stamps match
+ * its cards. When the list has since been removed (or the lists are not known), the icon is
+ * guessed from the name the list had and the colour is worked out from that name.
+ */
+export function stampLook(listId: string | null | undefined, listName: string | null | undefined, lists: StampList[] | null | undefined): ListLook {
+  const place = listId ? (lists ?? []).findIndex((l) => l.id === listId) : -1;
+  if (place === -1) return { icon: guessIcon(listName), color: colorForName(listName) };
+  return lookFor((lists ?? [])[place], place);
+}
+
 /**
  * How a list looks: its own icon and colour where it has them, otherwise an icon guessed from
  * its name and a colour by its place among the group's lists.
