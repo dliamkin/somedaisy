@@ -9,8 +9,8 @@ export const colors = {
   grapeTint: '#EFE6FF',
   edge: '#CFC6DC',
   today: '#E6D2FF',
-  // The flower outlines where they sit behind buttons and bands: lavender, deep enough to see on white.
-  bloom: '#BC9BEE',
+  // The flower outlines where they sit behind buttons and bands: lavender. Drawn mostly see-through, so they stay faint.
+  bloom: '#A582E8',
   line: '#E7DBF3',
   dash: '#B49FCF',
   white: '#FFFFFF',

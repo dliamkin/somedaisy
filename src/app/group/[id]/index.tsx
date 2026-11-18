@@ -11,12 +11,12 @@ import { ListIcon, ListTile } from '@/components/list-tile';
 import { ListOptionsPicker } from '@/components/list-options-picker';
 import { MorphChip } from '@/components/morph-chip';
 import { PreviewPicture } from '@/components/preview-picture';
-import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
+import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, FlowerCard, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
 import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
-import { FlowerOutlines } from '@/components/flower-outlines';
+import { FlowerField } from '@/components/flower-outlines';
 import { ALL_ON, optionsOf, type ListOptions } from '@/lib/list-options';
 import { lookFor, type IconName } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
@@ -48,7 +48,7 @@ function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: I
         overflow: 'hidden',
       }}>
       {/* The same flowers as on a group's cover, in lavender. Each button shows a different stretch of them. */}
-      <FlowerOutlines color={colors.bloom} opacity={1} part={part} />
+      <FlowerField shift={part === 'start' ? 0 : part === 'middle' ? 7 : 14} />
       <ListIcon name={icon} size={22} color={colors.grape} />
       <T size={12} weight="extra" color={colors.link} center lines={1}>
         {label}
@@ -393,54 +393,42 @@ export default function GroupScreen() {
               const planList = planPlace === -1 ? null : group.lists[planPlace];
               const planLook = lookFor(planList, Math.max(0, planPlace));
               return (
-                // The card carries the shadow. The box inside it cuts the flowers to the card's rounded shape.
-                <Card key={plan.id} style={{ padding: 0 }}>
-                  <View style={{ borderRadius: 24, overflow: 'hidden', padding: 14, gap: 12 }}>
-                    {/* Faint flowers behind the plan, in two rows so they stay small on a tall card. */}
-                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-                      <View style={{ flex: 1 }}>
-                        <FlowerOutlines color={colors.bloom} opacity={0.4} part="end" />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <FlowerOutlines color={colors.bloom} opacity={0.4} part="start" />
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <ListTile icon={planLook.icon} color={planLook.color} />
-                      <View style={{ flex: 1, gap: 1 }}>
-                        <T size={13} weight="black" color={colors.pink}>
-                          {formatPlan(plan.planned_for, now)}
-                        </T>
-                        <T size={18} weight="black">
-                          {plan.title}
-                        </T>
-                        <T size={13} color={colors.muted}>
-                          {past ? 'Did it happen?' : (planList?.name ?? '')}
-                        </T>
-                      </View>
-                    </View>
-                    {/* The buttons stay where they are and turn into the confirmation in place,
-                        so the one to tap next is under the same finger. The note goes underneath. */}
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                      <MorphChip
-                        tone="primary"
-                        label={confirmDone === plan.id ? 'Yes, mark as done' : 'We did it!'}
-                        selected={confirmDone === plan.id}
-                        onPress={() => (confirmDone === plan.id ? void finish(plan) : setConfirmDone(plan.id))}
-                      />
-                      <MorphChip
-                        tone="quiet"
-                        label={confirmDone === plan.id ? 'Not yet' : 'Change date'}
-                        onPress={() => (confirmDone === plan.id ? setConfirmDone(null) : openPlan(plan))}
-                      />
-                    </View>
-                    {confirmDone === plan.id ? (
-                      <T size={13} color={colors.muted}>
-                        It moves from the list to &quot;Things we did&quot; for everyone.
+                <FlowerCard key={plan.id}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <ListTile icon={planLook.icon} color={planLook.color} />
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <T size={13} weight="black" color={colors.pink}>
+                        {formatPlan(plan.planned_for, now)}
                       </T>
-                    ) : null}
+                      <T size={18} weight="black">
+                        {plan.title}
+                      </T>
+                      <T size={13} color={colors.muted}>
+                        {past ? 'Did it happen?' : (planList?.name ?? '')}
+                      </T>
+                    </View>
                   </View>
-                </Card>
+                  {/* The buttons stay where they are and turn into the confirmation in place,
+                      so the one to tap next is under the same finger. The note goes underneath. */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                    <MorphChip
+                      tone="primary"
+                      label={confirmDone === plan.id ? 'Yes, mark as done' : 'We did it!'}
+                      selected={confirmDone === plan.id}
+                      onPress={() => (confirmDone === plan.id ? void finish(plan) : setConfirmDone(plan.id))}
+                    />
+                    <MorphChip
+                      tone="quiet"
+                      label={confirmDone === plan.id ? 'Not yet' : 'Change date'}
+                      onPress={() => (confirmDone === plan.id ? setConfirmDone(null) : openPlan(plan))}
+                    />
+                  </View>
+                  {confirmDone === plan.id ? (
+                    <T size={13} color={colors.muted}>
+                      It moves from the list to &quot;Things we did&quot; for everyone.
+                    </T>
+                  ) : null}
+                </FlowerCard>
               );
             })}
           </View>

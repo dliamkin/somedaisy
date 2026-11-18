@@ -18,7 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, fonts, shadow } from '@/lib/theme';
 
 import { BackIcon } from './daisy';
-import { FlowerOutlines } from './flower-outlines';
+import { FlowerField } from './flower-outlines';
 
 type Weight = 'medium' | 'bold' | 'extra' | 'black';
 
@@ -68,21 +68,26 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
         {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
         {footer && !band ? <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
         {footer && band ? (
-          <View
-            style={{
-              paddingHorizontal: 24,
-              paddingTop: 14,
-              paddingBottom: insets.bottom + (insets.bottom > 0 ? 6 : 14),
-              gap: 8,
-              backgroundColor: colors.grapeTint,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              borderTopWidth: 1,
-              borderColor: colors.line,
-              overflow: 'hidden',
-            }}>
-            <FlowerOutlines color={colors.bloom} opacity={1} />
-            {footer}
+          // The band is white like the cards and lifts off the page with a shadow cast upward, which
+          // is what sets it apart from the list scrolling behind it. The shadow is on the outer box
+          // and the flowers are cut to shape by the inner one, so neither clips the other.
+          <View style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white, boxShadow: '0 -6px 18px rgba(90, 40, 140, 0.22)' }}>
+            <View
+              style={{
+                paddingHorizontal: 24,
+                paddingTop: 14,
+                paddingBottom: insets.bottom + (insets.bottom > 0 ? 6 : 14),
+                gap: 8,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                // A hairline as well, for the phones that do not draw the shadow.
+                borderTopWidth: 1,
+                borderColor: colors.line,
+                overflow: 'hidden',
+              }}>
+              <FlowerField />
+              {footer}
+            </View>
           </View>
         ) : null}
       </KeyboardAvoidingView>
@@ -155,6 +160,22 @@ export function Button({
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[{ backgroundColor: colors.white, borderRadius: 24, padding: 14, gap: 12 }, shadow, style]}>{children}</View>;
+}
+
+/**
+ * A card with the faint flowers behind what it holds, for the things worth a second look: a plan
+ * that is coming up, something on the do-again shelf. `shift` shows a different stretch of flowers.
+ */
+export function FlowerCard({ children, shift = 21 }: { children: ReactNode; shift?: number }) {
+  return (
+    // The card carries the shadow. The box inside it cuts the flowers to the card's rounded shape.
+    <Card style={{ padding: 0 }}>
+      <View style={{ borderRadius: 24, overflow: 'hidden', padding: 14, gap: 12 }}>
+        <FlowerField shift={shift} />
+        {children}
+      </View>
+    </Card>
+  );
 }
 
 /** A person's circle: their photo when they have one that loads, otherwise their initial on their colour. */

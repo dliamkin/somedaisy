@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { MonthGrid } from '@/components/month-grid';
-import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
+import { Button, Card, Chip, ErrorNote, FlowerCard, Loading, Screen, T, TopBar } from '@/components/ui';
 import { byDay, dayKey, longDayLabel, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchDone, fetchGroup, type DoneIdea, type GroupData } from '@/lib/data';
 import { dayLabel, plannedIdeas, timeLabel } from '@/lib/plans';
@@ -103,7 +103,7 @@ export default function GroupCalendar() {
       ) : null}
 
       {plans.map((plan) => (
-        <Card key={plan.id} style={{ backgroundColor: colors.today }}>
+        <FlowerCard key={plan.id}>
           <View style={{ gap: 2 }}>
             <T size={13} weight="extra" color={colors.link}>
               {timeLabel(new Date(plan.planned_for))}
@@ -118,9 +118,9 @@ export default function GroupCalendar() {
             ) : null}
           </View>
           <View style={{ flexDirection: 'row' }}>
-            <Chip label="Change date" accessibilityLabel={`Change the date of ${plan.title}`} onPress={() => router.push(`/group/${id}/plan?idea=${plan.id}` as never)} />
+            <Chip outlined label="Change date" accessibilityLabel={`Change the date of ${plan.title}`} onPress={() => router.push(`/group/${id}/plan?idea=${plan.id}` as never)} />
           </View>
-        </Card>
+        </FlowerCard>
       ))}
 
       {finished.map((idea) => (
