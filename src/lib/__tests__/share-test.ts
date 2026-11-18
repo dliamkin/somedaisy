@@ -24,8 +24,8 @@ describe('shareWords', () => {
     expect(shareWords({ ...base, created_at: iso(2026, 5, 27) }, now)).toEqual({ kind: 'someday', kicker: "WHO'S IN?", line: 'Someday for 143 days' });
   });
 
-  it('has no second line for an idea added today', () => {
-    expect(shareWords(base, now).line).toBeNull();
+  it('says an idea added today is on the someday list, so the card is never bare', () => {
+    expect(shareWords(base, now).line).toBe('On our someday list');
   });
 
   it('does not announce a plan whose date has gone by', () => {

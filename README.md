@@ -237,7 +237,8 @@ ideas keep their plain "Put it back on the list".
 
 "Share" on an idea's card, and "Share as a picture" in Things we did, open a card with the idea's
 name, its list and its date: "We're finally doing this" for a plan, "We did it!" for something
-done, "Who's in?" otherwise (`src/lib/share.ts`). No names, notes or links are on it. The
+done, "Who's in?" otherwise (`src/lib/share.ts`). An idea with no date that was added today says
+"On our someday list", so the card is never bare. No names, notes or links are on it. The
 picture is made on the device, 1080 by 1350, and nothing is uploaded or stored
 (`src/lib/share-picture.ts`). In the app it goes to the phone's share sheet through
 `react-native-view-shot` and `expo-sharing`, which are native code, so this needs a build made
@@ -254,6 +255,32 @@ when adding a list and changed under Group settings, by any member. They need
 before. Turning something off only changes what the app offers: an idea that already has a
 date, a link or a note keeps it, and can still have it changed or taken off. The rules are in
 `src/lib/list-options.ts`.
+
+### Live updates
+
+When someone changes something in a group, the others looking at that group see it without
+refreshing. The group's page listens on a channel of Supabase's Realtime for a "something
+changed" signal and loads the group again when one arrives. The signal carries no data, so who
+may read what is still decided by the usual loading.
+
+The signal is sent twice over. The database sends it as part of saving any change to the group
+(`supabase/updates/016-live-updates.sql`), so it does not depend on the phone that made the
+change. That phone also sends one itself, which is all there is until update 016 is run.
+Signals that arrive together are answered with one load (`src/lib/live.ts`).
+
+A phone or a browser tab stops listening while it is in the background, so the group is also
+loaded again when the person comes back to it, and every 20 seconds while it is open. If
+Realtime is turned off or unreachable, nothing breaks: changes still save, and the 20 seconds
+is the fallback. The channels are public ones, so Realtime must allow public access (Supabase
+dashboard, Realtime, Settings).
+
+### Inviting people
+
+Making a group has two steps: name it, then invite people. The second step is the Invite
+screen with one big button, which hands the invite link to the phone's share sheet (or copies
+it, in a browser without one), and a small "Skip for now". While a group has only one person
+in it, its page shows a card saying so with an "Invite" button. The screen for sharing an idea
+as a picture says that a picture cannot let anyone join, and links to the Invite screen.
 
 ### Pick for us
 

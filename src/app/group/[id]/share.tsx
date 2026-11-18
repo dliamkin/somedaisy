@@ -83,6 +83,13 @@ export default function ShareIdea() {
       <T size={14} weight="medium" color={colors.muted} center>
         Only the idea&apos;s name, its list and its date are on the picture. No names, notes or links.
       </T>
+      {/* A picture is easy to mistake for an invitation. It is not one, so say so and offer the real thing. */}
+      <View style={{ alignItems: 'center', gap: 2 }}>
+        <T size={14} weight="medium" color={colors.muted} center>
+          A picture cannot let anyone join the group. For that, send the invite link.
+        </T>
+        <Button label="Invite someone instead" kind="ghost" small onPress={() => router.push(`/group/${id}/invite` as never)} />
+      </View>
       {note ? (
         <T size={14} weight="extra" color={colors.mintText} center>
           {note}
