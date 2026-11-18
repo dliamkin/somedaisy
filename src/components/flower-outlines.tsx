@@ -1,5 +1,9 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
+
+import { flowerField } from '@/lib/flower-field';
+import { colors } from '@/lib/theme';
 
 // A scattering of flowers drawn as thin white outlines, to sit softly behind a group's cover
 // colour. Drawn in the app: there is no image file. Positions are fixed, so every cover looks
@@ -82,6 +86,42 @@ export function FlowerOutlines({ opacity = 0.6, color = '#FFFFFF', part = 'middl
           ))}
         </G>
       </Svg>
+    </View>
+  );
+}
+
+// How much of the flowers shows through. Low on purpose: they are a hint behind the words and
+// buttons on top of them, not a pattern to look at.
+const FAINT = 0.1;
+
+/**
+ * A flowery background for a box on a pale page: a button, a card, the band behind the pinned
+ * buttons. Unlike the cover pattern above, the flowers are laid out for the box's own size, so
+ * they are the same size and the same strength everywhere, and a tall box gets more flowers
+ * instead of bigger ones. There is one look, on purpose: nothing to set but `shift`, which
+ * shows a different stretch of flowers in boxes that sit side by side.
+ */
+export function FlowerField({ shift = 0 }: { shift?: number }) {
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  return (
+    <View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        if (Math.abs(width - box.width) > 0.5 || Math.abs(height - box.height) > 0.5) setBox({ width, height });
+      }}
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: FAINT }}>
+      {box.width > 0 && box.height > 0 ? (
+        <Svg width={box.width} height={box.height} viewBox={`0 0 ${box.width} ${box.height}`}>
+          <G fill="none" stroke={colors.bloom} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            {flowerField(box.width, box.height, shift).map((flower, i) => (
+              <Outline key={i} flower={flower} />
+            ))}
+          </G>
+        </Svg>
+      ) : null}
     </View>
   );
 }

@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { Daisy } from '@/components/daisy';
 import { AgainChoice, PointsBar } from '@/components/together';
-import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
+import { Button, Card, Chip, ErrorNote, FlowerCard, Loading, Screen, T, TopBar } from '@/components/ui';
 import { fetchDone, fetchGroup, markChanged, restoreIdea, type DoneIdea, type GroupData } from '@/lib/data';
 import { dayLabel } from '@/lib/plans';
 import { answersFor, myAnswer, onShelf, type DoAgainVote } from '@/lib/points';
@@ -97,7 +97,7 @@ export default function ThingsWeDid() {
             </T>
           ) : null}
           {shelf.map((idea) => (
-            <Card key={idea.id} style={{ backgroundColor: colors.today }}>
+            <FlowerCard key={idea.id}>
               <View style={{ gap: 2 }}>
                 <T size={17} weight="extra">
                   {idea.title}
@@ -112,7 +112,7 @@ export default function ThingsWeDid() {
                 busy={busyId === idea.id}
                 onPress={() => change(idea.id, () => doItAgain(idea.id), 'Could not put it back on the list.')}
               />
-            </Card>
+            </FlowerCard>
           ))}
         </View>
       ) : null}
