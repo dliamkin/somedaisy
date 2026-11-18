@@ -1,10 +1,11 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addComment, cleanComment, COMMENT_MAX, fetchComments, removeComment, timeAgo, type Comment } from '@/lib/comments';
 import { fetchGroup, markChanged, type Idea, type Member } from '@/lib/data';
+import { gather } from '@/lib/live';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
@@ -35,20 +36,21 @@ export default function IdeaComments() {
     }
   }, [id, ideaId]);
 
-  // Live updates: people reading the same idea ping each other, and everyone reloads.
+  // Live updates: a signal arrives when a comment here changes, from the database (update 016)
+  // and from the phone that wrote it, and the comments are loaded again.
   useEffect(() => {
     if (!supabase || !ideaId) return;
     const client = supabase;
+    const reload = gather(() => void load());
     const channel = client.channel(`idea:${ideaId}`, { config: { broadcast: { self: false } } });
-    channel.on('broadcast', { event: 'changed' }, () => {
-      void load();
-    });
+    channel.on('broadcast', { event: 'changed' }, reload.ask);
     channel.subscribe();
     notifyRef.current = () => {
       void channel.send({ type: 'broadcast', event: 'changed', payload: {} });
     };
     return () => {
       notifyRef.current = () => {};
+      reload.cancel();
       void client.removeChannel(channel);
     };
   }, [ideaId, load]);
@@ -58,7 +60,14 @@ export default function IdeaComments() {
     useCallback(() => {
       void load();
       const timer = setInterval(() => void load(), 20000);
-      return () => clearInterval(timer);
+      // And when the person comes back to the app or the browser tab, having missed what was sent meanwhile.
+      const back = AppState.addEventListener('change', (state) => {
+        if (state === 'active') void load();
+      });
+      return () => {
+        clearInterval(timer);
+        back.remove();
+      };
     }, [load]),
   );
 

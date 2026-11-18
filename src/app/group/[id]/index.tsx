@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { AppState, Pressable, ScrollView, View } from 'react-native';
 
 import { ActionIcon, IconAction } from '@/components/action-icons';
 import { Daisy } from '@/components/daisy';
@@ -18,6 +18,7 @@ import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
 import { FlowerField } from '@/components/flower-outlines';
 import { ALL_ON, optionsOf, type ListOptions } from '@/lib/list-options';
+import { gather } from '@/lib/live';
 import { lookFor, type IconName } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
@@ -126,20 +127,23 @@ export default function GroupScreen() {
     }
   }, [id]);
 
-  // Live updates: members ping each other on a shared channel, and everyone reloads.
+  // Live updates: a "something changed" signal arrives on the group's channel, and the group is
+  // loaded again. The database sends one with every change (update 016), whoever made it. The
+  // phone that made the change sends one too, which is all there is before that update is run.
+  // Signals that arrive together are answered with one load.
   useEffect(() => {
     if (!supabase || !id) return;
     const client = supabase;
+    const reload = gather(() => void load());
     const channel = client.channel(`group:${id}`, { config: { broadcast: { self: false } } });
-    channel.on('broadcast', { event: 'changed' }, () => {
-      void load();
-    });
+    channel.on('broadcast', { event: 'changed' }, reload.ask);
     channel.subscribe();
     notifyRef.current = () => {
       void channel.send({ type: 'broadcast', event: 'changed', payload: {} });
     };
     return () => {
       notifyRef.current = () => {};
+      reload.cancel();
       void client.removeChannel(channel);
     };
   }, [id, load]);
@@ -160,7 +164,16 @@ export default function GroupScreen() {
         if (id && takeChanged(id)) notifyRef.current();
       });
       const timer = setInterval(() => void load(), 20000);
-      return () => clearInterval(timer);
+      // And when the person comes back to the app, or to this browser tab, from somewhere else.
+      // A phone stops listening while the app is in the background, so anything that changed
+      // in the meantime was missed.
+      const back = AppState.addEventListener('change', (state) => {
+        if (state === 'active') void load();
+      });
+      return () => {
+        clearInterval(timer);
+        back.remove();
+      };
     }, [id, load]),
   );
 
@@ -349,6 +362,21 @@ export default function GroupScreen() {
             </CircleButton>
           }
         />
+        {/* A group of one has nobody to plan with. Until someone joins, the way to invite them stays in
+            plain sight here, for anyone who skipped past it when the group was made. */}
+        {group.members.length === 1 ? (
+          <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <T size={16} weight="black">
+                It is just you in here
+              </T>
+              <T size={13} color={colors.muted}>
+                Send your people the invite link so they can join in.
+              </T>
+            </View>
+            <Button label="Invite" small onPress={() => router.push(`/group/${group.id}/invite` as never)} />
+          </Card>
+        ) : null}
         {group.points !== null ? <PointsBar points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : null}
         {/* The group's other pages, kept at the top so nobody has to scroll past every idea to reach them. */}
         <View style={{ flexDirection: 'row', gap: 8 }}>

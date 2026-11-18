@@ -16,6 +16,12 @@ export function inviteLink(code: string): string {
   return `${SITE}/join/${code}`;
 }
 
+/** The words sent along with an invite link, in a chat or wherever the person chooses to share it. */
+export function inviteMessage(groupName: string | null | undefined, link: string): string {
+  const name = groupName?.trim();
+  return name ? `Join "${name}" on SomeDaisy: ${link}` : `Join my group on SomeDaisy: ${link}`;
+}
+
 /** The longest link and note an idea can carry. The database enforces the same limits (update 006). */
 export const LINK_MAX = 2000;
 export const NOTE_MAX = 1000;

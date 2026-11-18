@@ -28,7 +28,8 @@ export function shareWords(idea: Shareable, now: Date): ShareWords {
   if (idea.planned_for && !isPast(idea.planned_for, now)) {
     return { kind: 'plan', kicker: "WE'RE FINALLY DOING THIS", line: formatPlan(idea.planned_for, now) };
   }
-  return { kind: 'someday', kicker: "WHO'S IN?", line: somedayLabel(idea.created_at, now) };
+  // An idea added today has not waited yet. It still gets a line, so the card is never bare.
+  return { kind: 'someday', kicker: "WHO'S IN?", line: somedayLabel(idea.created_at, now) ?? 'On our someday list' };
 }
 
 /** A plain file name for the picture, from the idea's name: "somedaisy-sunrise-beach-walk". */

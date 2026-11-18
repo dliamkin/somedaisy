@@ -1,6 +1,6 @@
 import { Linking, Platform } from 'react-native';
 
-import { inviteLink, LINK_MAX, openLink, tidyLink } from '../links';
+import { inviteLink, inviteMessage, LINK_MAX, openLink, tidyLink } from '../links';
 
 jest.mock('react-native', () => ({ Platform: { OS: 'android' }, Linking: { openURL: jest.fn(() => Promise.resolve()) } }));
 jest.mock('expo-linking', () => ({ createURL: (path: string) => `http://localhost:8081${path}` }));
@@ -8,6 +8,17 @@ jest.mock('expo-linking', () => ({ createURL: (path: string) => `http://localhos
 const on = (os: string) => {
   (Platform as { OS: string }).OS = os;
 };
+
+describe('inviteMessage', () => {
+  it('names the group and ends with the link, so the link is what gets tapped', () => {
+    expect(inviteMessage('Roommates', 'https://somedaisy.com/join/abc123')).toBe('Join "Roommates" on SomeDaisy: https://somedaisy.com/join/abc123');
+  });
+
+  it('still reads well when the group name is not known', () => {
+    expect(inviteMessage(null, 'https://somedaisy.com/join/abc123')).toBe('Join my group on SomeDaisy: https://somedaisy.com/join/abc123');
+    expect(inviteMessage('   ', 'https://somedaisy.com/join/abc123')).toBe('Join my group on SomeDaisy: https://somedaisy.com/join/abc123');
+  });
+});
 
 describe('inviteLink', () => {
   it('is a web address on a phone, so it works for people without the app', () => {
