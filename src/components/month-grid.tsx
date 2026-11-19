@@ -93,9 +93,8 @@ export function MonthGrid({
                     borderWidth: 2,
                     borderColor: isPicked ? colors.accent : 'transparent',
                     backgroundColor: isPicked ? colors.selected : isToday ? colors.today : 'transparent',
-                    opacity: tooEarly ? 0.35 : 1,
                   }}>
-                  <T size={15} weight={isToday || isPicked ? 'black' : 'bold'}>
+                  <T size={15} weight={isToday || isPicked ? 'black' : 'bold'} color={tooEarly ? colors.textDisabled : colors.text}>
                     {day.getDate()}
                   </T>
                   <View style={{ flexDirection: 'row', gap: 3, height: 6 }}>

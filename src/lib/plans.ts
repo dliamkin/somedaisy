@@ -30,6 +30,11 @@ export function dayOptions(now: Date, count = 21): Date[] {
   return Array.from({ length: count }, (_, i) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + i));
 }
 
+/** The Saturday of this week, counting from `now`: today if it is Saturday, otherwise the next one. At midnight. */
+export function thisSaturday(now: Date): Date {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((6 - now.getDay() + 7) % 7));
+}
+
 /** "Today", "Tomorrow", "Yesterday", or a short date like "Sat 21 Nov" (with the year if it is not this year). */
 export function dayLabel(day: Date, now: Date): string {
   const diff = daysFromToday(day, now);

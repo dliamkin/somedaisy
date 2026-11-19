@@ -6,7 +6,7 @@ import { MonthGrid } from '@/components/month-grid';
 import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { byDay, dayKey, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchGroup, markChanged, planIdea, type Idea } from '@/lib/data';
-import { atTime, daysFromToday, formatPlan, minutesLabel, minutesOf, plannedIdeas, shiftTime, slotFor, slotMinutes, TIME_SLOTS, TIME_STEP } from '@/lib/plans';
+import { atTime, daysFromToday, formatPlan, minutesLabel, minutesOf, plannedIdeas, shiftTime, slotFor, slotMinutes, thisSaturday, TIME_SLOTS, TIME_STEP } from '@/lib/plans';
 import { useTheme } from '@/lib/theme';
 
 export default function PlanIdea() {
@@ -80,6 +80,9 @@ export default function PlanIdea() {
   const passed = when !== null && when.getTime() < now.getTime();
   const taken = byDay(plannedIdeas(others), (i) => i.planned_for);
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const saturday = thisSaturday(now);
+  // "Today" and "Tomorrow" already cover a Saturday that is one of those.
+  const offerSaturday = daysFromToday(saturday, now) > 1;
   const isDay = (d: Date) => day !== null && dayKey(day) === dayKey(d);
 
   // Pick a day, and bring its month into view.
@@ -92,7 +95,7 @@ export default function PlanIdea() {
     <Screen
       footer={
         <>
-          <Button label="Save the plan" onPress={() => save(when)} disabled={!when || passed} busy={busy} />
+          <Button label={when && !passed ? `Save: ${formatPlan(when.toISOString(), now)}` : 'Save the plan'} onPress={() => save(when)} disabled={!when || passed} busy={busy} />
           {idea.planned_for ? <Button label="Remove the date" kind="ghost" small onPress={() => save(null)} disabled={busy} /> : null}
         </>
       }>
@@ -115,6 +118,7 @@ export default function PlanIdea() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Chip label="Today" selected={isDay(now)} onPress={() => pick(now)} />
           <Chip label="Tomorrow" selected={isDay(tomorrow)} onPress={() => pick(tomorrow)} />
+          {offerSaturday ? <Chip label="This Saturday" selected={isDay(saturday)} onPress={() => pick(saturday)} /> : null}
         </View>
         <Card style={{ padding: 14 }}>
           <MonthGrid
@@ -136,12 +140,6 @@ export default function PlanIdea() {
         <T size={16} weight="extra">
           What time?
         </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {TIME_SLOTS.map((s) => (
-            <Chip key={s.key} label={s.label} selected={s.key === part.key} onPress={() => setMinutes(slotMinutes(s))} />
-          ))}
-        </View>
-        {/* The shortcuts above set a usual time; this sets the exact one. */}
         <Card style={{ padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Chip label="−" outlined accessibilityLabel={`${TIME_STEP} minutes earlier`} onPress={() => setMinutes(shiftTime(minutes, -1))} />
           <View style={{ alignItems: 'center' }} accessibilityLiveRegion="polite">
@@ -154,11 +152,17 @@ export default function PlanIdea() {
           </View>
           <Chip label="+" outlined accessibilityLabel={`${TIME_STEP} minutes later`} onPress={() => setMinutes(shiftTime(minutes, 1))} />
         </Card>
+        {/* Shortcuts to the usual times. The − and + above set the exact one. */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {TIME_SLOTS.map((s) => (
+            <Chip key={s.key} label={s.label} selected={s.key === part.key} onPress={() => setMinutes(slotMinutes(s))} />
+          ))}
+        </View>
       </View>
 
-      {when ? (
-        <T size={15} weight="extra" color={passed ? colors.danger : colors.link}>
-          {passed ? 'That time has already passed. Pick a later one.' : formatPlan(when.toISOString(), now)}
+      {passed ? (
+        <T size={15} weight="extra" color={colors.danger}>
+          That time has already passed. Pick a later one.
         </T>
       ) : (
         <T size={14} weight="medium" color={colors.textMuted}>

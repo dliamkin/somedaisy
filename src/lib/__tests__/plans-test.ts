@@ -9,6 +9,7 @@ import {
   isPast,
   nextPlan,
   nextPlanLine,
+  thisSaturday,
   minutesLabel,
   minutesOf,
   plannedIdeas,
@@ -230,5 +231,16 @@ describe('nextPlanLine', () => {
 
   it('gives the date for anything further off', () => {
     expect(nextPlanLine('Ramen night', new Date(2026, 10, 21, 19, 0).toISOString(), now)).toBe('Ramen night, Sat 21 Nov 7 PM');
+  });
+});
+
+describe('thisSaturday', () => {
+  it('is the Saturday coming, at midnight', () => {
+    expect(thisSaturday(new Date(2026, 10, 18, 16, 41))).toEqual(new Date(2026, 10, 21));
+    expect(thisSaturday(new Date(2026, 10, 22, 9, 0))).toEqual(new Date(2026, 10, 28));
+  });
+
+  it('is today on a Saturday', () => {
+    expect(thisSaturday(new Date(2026, 10, 21, 23, 59))).toEqual(new Date(2026, 10, 21));
   });
 });
