@@ -21,6 +21,15 @@ export function paintWebPage(background: string, dark: boolean): void {
   document.documentElement.style.backgroundColor = background;
   document.body.style.backgroundColor = background;
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  // The colour a phone browser tints its own bars with. The built page starts with the light one
+  // (see scripts/web-head.js). This keeps it the same as the page in dark mode too.
+  let tint = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!tint) {
+    tint = document.createElement('meta');
+    tint.name = 'theme-color';
+    document.head.appendChild(tint);
+  }
+  tint.content = background;
 }
 
 export function steadyWebPage(): void {

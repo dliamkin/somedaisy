@@ -66,7 +66,8 @@ function Root() {
     <SessionProvider>
       {/* The phone's own bars follow the mode: dark words and buttons on a light page, light ones on a dark page. */}
       <StatusBar style={dark ? 'light' : 'dark'} />
-      {Platform.OS === 'android' ? <NavigationBar style={dark ? 'dark' : 'light'} /> : null}
+      {/* Like the status bar, the style names the colour of the buttons, not of the bar behind them. */}
+      {Platform.OS === 'android' ? <NavigationBar style={dark ? 'light' : 'dark'} /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
     </SessionProvider>
   );

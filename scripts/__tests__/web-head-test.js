@@ -84,6 +84,12 @@ describe('the files the tags point at', () => {
     }
   });
 
+  it('tint the phone browser bars the same in the page and in the home-screen app, so no strip of another colour shows', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'public', 'manifest.json'), 'utf8'));
+    expect(manifest.theme_color).toBe(SHARE.themeColor);
+    expect(manifest.background_color).toBe(SHARE.themeColor);
+  });
+
   it('include a sitemap and a robots file that point at the real address', () => {
     expect(fs.readFileSync(path.join(root, 'public', 'robots.txt'), 'utf8')).toContain(`Sitemap: ${SITE}/sitemap.xml`);
     expect(fs.readFileSync(path.join(root, 'public', 'sitemap.xml'), 'utf8')).toContain(`<loc>${SITE}/</loc>`);
