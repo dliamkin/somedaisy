@@ -234,8 +234,8 @@ export function Chip({
   /** A visible edge even when not selected, for a chip sitting on a white card. */
   outlined?: boolean;
   /**
-   * For a choice on a white card, such as a reaction: a hairline grey edge so it reads as a
-   * button, and purple rather than pink once chosen.
+   * For a choice on a card, such as a vote: a pale edge so it reads as a button, and the button
+   * colour rather than pink once chosen.
    */
   soft?: boolean;
   accessibilityLabel?: string;
@@ -251,14 +251,13 @@ export function Chip({
       onPress={onPress}
       style={{
         minHeight: 44,
-        // One point more padding with the hairline edge, so choosing does not change the chip's size.
-        paddingHorizontal: hairline ? 15 : 14,
+        paddingHorizontal: 14,
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: hairline ? 1 : 2,
+        borderWidth: 2,
         borderStyle: dashed ? 'dashed' : 'solid',
-        borderColor: dashed ? colors.outline : hairline ? colors.edge : active && soft ? colors.button : active && !dark ? colors.accent : outlined ? colors.outline : 'transparent',
+        borderColor: dashed ? colors.outline : hairline ? colors.line : active && soft ? colors.button : active && !dark ? colors.accent : outlined ? colors.outline : 'transparent',
         backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.tabOn : soft ? colors.voteOn : colors.selected) : colors.card,
       }}>
       <T size={15} weight="extra" color={active && dark ? colors.onTabOn : colors.text}>
@@ -291,6 +290,8 @@ export function Field({
   kind?: 'email' | 'code' | 'link';
 }) {
   const { colors } = useTheme();
+  // The box being typed in gets an edge in the button colour, in place of the browser's own focus ring.
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 6 }}>
       <T size={14} weight="extra">
@@ -306,6 +307,8 @@ export function Field({
         autoFocus={autoFocus}
         maxLength={maxLength}
         onSubmitEditing={onSubmit}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         keyboardType={kind === 'email' ? 'email-address' : kind === 'code' ? 'number-pad' : kind === 'link' ? 'url' : 'default'}
         autoCapitalize={kind ? 'none' : undefined}
         autoCorrect={kind ? false : undefined}
@@ -316,7 +319,8 @@ export function Field({
           minHeight: multiline ? 88 : 52,
           borderRadius: 18,
           borderWidth: 2,
-          borderColor: colors.line,
+          borderColor: focused ? colors.button : colors.line,
+          outlineWidth: 0,
           backgroundColor: colors.card,
           paddingHorizontal: 16,
           paddingVertical: multiline ? 14 : 0,
@@ -330,7 +334,7 @@ export function Field({
   );
 }
 
-export function CircleButton({ children, onPress, label }: { children: ReactNode; onPress: () => void; label: string }) {
+export function CircleButton({ children, onPress, label, flat }: { children: ReactNode; onPress: () => void; label: string; /** No shadow, for a button in a row of them. */ flat?: boolean }) {
   const { colors, shadow } = useTheme();
   return (
     <Pressable
@@ -339,7 +343,7 @@ export function CircleButton({ children, onPress, label }: { children: ReactNode
       onPress={onPress}
       style={[
         { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-        shadow,
+        flat ? null : shadow,
       ]}>
       {children}
     </Pressable>

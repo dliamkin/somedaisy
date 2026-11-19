@@ -28,8 +28,11 @@ export function MorphChip({
   label: string;
   selected?: boolean;
   onPress: () => void;
-  /** "primary" is the filled button for the thing to do. "quiet" is plain words, for the way out. */
-  tone?: 'primary' | 'quiet';
+  /**
+   * "primary" is the filled button for the thing to do. "outline" is the same thing said more
+   * quietly, which fills in once chosen. "quiet" is plain words, for the way out.
+   */
+  tone?: 'primary' | 'outline' | 'quiet';
 }) {
   const { colors } = useTheme();
   const reduced = useReducedMotion();
@@ -85,10 +88,10 @@ export function MorphChip({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measured, current, selected, reduced, width, swap, tint]);
 
-  const words = { fontFamily: fonts.extra, fontSize: 15, color: tone === 'primary' ? colors.onButton : tone === 'quiet' ? colors.link : colors.text } as const;
+  const words = { fontFamily: fonts.extra, fontSize: 15, color: tone === 'primary' || (tone === 'outline' && selected) ? colors.onButton : tone === 'quiet' || tone === 'outline' ? colors.link : colors.text } as const;
   // The chip's colours at rest and once chosen, which it glides between.
-  const edge = tone === 'primary' ? [colors.button, colors.accent] : tone === 'quiet' ? [clear(colors.link), clear(colors.link)] : [clear(colors.accent), colors.accent];
-  const fill = tone === 'primary' ? [colors.button, colors.accent] : tone === 'quiet' ? [clear(colors.card), clear(colors.card)] : [colors.card, colors.selected];
+  const edge = tone === 'primary' || tone === 'outline' ? [colors.button, colors.accent] : tone === 'quiet' ? [clear(colors.link), clear(colors.link)] : [clear(colors.accent), colors.accent];
+  const fill = tone === 'primary' ? [colors.button, colors.accent] : tone === 'outline' ? [colors.card, colors.accent] : tone === 'quiet' ? [clear(colors.card), clear(colors.card)] : [colors.card, colors.selected];
   const layer = { position: 'absolute', top: 0, bottom: 0, left: -400, right: -400, alignItems: 'center', justifyContent: 'center' } as const;
   return (
     <Pressable

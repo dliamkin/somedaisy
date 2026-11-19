@@ -80,7 +80,7 @@ export default function AddIdea() {
   return (
     <Screen footer={<Button label="Add to list" onPress={submit} disabled={!title.trim() || !listId} busy={busy} />}>
       <TopBar title="New idea" backTo={`/group/${id}`} />
-      <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="Sunrise beach walk, a movie, a new taco spot..." maxLength={120} autoFocus />
+      <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="A beach walk, a movie, tacos..." maxLength={120} autoFocus />
       <View style={{ gap: 8 }}>
         <T size={16} weight="extra">
           Which list?
@@ -93,7 +93,7 @@ export default function AddIdea() {
       </View>
       {shows.link ? (
         <View style={{ gap: 8 }}>
-          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
+          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="A trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
           <LinkPreviewNote preview={preview} label={title.trim()} />
         </View>
       ) : null}
@@ -105,10 +105,10 @@ export default function AddIdea() {
             Count me in
           </T>
           <T size={14} color={colors.textMuted}>
-            {`Adds your "I'm down" right away`}
+            {`Adds your "I'm in" right away`}
           </T>
         </View>
-        <Switch accessibilityLabel="Add my I'm down" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.button, false: colors.textDisabled }} thumbColor={colors.white} />
+        <Switch accessibilityLabel="Add my I'm in" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.button, false: colors.textDisabled }} thumbColor={colors.white} />
       </View>
       <ErrorNote message={error} />
     </Screen>

@@ -7,6 +7,7 @@
     "icon": "./assets/icon/square/somedaisy-icon-square-1024.png",
     "scheme": "somedaisy",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#F6F0FB",
     "ios": {
       "icon": "./assets/icon/square/somedaisy-icon-square-1024.png"
     },
@@ -54,6 +55,12 @@
           "backgroundColor": "#8A4BE6",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false
         }
       ],
       "react-native-nitro-google-signin"

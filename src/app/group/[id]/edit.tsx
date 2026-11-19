@@ -124,7 +124,7 @@ export default function EditIdea() {
       </View>
       {shows.link ? (
         <View style={{ gap: 8 }}>
-          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
+          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="A trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
           <LinkPreviewNote preview={preview} label={title.trim()} />
         </View>
       ) : null}

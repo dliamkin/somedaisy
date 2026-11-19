@@ -5,7 +5,10 @@ import {
   dayOptions,
   daysFromToday,
   formatPlan,
+  countdown,
   isPast,
+  nextPlan,
+  nextPlanLine,
   minutesLabel,
   minutesOf,
   plannedIdeas,
@@ -168,5 +171,64 @@ describe('plannedIdeas', () => {
     ];
     plannedIdeas(ideas);
     expect(ideas.map((i) => i.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('countdown', () => {
+  const now = new Date(2026, 10, 18, 16, 41);
+  const at = (...when: [number, number, number, number, number]) => new Date(...when).toISOString();
+
+  it('counts in days when the plan is more than a day away', () => {
+    expect(countdown(at(2026, 10, 21, 19, 0), now)).toBe('in 3 days');
+    expect(countdown(at(2026, 10, 19, 19, 0), now)).toBe('in 1 day');
+  });
+
+  it('counts in hours and minutes under a day', () => {
+    expect(countdown(at(2026, 10, 18, 19, 0), now)).toBe('in 2 h 19 m');
+    expect(countdown(at(2026, 10, 18, 18, 41), now)).toBe('in 2 h');
+    expect(countdown(at(2026, 10, 19, 9, 0), now)).toBe('in 16 h 19 m');
+  });
+
+  it('counts in minutes under an hour', () => {
+    expect(countdown(at(2026, 10, 18, 17, 0), now)).toBe('in 19 m');
+    expect(countdown(new Date(now.getTime() + 20000).toISOString(), now)).toBe('in 1 m');
+  });
+
+  it('has nothing to count once the start time has come', () => {
+    expect(countdown(now.toISOString(), now)).toBeNull();
+    expect(countdown(at(2026, 10, 17, 19, 0), now)).toBeNull();
+  });
+});
+
+describe('nextPlan', () => {
+  const now = new Date(2026, 10, 18, 16, 41);
+  const plan = (id: string, ...when: [number, number, number, number, number]) => ({ id, planned_for: new Date(...when).toISOString() });
+
+  it('is the soonest plan still to come', () => {
+    const ideas = [plan('later', 2026, 10, 21, 19, 0), plan('overdue', 2026, 10, 17, 19, 0), plan('tonight', 2026, 10, 18, 19, 0), { id: 'no date', planned_for: null }];
+    expect(nextPlan(ideas, now)?.id).toBe('tonight');
+  });
+
+  it('falls back to the latest plan whose time has passed', () => {
+    const ideas = [plan('older', 2026, 10, 10, 19, 0), plan('overdue', 2026, 10, 17, 19, 0)];
+    expect(nextPlan(ideas, now)?.id).toBe('overdue');
+  });
+
+  it('is nothing when no idea has a date', () => {
+    expect(nextPlan([{ id: 'a', planned_for: null }], now)).toBeNull();
+    expect(nextPlan([], now)).toBeNull();
+  });
+});
+
+describe('nextPlanLine', () => {
+  const now = new Date(2026, 10, 18, 16, 41);
+
+  it('says today and tomorrow in small letters', () => {
+    expect(nextPlanLine('Mini golf', new Date(2026, 10, 18, 19, 0).toISOString(), now)).toBe('Mini golf, today 7 PM');
+    expect(nextPlanLine('Brunch', new Date(2026, 10, 19, 10, 30).toISOString(), now)).toBe('Brunch, tomorrow 10:30 AM');
+  });
+
+  it('gives the date for anything further off', () => {
+    expect(nextPlanLine('Ramen night', new Date(2026, 10, 21, 19, 0).toISOString(), now)).toBe('Ramen night, Sat 21 Nov 7 PM');
   });
 });

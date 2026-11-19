@@ -84,6 +84,35 @@ export function PointsBar({ points, onPress }: { points: number; onPress?: () =>
 }
 
 /**
+ * The group's rank on one line, for the top of its page: the rank's name, how far it is to the
+ * next one, and a thin bar under both. The next rank is not named here, only the points to go.
+ * The name never wraps; if it cannot fit it is cut short.
+ */
+export function RankLine({ points, onPress }: { points: number; onPress: () => void }) {
+  const { colors } = useTheme();
+  const level = levelFor(points);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${barSays(level)}. See your stamps`}
+      onPress={onPress}
+      style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <T size={15} weight="black" lines={1} style={{ flex: 1 }}>
+          {level.title}
+        </T>
+        <T size={13} color={colors.textMuted} lines={1}>
+          {level.next ? `${level.toNext} to go` : 'Top rank'}
+        </T>
+      </View>
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.today, overflow: 'hidden' }}>
+        <View style={{ width: percent(level.progress), height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+      </View>
+    </Pressable>
+  );
+}
+
+/**
  * The bar, filling up from the points the group had to the points it has now, so the gain can be
  * seen. The number counts up with it, a sparkle rides the tip, and the bar gives a bounce when
  * it lands. When the gain reaches a new title, the bar fills to the end, then starts again on
@@ -364,7 +393,7 @@ export function EveryonesIn({ title, onPlan, onClose }: { title: string; /** Abs
         </Blooming>
       </PopIn>
       <PopIn delay={520} style={{ gap: 10 }}>
-        {onPlan ? <Button label="Pick a date" kind="soft" onPress={onPlan} /> : null}
+        {onPlan ? <Button label="Plan it" kind="soft" onPress={onPlan} /> : null}
         <Button label={onPlan ? 'Later' : 'Nice'} kind="outline" onPress={onClose} />
       </PopIn>
     </Overlay>

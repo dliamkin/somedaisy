@@ -15,6 +15,28 @@ export function Daisy({ size = 36, petal, center }: { size?: number; petal?: str
   );
 }
 
+/**
+ * The daisy on a group's cover, which grows with the group's rank: eight petals, one per rank.
+ * The petals earned so far are filled in and the rest are dashed outlines. It has no face; the
+ * face belongs to the logo only.
+ */
+export function RankDaisy({ earned, size = 56 }: { /** How many petals are filled in, from 1 to 8. */ earned: number; size?: number }) {
+  const { colors } = useTheme();
+  const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+  return (
+    <Svg width={size} height={size} viewBox="0 0 100 100">
+      {angles.map((a, i) =>
+        i < earned ? (
+          <Ellipse key={a} cx={50} cy={22} rx={11} ry={19} fill={colors.white} transform={`rotate(${a} 50 50)`} />
+        ) : (
+          <Ellipse key={a} cx={50} cy={22} rx={10} ry={18} fill="none" stroke={colors.white} strokeWidth={2} strokeDasharray="4 4" transform={`rotate(${a} 50 50)`} />
+        ),
+      )}
+      <Circle cx={50} cy={50} r={13} fill={colors.daisyCenter} />
+    </Svg>
+  );
+}
+
 export function BackIcon({ color }: { color?: string }) {
   const { colors } = useTheme();
   return (

@@ -2,15 +2,16 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { Daisy } from '@/components/daisy';
+import { RankDaisy } from '@/components/daisy';
 import { FlowerOutlines } from '@/components/flower-outlines';
 import { Logo } from '@/components/logo';
 import { NameForm } from '@/components/name-form';
 import { NotificationsCard } from '@/components/notifications-card';
 import { PrivacyLink } from '@/components/privacy-link';
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
-import { fetchGroups, type GroupSummary } from '@/lib/data';
-import { levelFor } from '@/lib/points';
+import { fetchGroups, fetchPlansByGroup, type GroupSummary, type PlanSummary } from '@/lib/data';
+import { nextPlan, nextPlanLine } from '@/lib/plans';
+import { levelFor, TITLES } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { covers, useTheme } from '@/lib/theme';
 import { fetchPointsByGroup } from '@/lib/together';
@@ -79,6 +80,9 @@ function Home() {
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   // Each group's points, by group id. Null until loaded, and when points are not set up yet.
   const [points, setPoints] = useState<Record<string, number> | null>(null);
+  // Each group's plans, by group id, for the "Next:" line. Null until loaded.
+  const [plans, setPlans] = useState<Record<string, PlanSummary[]> | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
@@ -87,9 +91,17 @@ function Home() {
       fetchGroups()
         .then((g) => alive && setGroups(g))
         .catch((e: Error) => alive && setError(e.message));
-      // Titles are a nicety: the groups show without them.
+      // Ranks and plans are niceties: the groups show without them.
       fetchPointsByGroup().then(
         (p) => alive && setPoints(p),
+        () => {},
+      );
+      fetchPlansByGroup().then(
+        (p) => {
+          if (!alive) return;
+          setPlans(p);
+          setNow(new Date());
+        },
         () => {},
       );
       return () => {
@@ -131,37 +143,47 @@ function Home() {
           </T>
         </Card>
       ) : null}
-      {groups?.map((g) => (
-        <Pressable
-          key={g.id}
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${g.name}`}
-          onPress={() => router.push(`/group/${g.id}` as never)}>
-          <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
-            <View style={{ height: 72, backgroundColor: covers[g.cover] ?? colors.sky, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 20 }}>
-              <FlowerOutlines />
-              <Daisy size={44} petal={colors.white} />
-            </View>
-            <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <View style={{ flexShrink: 1, gap: 2 }}>
-                <T size={21} weight="extra" lines={1}>
-                  {g.name}
-                </T>
-                {points ? (
-                  <T size={13} weight="extra" color={colors.accent} lines={1}>
-                    {levelFor(points[g.id] ?? 0).title}
+      {groups?.map((g) => {
+        const level = points ? levelFor(points[g.id] ?? 0) : null;
+        const next = plans ? nextPlan(plans[g.id] ?? [], now) : null;
+        return (
+          <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={`Open ${g.name}`} onPress={() => router.push(`/group/${g.id}` as never)}>
+            <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
+              <View style={{ height: 68, backgroundColor: covers[g.cover] ?? colors.sky, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 18 }}>
+                <FlowerOutlines />
+                {/* One petal for each rank the group has reached. Until the ranks have loaded, the whole daisy. */}
+                <RankDaisy earned={level ? level.index + 1 : TITLES.length} />
+              </View>
+              <View style={{ paddingTop: 12, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <T size={20} weight="extra" lines={1}>
+                    {g.name}
                   </T>
-                ) : null}
+                  {level || plans ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
+                      {level ? (
+                        <T size={14} weight="extra" color={colors.accentText} lines={1}>
+                          {level.title}
+                        </T>
+                      ) : null}
+                      {plans ? (
+                        <T size={13} color={colors.textMuted} lines={1} style={{ flexShrink: 1 }}>
+                          {next ? `Next: ${nextPlanLine(next.title, next.planned_for, now)}` : 'Nothing planned yet'}
+                        </T>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  {g.members.slice(0, 4).map((m) => (
+                    <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
+                  ))}
+                </View>
               </View>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {g.members.slice(0, 4).map((m) => (
-                  <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
-                ))}
-              </View>
-            </View>
-          </Card>
-        </Pressable>
-      ))}
+            </Card>
+          </Pressable>
+        );
+      })}
       {groups && groups.length > 0 ? <NotificationsCard /> : null}
       {groups && groups.length > 0 ? (
         <Button label="Notification settings" kind="ghost" small onPress={() => router.push('/notifications' as never)} />

@@ -3,63 +3,28 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, View } from 'react-native';
 
 import { ActionIcon, IconAction } from '@/components/action-icons';
+import { ComingUpCard } from '@/components/coming-up';
 import { Daisy } from '@/components/daisy';
-import { AgainChoice, EveryonesIn, NewTitle, PointsBar, YouDidIt } from '@/components/together';
+import { AgainChoice, EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
 import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { SlideIn } from '@/components/celebrate';
 import { ListIcon, ListTile } from '@/components/list-tile';
 import { ListOptionsPicker } from '@/components/list-options-picker';
-import { MorphChip } from '@/components/morph-chip';
 import { PreviewPicture } from '@/components/preview-picture';
-import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, FlowerCard, Loading, Screen, T, TopBar } from '@/components/ui';
+import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
-import { formatPlan, isPast, plannedIdeas } from '@/lib/plans';
+import { formatPlan, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
-import { FlowerField } from '@/components/flower-outlines';
 import { ALL_ON, optionsOf, type ListOptions } from '@/lib/list-options';
 import { gather } from '@/lib/live';
-import { lookFor, type IconName } from '@/lib/looks';
+import { lookFor } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { MORE_REACTIONS, useTheme } from '@/lib/theme';
 import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, undoDone, type AgainPrompt } from '@/lib/together';
-
-/** One of the group's other pages, as a small button with a drawn icon over its name. */
-function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: IconName; label: string; accessibilityLabel?: string; part: 'start' | 'middle' | 'end'; onPress: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onPress={onPress}
-      style={{
-        flex: 1,
-        minHeight: 60,
-        paddingVertical: 8,
-        paddingHorizontal: 4,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.edge,
-        overflow: 'hidden',
-      }}>
-      {/* The same flowers as on a group's cover, in lavender. Each button shows a different stretch of them. */}
-      <FlowerField shift={part === 'start' ? 0 : part === 'middle' ? 7 : 14} />
-      <ListIcon name={icon} size={22} color={colors.button} />
-      <T size={12} weight="extra" color={colors.link} center lines={1}>
-        {label}
-      </T>
-    </Pressable>
-  );
-}
-
-
 
 export default function GroupScreen() {
   const { colors } = useTheme();
@@ -166,6 +131,8 @@ export default function GroupScreen() {
         if (id && takeChanged(id)) notifyRef.current();
       });
       const timer = setInterval(() => void load(), 20000);
+      // The countdown on a plan that is coming up moves on once a minute, whether or not a load gets through.
+      const tick = setInterval(() => setNow(new Date()), 60000);
       // And when the person comes back to the app, or to this browser tab, from somewhere else.
       // A phone stops listening while the app is in the background, so anything that changed
       // in the meantime was missed.
@@ -174,6 +141,7 @@ export default function GroupScreen() {
       });
       return () => {
         clearInterval(timer);
+        clearInterval(tick);
         back.remove();
       };
     }, [id, load]),
@@ -356,7 +324,7 @@ export default function GroupScreen() {
         }>
         <TopBar
           title={group.name}
-          subtitle={group.members.length === 1 ? 'Just you so far' : `${group.members.length} people`}
+          subtitle={group.members.length === 1 ? "It's just you" : `${group.members.length} people`}
           backTo="/"
           right={
             <CircleButton label="Invite people" onPress={() => router.push(`/group/${group.id}/invite` as never)}>
@@ -379,12 +347,19 @@ export default function GroupScreen() {
             <Button label="Invite" small onPress={() => router.push(`/group/${group.id}/invite` as never)} />
           </Card>
         ) : null}
-        {group.points !== null ? <PointsBar points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : null}
-        {/* The group's other pages, kept at the top so nobody has to scroll past every idea to reach them. */}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <QuickLink icon="calendar" label="Calendar" part="start" onPress={() => router.push(`/group/${group.id}/calendar` as never)} />
-          <QuickLink icon="trophy" label="Things we did" part="middle" onPress={() => router.push(`/group/${group.id}/done` as never)} />
-          <QuickLink icon="sliders" label="Settings" accessibilityLabel="Group settings" part="end" onPress={() => router.push(`/group/${group.id}/settings` as never)} />
+        {/* The group's rank, and its other pages as three round buttons beside it, kept at the top so
+            nobody has to scroll past every idea to reach them. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {group.points !== null ? <RankLine points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : <View style={{ flex: 1 }} />}
+          <CircleButton flat label="Calendar" onPress={() => router.push(`/group/${group.id}/calendar` as never)}>
+            <ListIcon name="calendar" size={22} color={colors.link} />
+          </CircleButton>
+          <CircleButton flat label="Things we did" onPress={() => router.push(`/group/${group.id}/done` as never)}>
+            <ListIcon name="trophy" size={22} color={colors.link} />
+          </CircleButton>
+          <CircleButton flat label="Group settings" onPress={() => router.push(`/group/${group.id}/settings` as never)}>
+            <ListIcon name="sliders" size={22} color={colors.link} />
+          </CircleButton>
         </View>
         <ErrorNote message={error} />
 
@@ -405,64 +380,19 @@ export default function GroupScreen() {
           </Card>
         ) : null}
 
-        {plans.length > 0 ? (
-          <View style={{ gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <T size={16} weight="black">
-                Coming up
-              </T>
-              <Pressable accessibilityRole="link" onPress={() => router.push(`/group/${group.id}/calendar` as never)} hitSlop={12}>
-                <T size={14} weight="extra" color={colors.link}>
-                  Calendar
-                </T>
-              </Pressable>
-            </View>
-            {plans.map((plan) => {
-              const past = isPast(plan.planned_for, now);
-              const planPlace = group.lists.findIndex((l) => l.id === plan.list_id);
-              const planList = planPlace === -1 ? null : group.lists[planPlace];
-              const planLook = lookFor(planList, Math.max(0, planPlace));
-              return (
-                <FlowerCard key={plan.id}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <ListTile icon={planLook.icon} color={planLook.color} />
-                    <View style={{ flex: 1, gap: 1 }}>
-                      <T size={13} weight="black" color={colors.accent}>
-                        {formatPlan(plan.planned_for, now)}
-                      </T>
-                      <T size={18} weight="black">
-                        {plan.title}
-                      </T>
-                      <T size={13} color={colors.textMuted}>
-                        {past ? 'Did it happen?' : (planList?.name ?? '')}
-                      </T>
-                    </View>
-                  </View>
-                  {/* The buttons stay where they are and turn into the confirmation in place,
-                      so the one to tap next is under the same finger. The note goes underneath. */}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                    <MorphChip
-                      tone="primary"
-                      label={confirmDone === plan.id ? 'Yes, mark as done' : 'We did it!'}
-                      selected={confirmDone === plan.id}
-                      onPress={() => (confirmDone === plan.id ? void finish(plan) : setConfirmDone(plan.id))}
-                    />
-                    <MorphChip
-                      tone="quiet"
-                      label={confirmDone === plan.id ? 'Not yet' : 'Change date'}
-                      onPress={() => (confirmDone === plan.id ? setConfirmDone(null) : openPlan(plan))}
-                    />
-                  </View>
-                  {confirmDone === plan.id ? (
-                    <T size={13} color={colors.textMuted}>
-                      It moves from the list to &quot;Things we did&quot; for everyone.
-                    </T>
-                  ) : null}
-                </FlowerCard>
-              );
-            })}
-          </View>
-        ) : null}
+        {plans.map((plan) => (
+          <ComingUpCard
+            key={plan.id}
+            title={plan.title}
+            plannedFor={plan.planned_for}
+            now={now}
+            confirming={confirmDone === plan.id}
+            onAskDone={() => setConfirmDone(plan.id)}
+            onDone={() => void finish(plan)}
+            onNotYet={() => setConfirmDone(null)}
+            onChangeDate={() => openPlan(plan)}
+          />
+        ))}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flexGrow: 0 }}>
           {group.lists.length > 0 ? <Chip label="Newest" dark selected={!activeList} onPress={() => pickList(null)} /> : null}
@@ -562,7 +492,7 @@ export default function GroupScreen() {
                 </Pressable>
               ) : null}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                <Chip soft label={count('👍') ? `I'm down · ${count('👍')}` : "I'm down"} accessibilityLabel={`I'm down, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
+                <Chip soft label={count('👍') ? `I'm in · ${count('👍')}` : "I'm in"} accessibilityLabel={`I'm in, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
                 <Chip soft label={count('👎') ? `Eh · ${count('👎')}` : 'Eh'} accessibilityLabel={`Eh, ${count('👎')}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
                 {extras.map((e) => (
                   <Chip soft key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
@@ -593,38 +523,26 @@ export default function GroupScreen() {
                   ))}
                 </View>
               ) : null}
-              {allIn && !idea.planned_for && dated ? <Button label="Pick a date" small onPress={() => openPlan(idea)} /> : null}
-              {/* What you can do with the idea, kept apart from the reactions above: one line of drawn icons.
-                  Each says what it does to a screen reader, and on a computer when the pointer is over it. */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8,
-                  borderTopWidth: 1,
-                  borderTopColor: colors.line,
-                  marginTop: 2,
-                  paddingTop: 2,
-                }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 }}>
+              {/* What you can do with the idea, kept apart from the votes above. The three icons each
+                  say what they do to a screen reader, and on a computer when the pointer is over them.
+                  Giving the idea a date is the main thing to do with it, so it alone has its name on show. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <IconAction
                     icon="comment"
                     label={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
                     text={comments ? String(comments) : null}
                     onPress={() => openComments(idea)}
                   />
-                  {/* A date already set always shows, and can be changed or taken off, even on a list that no longer has dates. */}
-                  {idea.planned_for ? (
-                    <IconAction icon="date" strong label={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`} text={formatPlan(idea.planned_for, now)} onPress={() => openPlan(idea)} />
-                  ) : dated && !allIn ? (
-                    <IconAction icon="date" label="Pick a date" onPress={() => openPlan(idea)} />
-                  ) : null}
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <IconAction icon="share" label={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
                   <IconAction icon="edit" label={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
                 </View>
+                {/* A date already set always shows, and can be changed or taken off, even on a list that no longer has dates. */}
+                {idea.planned_for ? (
+                  <IconAction icon="date" strong label={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`} text={formatPlan(idea.planned_for, now)} onPress={() => openPlan(idea)} />
+                ) : dated ? (
+                  <Button label="Plan it" small onPress={() => openPlan(idea)} />
+                ) : null}
               </View>
               {/* The newest two comments, right on the card. Tapping them opens the whole conversation. */}
               {latest.length > 0 ? (

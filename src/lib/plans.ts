@@ -12,7 +12,7 @@ export const TIME_SLOTS: TimeSlot[] = [
   { key: 'night', label: 'Late', hour: 21, minute: 0 },
 ];
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function startOfDay(d: Date): Date {
@@ -107,8 +107,45 @@ export function slotOf(d: Date): TimeSlot | null {
   return TIME_SLOTS.find((s) => s.hour === d.getHours() && s.minute === d.getMinutes()) ?? null;
 }
 
+/**
+ * How long until a plan starts, for the pill on its card: "in 3 days" when it is more than a day
+ * away, "in 2 h 19 m" under a day, "in 19 m" under an hour. Null once the start time has come.
+ */
+export function countdown(iso: string, now: Date): string | null {
+  const start = new Date(iso);
+  // Rounded up, so the last minute reads "in 1 m" and the pill changes exactly at the start time.
+  const minutes = Math.ceil((start.getTime() - now.getTime()) / 60000);
+  if (minutes <= 0) return null;
+  if (minutes >= 24 * 60) {
+    const days = Math.max(1, daysFromToday(start, now));
+    return `in ${days} ${days === 1 ? 'day' : 'days'}`;
+  }
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `in ${m} m`;
+  return m === 0 ? `in ${h} h` : `in ${h} h ${m} m`;
+}
+
 export function isPast(iso: string, now: Date): boolean {
   return new Date(iso).getTime() < now.getTime();
+}
+
+/**
+ * The plan to name as the group's next one: the soonest that is still to come. Failing that, the
+ * latest one whose time has passed without being marked as done. Null when nothing has a date.
+ */
+export function nextPlan<I extends { planned_for: string | null }>(ideas: I[], now: Date): (I & { planned_for: string }) | null {
+  const plans = plannedIdeas(ideas);
+  return plans.find((p) => !isPast(p.planned_for, now)) ?? plans[plans.length - 1] ?? null;
+}
+
+/** A plan in a few words, for a group's card on Home: "Mini golf, today 7 PM" or "Ramen night, Sat 21 Nov 7 PM". */
+export function nextPlanLine(title: string, iso: string, now: Date): string {
+  const d = new Date(iso);
+  const day = dayLabel(d, now);
+  // "Today", "Tomorrow" and "Yesterday" come mid-sentence here, so they lose their capital.
+  const near = Math.abs(daysFromToday(d, now)) <= 1;
+  return `${title}, ${near ? day.toLowerCase() : day} ${timeLabel(d)}`;
 }
 
 /** The ideas that have a date, soonest first. */

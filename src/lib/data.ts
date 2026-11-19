@@ -76,6 +76,23 @@ function fail(error: { message: string } | null): void {
   if (error) throw new Error(error.message);
 }
 
+/** A plan as Home needs it: what it is and when. */
+export type PlanSummary = { title: string; planned_for: string };
+
+/**
+ * Every plan (an idea with a date that is not done yet) in the groups this person is in, by
+ * group id. For the "Next:" line on each group's card on Home.
+ */
+export async function fetchPlansByGroup(): Promise<Record<string, PlanSummary[]>> {
+  const { data, error } = await db().from('ideas').select('group_id, title, planned_for').not('planned_for', 'is', null).is('done_at', null);
+  fail(error);
+  const byGroup: Record<string, PlanSummary[]> = {};
+  for (const row of (data ?? []) as { group_id: string; title: string; planned_for: string }[]) {
+    (byGroup[row.group_id] ??= []).push({ title: row.title, planned_for: row.planned_for });
+  }
+  return byGroup;
+}
+
 export async function fetchGroups(): Promise<GroupSummary[]> {
   const { data, error } = await db()
     .from('groups')
