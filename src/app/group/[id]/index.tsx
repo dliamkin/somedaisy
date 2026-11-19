@@ -520,24 +520,26 @@ export default function GroupScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: toDo ? 8 : 4 }}>
                 {toDo ? null : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <IconAction icon="up" label={ups === 1 ? 'Thumbs up, 1 person' : `Thumbs up, ${ups} people`} text={ups ? String(ups) : null} on={mine('👍')} onPress={() => react(idea, '👍')} />
-                    <IconAction icon="down" label={downs === 1 ? 'Thumbs down, 1 person' : `Thumbs down, ${downs} people`} text={downs ? String(downs) : null} on={mine('👎')} onPress={() => react(idea, '👎')} />
-                    <IconAction icon="emoji" label="Add a reaction" onPress={pickEmoji} />
+                    <IconAction tip="start" icon="up" label={ups === 0 ? 'Thumbs up' : ups === 1 ? 'Thumbs up, 1 person' : `Thumbs up, ${ups} people`} text={ups ? String(ups) : null} on={mine('👍')} onPress={() => react(idea, '👍')} />
+                    <IconAction tip="start" icon="down" label={downs === 0 ? 'Thumbs down' : downs === 1 ? 'Thumbs down, 1 person' : `Thumbs down, ${downs} people`} text={downs ? String(downs) : null} on={mine('👎')} onPress={() => react(idea, '👎')} />
+                    <IconAction tip="start" icon="emoji" label="Add a reaction" onPress={pickEmoji} />
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: toDo ? 6 : 2 }}>
+                  {/* These three sit at the left of the row beside "Plan it", and at the right beside the thumbs. */}
                   <IconAction
+                    tip={toDo ? 'start' : 'end'}
                     icon="comment"
                     label={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
                     text={comments ? String(comments) : null}
                     onPress={() => openComments(idea)}
                   />
-                  <IconAction icon="share" label={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
-                  <IconAction icon="edit" label={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
+                  <IconAction tip={toDo ? 'start' : 'end'} icon="share" label={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
+                  <IconAction tip={toDo ? 'start' : 'end'} icon="edit" label={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
                 </View>
                 {/* A date already set always shows, and can be changed or taken off, even on a list that no longer has dates. */}
                 {idea.planned_for ? (
-                  <IconAction icon="date" strong label={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`} text={formatPlan(idea.planned_for, now)} onPress={() => openPlan(idea)} />
+                  <IconAction tip="end" icon="date" strong label={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`} text={formatPlan(idea.planned_for, now)} onPress={() => openPlan(idea)} />
                 ) : dated ? (
                   <Button label="Plan it" small onPress={() => openPlan(idea)} />
                 ) : null}

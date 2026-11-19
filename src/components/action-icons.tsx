@@ -33,6 +33,9 @@ const DRAWINGS = {
 
 export type ActionIconName = keyof typeof DRAWINGS;
 
+// The widest the words over an icon can be.
+const TIP_WIDTH = 220;
+
 export function ActionIcon({ name, size = 22, color }: { name: ActionIconName; size?: number; color?: string }) {
   const { colors } = useTheme();
   return (
@@ -52,6 +55,10 @@ export function ActionIcon({ name, size = 22, color }: { name: ActionIconName; s
  * over it. `text` is for the few words that do belong beside the icon, such as a count or a date.
  * `on` is for an icon that is a choice, such as a thumbs up: true once this person has chosen it,
  * which fills in behind the icon, and false while they have not.
+ * `tip` says which way the words over the icon spread. Centred over an icon at the edge of a
+ * card, half of them would run off the side of the page and be cut off. So an icon near the
+ * left edge takes "start" (the words begin at the icon and run right) and one near the right
+ * edge takes "end".
  */
 export function IconAction({
   icon,
@@ -60,6 +67,7 @@ export function IconAction({
   text,
   strong,
   on,
+  tip = 'center',
 }: {
   icon: ActionIconName;
   label: string;
@@ -67,6 +75,7 @@ export function IconAction({
   text?: string | null;
   strong?: boolean;
   on?: boolean;
+  tip?: 'start' | 'center' | 'end';
 }) {
   const { colors } = useTheme();
   const [hovered, setHovered] = useState(false);
@@ -103,9 +112,18 @@ export function IconAction({
         </T>
       ) : null}
       {hovered ? (
-        // A wide, centred layer of its own, so the words are not squeezed to the icon's width.
-        <View pointerEvents="none" style={{ position: 'absolute', bottom: 42, left: -110, right: -110, alignItems: 'center', zIndex: 2 }}>
-          <View style={{ maxWidth: 220, backgroundColor: colors.tabOn, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+        // A wide layer of its own, so the words are not squeezed to the icon's width.
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: 42,
+            left: tip === 'start' ? 0 : tip === 'end' ? -TIP_WIDTH : -TIP_WIDTH / 2,
+            right: tip === 'end' ? 0 : tip === 'start' ? -TIP_WIDTH : -TIP_WIDTH / 2,
+            alignItems: tip === 'start' ? 'flex-start' : tip === 'end' ? 'flex-end' : 'center',
+            zIndex: 2,
+          }}>
+          <View style={{ maxWidth: TIP_WIDTH, backgroundColor: colors.tabOn, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
             <T size={12} weight="extra" color={colors.onTabOn} lines={1}>
               {label}
             </T>
