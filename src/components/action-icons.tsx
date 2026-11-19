@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { G, Path } from 'react-native-svg';
 
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { T } from './ui';
 
@@ -26,10 +26,11 @@ const DRAWINGS = {
 
 export type ActionIconName = keyof typeof DRAWINGS;
 
-export function ActionIcon({ name, size = 22, color = colors.link }: { name: ActionIconName; size?: number; color?: string }) {
+export function ActionIcon({ name, size = 22, color }: { name: ActionIconName; size?: number; color?: string }) {
+  const { colors } = useTheme();
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <G fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <G fill="none" stroke={color ?? colors.link} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
         {DRAWINGS[name].map((d, i) => (
           <Path key={i} d={d} />
         ))}
@@ -56,8 +57,9 @@ export function IconAction({
   text?: string | null;
   strong?: boolean;
 }) {
+  const { colors } = useTheme();
   const [hovered, setHovered] = useState(false);
-  const color = strong ? colors.pink : colors.link;
+  const color = strong ? colors.accent : colors.link;
   return (
     <Pressable
       accessibilityRole="button"
@@ -76,8 +78,8 @@ export function IconAction({
       {hovered ? (
         // A wide, centred layer of its own, so the words are not squeezed to the icon's width.
         <View pointerEvents="none" style={{ position: 'absolute', bottom: 42, left: -110, right: -110, alignItems: 'center', zIndex: 2 }}>
-          <View style={{ maxWidth: 220, backgroundColor: colors.text, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-            <T size={12} weight="extra" color={colors.white} lines={1}>
+          <View style={{ maxWidth: 220, backgroundColor: colors.tabOn, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+            <T size={12} weight="extra" color={colors.onTabOn} lines={1}>
               {label}
             </T>
           </View>

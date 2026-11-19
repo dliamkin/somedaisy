@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path } from 'react-native-svg';
 
 import { flowerField } from '@/lib/flower-field';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // A scattering of flowers drawn as thin white outlines, to sit softly behind a group's cover
 // colour. Drawn in the app: there is no image file. Positions are fixed, so every cover looks
@@ -71,7 +71,8 @@ function Outline({ flower }: { flower: Flower }) {
  * `color` is the colour of the lines. `part` chooses which stretch of the pattern shows when the
  * box is narrower than the pattern, so boxes side by side do not all show the same flowers.
  */
-export function FlowerOutlines({ opacity = 0.6, color = '#FFFFFF', part = 'middle' }: { opacity?: number; color?: string; part?: 'start' | 'middle' | 'end' }) {
+export function FlowerOutlines({ opacity = 0.6, color, part = 'middle' }: { opacity?: number; color?: string; part?: 'start' | 'middle' | 'end' }) {
+  const { colors } = useTheme();
   const align = part === 'start' ? 'xMinYMid' : part === 'end' ? 'xMaxYMid' : 'xMidYMid';
   return (
     <View
@@ -80,7 +81,7 @@ export function FlowerOutlines({ opacity = 0.6, color = '#FFFFFF', part = 'middl
       importantForAccessibility="no-hide-descendants"
       style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity }}>
       <Svg width="100%" height="100%" viewBox="0 0 480 72" preserveAspectRatio={`${align} slice`}>
-        <G fill="none" stroke={color} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+        <G fill="none" stroke={color ?? colors.white} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
           {FLOWERS.map((flower, i) => (
             <Outline key={i} flower={flower} />
           ))}
@@ -102,6 +103,7 @@ const FAINT = 0.1;
  * shows a different stretch of flowers in boxes that sit side by side.
  */
 export function FlowerField({ shift = 0 }: { shift?: number }) {
+  const { colors } = useTheme();
   const [box, setBox] = useState({ width: 0, height: 0 });
   return (
     <View

@@ -4,7 +4,7 @@
 // and they never go down. This file only reads what is recorded: it adds the points up, turns
 // the total into a title, and describes each completion as a stamp. Nothing here stores anything.
 
-import { stampLook, type IconName, type StampList } from './looks';
+import { stampLook, TILE_COLORS, type IconName, type StampList } from './looks';
 
 /** One time a group did one of its ideas, as recorded by the database. */
 export type Completion = {
@@ -124,7 +124,7 @@ export function categoryEmoji(listName: string | null | undefined): string {
 export const WORTH_THE_WAIT_DAYS = 100;
 
 /** The "Worth the wait" stamp belongs to no list, so it has a colour of its own. */
-const WAIT_COLOR = '#5E35B1';
+const WAIT_COLOR = TILE_COLORS[11];
 
 export type Stamp = {
   key: string;

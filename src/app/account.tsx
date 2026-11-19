@@ -23,7 +23,7 @@ import type { Profile } from '@/lib/data';
 import { googleAvailable, signInWithGoogle } from '@/lib/google';
 import { forgetDevice } from '@/lib/push';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // "keep" adds an email to the guest on this device. "signin" switches this device to an account that already exists.
 type Mode = 'keep' | 'signin';
@@ -35,6 +35,7 @@ export default function Account() {
 }
 
 function SignedIn({ email }: { email: string }) {
+  const { colors } = useTheme();
   const { profile, refresh } = useSession();
   const { notice } = useLocalSearchParams<{ notice?: string }>();
   const [confirming, setConfirming] = useState(false);
@@ -69,12 +70,12 @@ function SignedIn({ email }: { email: string }) {
             <T size={18} weight="extra" lines={1}>
               {profile?.name ?? 'Signed in'}
             </T>
-            <T size={14} color={colors.muted} lines={1}>
+            <T size={14} color={colors.textMuted} lines={1}>
               {email}
             </T>
           </View>
         </View>
-        <T size={14} weight="medium" color={colors.muted}>
+        <T size={14} weight="medium" color={colors.textMuted}>
           Your groups are saved to this email. Sign in with it on any phone or browser to see them.
         </T>
         <Button label="Change name or colour" kind="outline" small onPress={() => router.push('/profile' as never)} />
@@ -86,7 +87,7 @@ function SignedIn({ email }: { email: string }) {
           <T size={16} weight="extra">
             Sign out on this device?
           </T>
-          <T size={14} weight="medium" color={colors.muted}>
+          <T size={14} weight="medium" color={colors.textMuted}>
             Your groups stay safe. You will need a code sent to {email} to get back in.
           </T>
           <Button label="Sign out" small onPress={leave} busy={busy} />
@@ -104,6 +105,7 @@ function SignedIn({ email }: { email: string }) {
 const GOOGLE_FAILED = 'Signing in with Google did not finish. Try again, or use your email.';
 
 function Guest({ guest }: { guest: Profile | null }) {
+  const { colors } = useTheme();
   const hasProfile = Boolean(guest);
   const params = useLocalSearchParams<{ mode?: string }>();
   const { refresh } = useSession();
@@ -194,7 +196,7 @@ function Guest({ guest }: { guest: Profile | null }) {
     return (
       <Screen footer={<Button label={mode === 'keep' ? 'Save my account' : 'Sign in'} onPress={confirm} disabled={!isCode(code)} busy={busy} />}>
         <TopBar title="Check your email" backTo="/" />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           We sent a code to {sentTo}. It can take a minute to arrive, and it may land in spam.
         </T>
         <Field label="Code from the email" value={code} onChangeText={setCode} placeholder="123456" kind="code" maxLength={12} autoFocus onSubmit={confirm} />
@@ -207,7 +209,7 @@ function Guest({ guest }: { guest: Profile | null }) {
   return (
     <Screen footer={<Button label="Email me a code" onPress={() => send()} disabled={!isEmail(email) || googleBusy} busy={busy} />}>
       <TopBar title={mode === 'keep' ? 'Keep your groups' : 'Sign in'} backTo="/" />
-      <T weight="medium" color={colors.muted}>
+      <T weight="medium" color={colors.textMuted}>
         {mode === 'keep'
           ? `Right now your groups live only on this device. ${googleAvailable ? 'Continue with Google or add your email' : 'Add your email'} and you can get back to them from any phone or browser. No password needed.`
           : `${googleAvailable ? 'Continue with Google, or enter' : 'Enter'} the email you saved your account with. We will send you a code, no password needed.`}
@@ -225,14 +227,14 @@ function Guest({ guest }: { guest: Profile | null }) {
           <T size={16} weight="extra">
             Sign in to that account instead?
           </T>
-          <T size={14} weight="medium" color={colors.muted}>
+          <T size={14} weight="medium" color={colors.textMuted}>
             You will see that account&apos;s groups, and the groups you joined as a guest on this device will come with you.
           </T>
           <Button label="Send me a sign-in code" small onPress={() => send('signin')} busy={busy} />
         </Card>
       ) : null}
       {mode === 'signin' && hasProfile ? (
-        <T size={14} weight="medium" color={colors.muted}>
+        <T size={14} weight="medium" color={colors.textMuted}>
           Groups you joined as a guest on this device will come with you into the account.
         </T>
       ) : null}

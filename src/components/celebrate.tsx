@@ -6,7 +6,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, ScrollView, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors } from '@/lib/theme';
+import { BLOOM_PETALS, CONFETTI, useTheme } from '@/lib/theme';
 
 import { Daisy } from './daisy';
 
@@ -35,8 +35,9 @@ export function useReducedMotion(): boolean | null {
  * under the contents, and is where confetti goes.
  */
 export function Overlay({ children, behind }: { children: ReactNode; behind?: ReactNode }) {
+  const { colors } = useTheme();
   return (
-    <View accessibilityViewIsModal style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.grape }}>
+    <View accessibilityViewIsModal style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.button }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 28 }}>
         <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', alignItems: 'stretch', gap: 18 }}>{children}</View>
       </ScrollView>
@@ -44,8 +45,6 @@ export function Overlay({ children, behind }: { children: ReactNode; behind?: Re
     </View>
   );
 }
-
-const CONFETTI = [colors.white, colors.yellow, '#FFD25A', colors.pinkTint, '#F58FB8', colors.mint, colors.sky, colors.today];
 
 type Piece = { x: number; lift: number; drift: number; spin: number; size: number; round: boolean; color: string; late: number };
 
@@ -220,7 +219,7 @@ function Bloom({ corner, size, delay, petal }: { corner: Corner; size: number; d
  * The card itself is passed in and is not changed.
  */
 export function Blooming({ children, delay = 0, corners = ['topRight', 'bottomLeft'] }: { children: ReactNode; delay?: number; corners?: Corner[] }) {
-  const petals = [colors.white, colors.pinkTint, colors.sky, colors.white];
+  const petals = BLOOM_PETALS;
   const sizes = [44, 36, 30, 38];
   return (
     <View>

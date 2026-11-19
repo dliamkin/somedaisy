@@ -1,7 +1,7 @@
 import { Switch, View } from 'react-native';
 
 import type { ListOptions } from '@/lib/list-options';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { T } from './ui';
 
@@ -16,13 +16,14 @@ const ROWS: { key: keyof ListOptions; title: string; on: string; off: string }[]
  * note box are each on or off, and all start on.
  */
 export function ListOptionsPicker({ value, onChange }: { value: ListOptions; onChange: (next: ListOptions) => void }) {
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 12 }}>
       <View>
         <T size={14} weight="extra">
           What this list asks for
         </T>
-        <T size={13} color={colors.muted}>
+        <T size={13} color={colors.textMuted}>
           Every idea needs a name. The rest is up to you.
         </T>
       </View>
@@ -32,7 +33,7 @@ export function ListOptionsPicker({ value, onChange }: { value: ListOptions; onC
             <T size={15} weight="extra">
               {row.title}
             </T>
-            <T size={13} color={colors.muted}>
+            <T size={13} color={colors.textMuted}>
               {value[row.key] ? row.on : row.off}
             </T>
           </View>
@@ -40,7 +41,7 @@ export function ListOptionsPicker({ value, onChange }: { value: ListOptions; onC
             accessibilityLabel={row.title}
             value={value[row.key]}
             onValueChange={(next) => onChange({ ...value, [row.key]: next })}
-            trackColor={{ true: colors.grape, false: '#8E80A3' }}
+            trackColor={{ true: colors.button, false: colors.textDisabled }}
             thumbColor={colors.white}
           />
         </View>

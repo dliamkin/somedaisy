@@ -7,9 +7,10 @@ import { Button, Card, Chip, ErrorNote, Loading, Screen, T, TopBar } from '@/com
 import { byDay, dayKey, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchGroup, markChanged, planIdea, type Idea } from '@/lib/data';
 import { atTime, daysFromToday, formatPlan, minutesLabel, minutesOf, plannedIdeas, shiftTime, slotFor, slotMinutes, TIME_SLOTS, TIME_STEP } from '@/lib/plans';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 export default function PlanIdea() {
+  const { colors } = useTheme();
   const { id, idea: ideaId } = useLocalSearchParams<{ id: string; idea?: string }>();
   const [now] = useState(() => new Date());
   const [idea, setIdea] = useState<Idea | null | undefined>(undefined);
@@ -67,7 +68,7 @@ export default function PlanIdea() {
       <Screen footer={<Button label="Back to the group" kind="soft" onPress={back} />}>
         <TopBar title="Pick a date" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           That idea is no longer in the group.
         </T>
       </Screen>
@@ -101,7 +102,7 @@ export default function PlanIdea() {
           {idea.title}
         </T>
         {idea.planned_for ? (
-          <T size={14} color={colors.muted}>
+          <T size={14} color={colors.textMuted}>
             Currently planned for {formatPlan(idea.planned_for, now)}
           </T>
         ) : null}
@@ -125,7 +126,7 @@ export default function PlanIdea() {
             earliest={now}
             marks={(key) => ({ plans: taken[key]?.length })}
           />
-          <T size={12} color={colors.muted} center>
+          <T size={12} color={colors.textMuted} center>
             A dot marks a day the group already has a plan.
           </T>
         </Card>
@@ -147,7 +148,7 @@ export default function PlanIdea() {
             <T size={24} weight="black">
               {minutesLabel(minutes)}
             </T>
-            <T size={12} color={colors.muted}>
+            <T size={12} color={colors.textMuted}>
               Tap − or + to change the time
             </T>
           </View>
@@ -160,7 +161,7 @@ export default function PlanIdea() {
           {passed ? 'That time has already passed. Pick a later one.' : formatPlan(when.toISOString(), now)}
         </T>
       ) : (
-        <T size={14} weight="medium" color={colors.muted}>
+        <T size={14} weight="medium" color={colors.textMuted}>
           Everyone in the group will see the date.
         </T>
       )}

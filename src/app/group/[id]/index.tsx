@@ -24,11 +24,12 @@ import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
-import { colors, MORE_REACTIONS } from '@/lib/theme';
+import { MORE_REACTIONS, useTheme } from '@/lib/theme';
 import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, undoDone, type AgainPrompt } from '@/lib/together';
 
 /** One of the group's other pages, as a small button with a drawn icon over its name. */
 function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: IconName; label: string; accessibilityLabel?: string; part: 'start' | 'middle' | 'end'; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -43,14 +44,14 @@ function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: I
         alignItems: 'center',
         justifyContent: 'center',
         gap: 2,
-        backgroundColor: colors.white,
+        backgroundColor: colors.card,
         borderWidth: 1,
         borderColor: colors.edge,
         overflow: 'hidden',
       }}>
       {/* The same flowers as on a group's cover, in lavender. Each button shows a different stretch of them. */}
       <FlowerField shift={part === 'start' ? 0 : part === 'middle' ? 7 : 14} />
-      <ListIcon name={icon} size={22} color={colors.grape} />
+      <ListIcon name={icon} size={22} color={colors.button} />
       <T size={12} weight="extra" color={colors.link} center lines={1}>
         {label}
       </T>
@@ -61,6 +62,7 @@ function QuickLink({ icon, label, accessibilityLabel, part, onPress }: { icon: I
 
 
 export default function GroupScreen() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useSession();
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
@@ -198,7 +200,7 @@ export default function GroupScreen() {
           Could not load this group
         </T>
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           Check your connection, then try again.
         </T>
       </Screen>
@@ -211,7 +213,7 @@ export default function GroupScreen() {
           Group not found
         </T>
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           You may need an invite link to see this group.
         </T>
       </Screen>
@@ -370,7 +372,7 @@ export default function GroupScreen() {
               <T size={16} weight="black">
                 It is just you in here
               </T>
-              <T size={13} color={colors.muted}>
+              <T size={13} color={colors.textMuted}>
                 Send your people the invite link so they can join in.
               </T>
             </View>
@@ -395,7 +397,7 @@ export default function GroupScreen() {
               <T size={17} weight="extra">
                 {prompt.title}
               </T>
-              <T size={14} weight="medium" color={colors.muted}>
+              <T size={14} weight="medium" color={colors.textMuted}>
                 Would you do it again?
               </T>
             </View>
@@ -425,13 +427,13 @@ export default function GroupScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <ListTile icon={planLook.icon} color={planLook.color} />
                     <View style={{ flex: 1, gap: 1 }}>
-                      <T size={13} weight="black" color={colors.pink}>
+                      <T size={13} weight="black" color={colors.accent}>
                         {formatPlan(plan.planned_for, now)}
                       </T>
                       <T size={18} weight="black">
                         {plan.title}
                       </T>
-                      <T size={13} color={colors.muted}>
+                      <T size={13} color={colors.textMuted}>
                         {past ? 'Did it happen?' : (planList?.name ?? '')}
                       </T>
                     </View>
@@ -452,7 +454,7 @@ export default function GroupScreen() {
                     />
                   </View>
                   {confirmDone === plan.id ? (
-                    <T size={13} color={colors.muted}>
+                    <T size={13} color={colors.textMuted}>
                       It moves from the list to &quot;Things we did&quot; for everyone.
                     </T>
                   ) : null}
@@ -485,7 +487,7 @@ export default function GroupScreen() {
             <T size={18} weight="extra">
               Add your first list
             </T>
-            <T weight="medium" color={colors.muted}>
+            <T weight="medium" color={colors.textMuted}>
               Lists are categories like Movies or Places.
             </T>
           </Card>
@@ -499,7 +501,7 @@ export default function GroupScreen() {
             <T size={22} weight="black" center>
               {activeList ? `Nothing in ${activeList.name} yet` : 'No ideas yet'}
             </T>
-            <T weight="medium" color={colors.muted} center>
+            <T weight="medium" color={colors.textMuted} center>
               Add the first idea and see who else is in.
             </T>
           </View>
@@ -530,7 +532,7 @@ export default function GroupScreen() {
                   <T size={17} weight="extra">
                     {idea.title}
                   </T>
-                  <T size={13} color={colors.muted}>
+                  <T size={13} color={colors.textMuted}>
                     {/* Under "Newest" the lists are mixed together, so each card says which it is from. */}
                     {!activeList && ideaList ? `${ideaList.name} · ` : ''}
                     Added by {nameOf(idea.added_by)}
@@ -583,8 +585,8 @@ export default function GroupScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: 2,
-                        borderColor: mine(e) ? colors.grape : 'transparent',
-                        backgroundColor: mine(e) ? colors.grapeTint : colors.ground,
+                        borderColor: mine(e) ? colors.button : 'transparent',
+                        backgroundColor: mine(e) ? colors.voteOn : colors.background,
                       }}>
                       <T size={22}>{e}</T>
                     </Pressable>
@@ -632,7 +634,7 @@ export default function GroupScreen() {
                   onPress={() => openComments(idea)}
                   style={{ gap: 8 }}>
                   {comments > latest.length ? (
-                    <T size={13} weight="extra" color={colors.muted}>
+                    <T size={13} weight="extra" color={colors.textMuted}>
                       See all {comments} comments
                     </T>
                   ) : null}
@@ -641,10 +643,10 @@ export default function GroupScreen() {
                     return (
                       <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                         <Avatar name={by?.name ?? 'Someone'} color={by?.color ?? colors.sky} photo={by?.photo} size={26} />
-                        <View style={{ flex: 1, backgroundColor: colors.ground, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}>
+                        <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}>
                           <T size={13} weight="extra">
                             {comment.user_id === userId ? 'You' : (by?.name ?? 'Someone')}
-                            <T size={12} color={colors.muted}>
+                            <T size={12} color={colors.textMuted}>
                               {'  '}
                               {timeAgo(comment.created_at, now)}
                             </T>
@@ -659,7 +661,7 @@ export default function GroupScreen() {
                 </Pressable>
               ) : null}
               {!allIn && waiting.length > 0 && group.members.length > 1 ? (
-                <T size={13} color={colors.muted}>
+                <T size={13} color={colors.textMuted}>
                   Waiting on {waiting.map((m) => (m.user_id === userId ? 'you' : m.name)).join(', ')}
                 </T>
               ) : null}

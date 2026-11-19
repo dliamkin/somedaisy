@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { blendFor, type IconName } from '@/lib/looks';
-import { shadow } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // The icons are drawn here, in the app, as thin rounded lines on a 24 by 24 grid. There are no
 // image files. Each is a handful of line paths; `dot` makes a small circle as a path.
@@ -116,16 +116,18 @@ const DRAWINGS: Record<Exclude<IconName, 'daisy'>, string[]> = {
 const PETALS = [0, 45, 90, 135, 180, 225, 270, 315];
 
 /** One of the list icons, drawn as lines in the colour given. */
-export function ListIcon({ name, size = 28, color = '#FFFFFF' }: { name: IconName; size?: number; color?: string }) {
+export function ListIcon({ name, size = 28, color }: { name: IconName; size?: number; color?: string }) {
+  const { colors } = useTheme();
+  const ink = color ?? colors.white;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <G fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <G fill="none" stroke={ink} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
         {name === 'daisy' ? (
           <>
             {PETALS.map((a) => (
               <Ellipse key={a} cx={12} cy={5.6} rx={2.1} ry={3.7} transform={`rotate(${a} 12 12)`} />
             ))}
-            <Circle cx={12} cy={12} r={2.4} fill={color} />
+            <Circle cx={12} cy={12} r={2.4} fill={ink} />
           </>
         ) : (
           DRAWINGS[name].map((d, i) => <Path key={i} d={d} />)
@@ -169,6 +171,7 @@ export function ListTile({
   round?: boolean;
   flowers?: boolean;
 }) {
+  const { colors, shadow } = useTheme();
   const blend = blendFor(color);
   const id = `tile-${color.slice(1)}`;
   const radius = round ? size / 2 : size / 3;
@@ -188,7 +191,7 @@ export function ListTile({
             </LinearGradient>
           </Defs>
           <Rect width={48} height={48} fill={`url(#${id})`} />
-          <Ellipse cx={14} cy={9} rx={25} ry={13} fill="#FFFFFF" opacity={0.16} />
+          <Ellipse cx={14} cy={9} rx={25} ry={13} fill={colors.white} opacity={0.16} />
           {flowers ? (
             <G fill="none" stroke={blend.ink} strokeWidth={1} opacity={0.38}>
               <OutlineDaisy x={7} y={10} r={12} turn={10} />

@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { dayKey, longDayLabel, monthGrid, monthLabel, WEEKDAY_LETTERS, WEEKDAY_NAMES, type Month } from '@/lib/calendar';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { Chip, T } from './ui';
 
@@ -33,6 +33,7 @@ export function MonthGrid({
   /** Days before this one cannot be picked, and the grid will not page back past its month. */
   earliest?: Date;
 }) {
+  const { colors } = useTheme();
   const todayKey = dayKey(today);
   const pickedKey = picked ? dayKey(picked) : null;
   const earliestKey = earliest ? dayKey(earliest) : null;
@@ -50,7 +51,7 @@ export function MonthGrid({
       <View style={{ flexDirection: 'row' }}>
         {WEEKDAY_LETTERS.map((letter, i) => (
           <View key={WEEKDAY_NAMES[i]} style={{ flex: 1, alignItems: 'center' }}>
-            <T size={12} weight="extra" color={colors.muted}>
+            <T size={12} weight="extra" color={colors.textMuted}>
               {letter}
             </T>
           </View>
@@ -90,15 +91,15 @@ export function MonthGrid({
                     justifyContent: 'center',
                     gap: 2,
                     borderWidth: 2,
-                    borderColor: isPicked ? colors.pink : 'transparent',
-                    backgroundColor: isPicked ? colors.pinkTint : isToday ? colors.today : 'transparent',
+                    borderColor: isPicked ? colors.accent : 'transparent',
+                    backgroundColor: isPicked ? colors.selected : isToday ? colors.today : 'transparent',
                     opacity: tooEarly ? 0.35 : 1,
                   }}>
                   <T size={15} weight={isToday || isPicked ? 'black' : 'bold'}>
                     {day.getDate()}
                   </T>
                   <View style={{ flexDirection: 'row', gap: 3, height: 6 }}>
-                    {plans ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.grape }} /> : null}
+                    {plans ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.button }} /> : null}
                     {done ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.mintText }} /> : null}
                   </View>
                 </View>

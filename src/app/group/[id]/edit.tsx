@@ -9,10 +9,11 @@ import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea,
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { formShows } from '@/lib/list-options';
 import { attachPreview } from '@/lib/preview';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 /** Change an idea's words or list, or remove it. Any member of the group can. */
 export default function EditIdea() {
+  const { colors } = useTheme();
   const { id, idea: ideaId } = useLocalSearchParams<{ id: string; idea?: string }>();
   const [idea, setIdea] = useState<Idea | null | undefined>(undefined);
   const [lists, setLists] = useState<List[]>([]);
@@ -100,7 +101,7 @@ export default function EditIdea() {
       <Screen footer={<Button label="Back to the group" kind="soft" onPress={back} />}>
         <TopBar title="Edit idea" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           That idea is no longer in the group.
         </T>
       </Screen>
@@ -135,7 +136,7 @@ export default function EditIdea() {
           <T size={16} weight="extra">
             Remove this idea?
           </T>
-          <T size={14} weight="medium" color={colors.muted}>
+          <T size={14} weight="medium" color={colors.textMuted}>
             It disappears for everyone in the group, along with its reactions and comments.
           </T>
           <T size={14} weight="extra" color={colors.danger}>

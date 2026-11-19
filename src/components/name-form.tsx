@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useSession } from '@/lib/session';
-import { avatarColors, colors } from '@/lib/theme';
+import { avatarColors, useTheme } from '@/lib/theme';
 
 import { Button, Card, ErrorNote, Field, T } from './ui';
 
@@ -17,6 +17,7 @@ export function NameForm({
   /** The current name and colour, when changing them instead of choosing for the first time. */
   initial?: { name: string; color: string };
 }) {
+  const { colors } = useTheme();
   const { saveProfile } = useSession();
   const [name, setName] = useState(initial?.name ?? '');
   const [color, setColor] = useState(initial?.color ?? avatarColors[0]);
@@ -59,7 +60,7 @@ export function NameForm({
                   borderRadius: 24,
                   backgroundColor: c,
                   borderWidth: 3,
-                  borderColor: c === color ? colors.grape : 'transparent',
+                  borderColor: c === color ? colors.button : 'transparent',
                 }}
               />
             ))}

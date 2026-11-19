@@ -1,6 +1,7 @@
 import { countByIdea, latestByIdea, type Comment } from './comments';
 import { ALL_ON, sameOptions, type ListOptions } from './list-options';
 import { db } from './supabase';
+import { DEFAULT_AVATAR } from './theme';
 
 /** `photo_url` and `photo_hidden` need supabase/updates/004-profile-photo.sql; without it they are simply absent. */
 export type Profile = { id: string; name: string; color: string; photo_url?: string | null; photo_hidden?: boolean };
@@ -67,7 +68,7 @@ type MemberRow = { user_id: string; profiles: MemberProfile | MemberProfile[] | 
 function toMembers(rows: MemberRow[] | null | undefined): Member[] {
   return (rows ?? []).map((r) => {
     const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-    return { user_id: r.user_id, name: p?.name ?? 'Someone', color: p?.color ?? '#FFD9C7', photo: p?.photo_url ?? null };
+    return { user_id: r.user_id, name: p?.name ?? 'Someone', color: p?.color ?? DEFAULT_AVATAR, photo: p?.photo_url ?? null };
   });
 }
 

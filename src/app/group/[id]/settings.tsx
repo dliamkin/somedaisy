@@ -25,13 +25,14 @@ import {
 import { optionsOf, type ListOptions } from '@/lib/list-options';
 import { cleanHex, isIcon } from '@/lib/looks';
 import { useSession } from '@/lib/session';
-import { colors, covers } from '@/lib/theme';
+import { covers, useTheme } from '@/lib/theme';
 
 // The one thing waiting for a "yes, really" at a time.
 type Confirm = { kind: 'leave' } | { kind: 'link' } | { kind: 'member'; member: Member } | null;
 
 /** Rename the group, tidy its lists, see who is in it, and leave. The owner can also remove people and replace the invite link. */
 export default function GroupSettings() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useSession();
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
@@ -100,7 +101,7 @@ export default function GroupSettings() {
       <Screen footer={<Button label="Back to groups" kind="soft" onPress={() => router.replace('/')} />}>
         <TopBar title="Group settings" backTo="/" />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           That group is not available.
         </T>
       </Screen>
@@ -159,7 +160,7 @@ export default function GroupSettings() {
                 accessibilityLabel={`${key} cover`}
                 accessibilityState={{ selected: key === cover }}
                 onPress={() => setCover(key)}
-                style={{ flex: 1, height: 52, borderRadius: 16, backgroundColor: value, borderWidth: 3, borderColor: key === cover ? colors.grape : 'transparent' }}
+                style={{ flex: 1, height: 52, borderRadius: 16, backgroundColor: value, borderWidth: 3, borderColor: key === cover ? colors.button : 'transparent' }}
               />
             ))}
           </View>
@@ -179,7 +180,7 @@ export default function GroupSettings() {
               <T size={16} weight="extra">
                 Mute this group
               </T>
-              <T size={14} weight="medium" color={colors.muted}>
+              <T size={14} weight="medium" color={colors.textMuted}>
                 No notifications from this group, for you only. Your other groups are not affected.
               </T>
             </View>
@@ -187,7 +188,7 @@ export default function GroupSettings() {
               accessibilityLabel="Mute this group"
               value={muted}
               onValueChange={mute}
-              trackColor={{ false: colors.dash, true: colors.grape }}
+              trackColor={{ false: colors.outline, true: colors.button }}
               thumbColor={colors.white}
             />
           </View>
@@ -198,7 +199,7 @@ export default function GroupSettings() {
         <T size={16} weight="extra">
           Lists
         </T>
-        <T size={14} weight="medium" color={colors.muted}>
+        <T size={14} weight="medium" color={colors.textMuted}>
           Tap a list to rename it, choose what it asks for, or change its icon and colour. A list with nothing on it can be removed.
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -287,7 +288,7 @@ export default function GroupSettings() {
             <T size={16} weight="extra">
               Remove {confirm.member.name}?
             </T>
-            <T size={14} weight="medium" color={colors.muted}>
+            <T size={14} weight="medium" color={colors.textMuted}>
               They lose access to this group and their reactions are removed. Ideas and comments they added stay. They could rejoin with the invite
               link, so get a new link below if you do not want that.
             </T>
@@ -313,7 +314,7 @@ export default function GroupSettings() {
           </T>
           {confirm?.kind === 'link' ? (
             <>
-              <T size={14} weight="medium" color={colors.muted}>
+              <T size={14} weight="medium" color={colors.textMuted}>
                 The link you have shared stops working. Everyone already in the group stays. You will need to send the new link to anyone who has
                 not joined yet.
               </T>
@@ -327,7 +328,7 @@ export default function GroupSettings() {
             </>
           ) : (
             <>
-              <T size={14} weight="medium" color={colors.muted}>
+              <T size={14} weight="medium" color={colors.textMuted}>
                 If the link has reached someone it should not have, replace it with a new one.
               </T>
               <Button label="Replace the invite link" kind="outline" small onPress={() => setConfirm({ kind: 'link' })} disabled={busy} />
@@ -341,7 +342,7 @@ export default function GroupSettings() {
           <T size={16} weight="extra">
             {alone ? 'Leave and delete this group?' : 'Leave this group?'}
           </T>
-          <T size={14} weight="medium" color={colors.muted}>
+          <T size={14} weight="medium" color={colors.textMuted}>
             {alone
               ? 'You are the only one here, so the group is deleted with everything in it.'
               : 'You stop seeing this group and your reactions are removed. Ideas and comments you added stay for your friends. You can come back with an invite link.'}

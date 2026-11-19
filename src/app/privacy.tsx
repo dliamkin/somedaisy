@@ -2,10 +2,11 @@ import { Linking, Pressable, View } from 'react-native';
 
 import { Card, Screen, T, TopBar } from '@/components/ui';
 import { CONTACT, INTRO, SECTIONS, UPDATED, type Block } from '@/lib/privacy';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // The privacy policy. Anyone can read it, signed in or not; the words live in src/lib/privacy.ts.
 export default function Privacy() {
+  const { colors } = useTheme();
   return (
     <Screen>
       <TopBar title="Privacy" subtitle={`Updated ${UPDATED}`} backTo="/" />
@@ -48,12 +49,13 @@ function Paragraph({ text }: { text: string }) {
 }
 
 function BlockView({ block }: { block: Block }) {
+  const { colors } = useTheme();
   if (typeof block === 'string') return <Paragraph text={block} />;
   return (
     <View style={{ gap: 10 }}>
       {block.map((point) => (
         <View key={point} style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.grape, marginTop: 8 }} />
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.button, marginTop: 8 }} />
           <View style={{ flex: 1 }}>
             <Paragraph text={point} />
           </View>

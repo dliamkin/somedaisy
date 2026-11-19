@@ -9,12 +9,13 @@ import { fetchLists, type List } from '@/lib/data';
 import { TILE_COLORS } from '@/lib/looks';
 import { dayLabel } from '@/lib/plans';
 import { levelFor, stampsFor, TITLES, totalPoints, type Completion, type Stamp } from '@/lib/points';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { fetchCompletions } from '@/lib/together';
 
 
 /** The group's passport: its title and points, and a stamp for everything it has done. */
 export default function Stamps() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [now, setNow] = useState(() => new Date());
   const [completions, setCompletions] = useState<Completion[] | null | undefined>(undefined);
@@ -53,7 +54,7 @@ export default function Stamps() {
       <Screen footer={<Button label="Back to the group" kind="soft" onPress={back} />}>
         <TopBar title="Stamps" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           {error ? 'Your stamps could not be loaded. Check your connection, then try again.' : 'Stamps are not available yet. Try again later.'}
         </T>
       </Screen>
@@ -71,7 +72,7 @@ export default function Stamps() {
 
       <Card style={{ padding: 18, gap: 14 }}>
         <View style={{ gap: 2 }}>
-          <T size={13} color={colors.muted}>
+          <T size={13} color={colors.textMuted}>
             Your group is
           </T>
           <T size={28} weight="black">
@@ -88,17 +89,17 @@ export default function Stamps() {
                 paddingHorizontal: 10,
                 paddingVertical: 6,
                 borderRadius: 12,
-                backgroundColor: i === level.index ? colors.pinkTint : i < level.index ? colors.mint : colors.ground,
+                backgroundColor: i === level.index ? colors.selected : i < level.index ? colors.mint : colors.background,
                 borderWidth: 2,
-                borderColor: i === level.index ? colors.pink : 'transparent',
+                borderColor: i === level.index ? colors.accent : 'transparent',
               }}>
-              <T size={12} weight="extra" color={i > level.index ? colors.muted : colors.text}>
+              <T size={12} weight="extra" color={i > level.index ? colors.textMuted : colors.text}>
                 {t.title}
               </T>
             </View>
           ))}
         </View>
-        <T size={13} weight="medium" color={colors.muted}>
+        <T size={13} weight="medium" color={colors.textMuted}>
           Points come from doing things together, not from adding ideas or voting. They never go down.
         </T>
       </Card>
@@ -109,7 +110,7 @@ export default function Stamps() {
           <T size={20} weight="black" center>
             No stamps yet
           </T>
-          <T weight="medium" color={colors.muted} center>
+          <T weight="medium" color={colors.textMuted} center>
             Do something from your lists, tap &quot;We did it&quot;, and your first stamp lands here.
           </T>
         </View>
@@ -131,15 +132,16 @@ export default function Stamps() {
 
 /** One number from the page's tally, on a small white tile. */
 function Tally({ count, label }: { count: number; label: string }) {
+  const { colors } = useTheme();
   return (
     <View
       accessible
       accessibilityLabel={`${count} ${label}`}
-      style={{ flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.edge }}>
-      <T size={22} weight="black" color={colors.grape}>
+      style={{ flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.edge }}>
+      <T size={22} weight="black" color={colors.button}>
         {count}
       </T>
-      <T size={12} weight="extra" color={colors.muted} center>
+      <T size={12} weight="extra" color={colors.textMuted} center>
         {label}
       </T>
     </View>
@@ -150,6 +152,7 @@ function Tally({ count, label }: { count: number; label: string }) {
 const TILTS = [-7, 5, -3, 8, -5, 3];
 
 function StampGrid({ title, stamps, now, big }: { title: string; stamps: Stamp[]; now: Date; big?: boolean }) {
+  const { colors } = useTheme();
   return (
     <Card style={{ padding: 18, gap: 14 }}>
       <T size={16} weight="black">
@@ -165,10 +168,10 @@ function StampGrid({ title, stamps, now, big }: { title: string; stamps: Stamp[]
             <T size={13} weight="extra" center lines={2}>
               {stamp.title}
             </T>
-            <T size={11} color={colors.muted} center lines={2}>
+            <T size={11} color={colors.textMuted} center lines={2}>
               {stamp.caption}
             </T>
-            <T size={11} color={colors.muted} center>
+            <T size={11} color={colors.textMuted} center>
               {dayLabel(new Date(stamp.done_at), now)}
             </T>
           </View>

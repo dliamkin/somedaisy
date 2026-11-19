@@ -7,7 +7,7 @@ import { Avatar, Button, Card, ErrorNote, Loading, Screen, T, TopBar } from '@/c
 import { fetchGroup, type GroupData } from '@/lib/data';
 import { inviteLink, inviteMessage } from '@/lib/links';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // Whether this device can hand the link to its own share sheet. Every phone can. A browser can
 // when it has the Web Share feature, which phone browsers do and most desktop ones do not.
@@ -19,6 +19,7 @@ const CAN_SHARE = Platform.OS !== 'web' || typeof (globalThis as { navigator?: {
  * do with a new one is send its link to someone.
  */
 export default function Invite() {
+  const { colors } = useTheme();
   const { id, new: fresh } = useLocalSearchParams<{ id: string; new?: string }>();
   const isNew = fresh === '1';
   const { userId } = useSession();
@@ -108,7 +109,7 @@ export default function Invite() {
               <T size={24} weight="black">
                 {isNew ? 'Now bring your people in' : 'It is just you so far'}
               </T>
-              <T size={15} weight="medium" color={colors.muted}>
+              <T size={15} weight="medium" color={colors.textMuted}>
                 {isNew
                   ? 'Your group is ready. It comes to life when someone else is in it, so send the link below to the people it is for.'
                   : 'Send the link below to the people this group is for. Nobody can join from a picture or a screenshot, only from the link.'}
@@ -119,11 +120,11 @@ export default function Invite() {
             <T size={16} weight="extra">
               Invite with a link
             </T>
-            <T size={14} color={colors.muted}>
+            <T size={14} color={colors.textMuted}>
               Whoever taps it is in. No account needed, and no app to install.
             </T>
-            <View style={{ borderRadius: 16, backgroundColor: colors.ground, padding: 14 }}>
-              <T size={14} color={colors.muted} lines={2}>
+            <View style={{ borderRadius: 16, backgroundColor: colors.background, padding: 14 }}>
+              <T size={14} color={colors.textMuted} lines={2}>
                 {link}
               </T>
             </View>
@@ -150,7 +151,7 @@ export default function Invite() {
               </View>
             ))}
             {alone ? (
-              <T size={14} color={colors.muted}>
+              <T size={14} color={colors.textMuted}>
                 Nobody else yet. They will appear here as they join.
               </T>
             ) : null}

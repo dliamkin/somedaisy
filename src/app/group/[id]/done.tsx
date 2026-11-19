@@ -9,13 +9,14 @@ import { fetchDone, fetchGroup, markChanged, restoreIdea, type DoneIdea, type Gr
 import { dayLabel } from '@/lib/plans';
 import { answersFor, myAnswer, onShelf, type DoAgainVote } from '@/lib/points';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { canUndoDone, doItAgain, fetchDoAgainVotes, setDoAgain, undoDone, UNDO_MINUTES } from '@/lib/together';
 
 type Loaded = { group: GroupData | null; done: DoneIdea[]; votes: DoAgainVote[] | null };
 
 /** Things we did: the do-again shelf, and everything the group has done with the do-again question. */
 export default function ThingsWeDid() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useSession();
   const [now] = useState(() => new Date());
@@ -79,7 +80,7 @@ export default function ThingsWeDid() {
           <T size={22} weight="black" center>
             Nothing done yet
           </T>
-          <T weight="medium" color={colors.muted} center>
+          <T weight="medium" color={colors.textMuted} center>
             When a plan happens, tap &quot;We did it&quot; and it will be remembered here.
           </T>
           <Button label="Back to the group" kind="soft" small onPress={back} />
@@ -92,7 +93,7 @@ export default function ThingsWeDid() {
             Do-again shelf
           </T>
           {shelf.length === 0 ? (
-            <T size={14} weight="medium" color={colors.muted}>
+            <T size={14} weight="medium" color={colors.textMuted}>
               Nothing here yet. When everyone says they would do something again, it lands on this shelf for the nights nobody has an idea.
             </T>
           ) : null}
@@ -102,7 +103,7 @@ export default function ThingsWeDid() {
                 <T size={17} weight="extra">
                   {idea.title}
                 </T>
-                <T size={13} color={colors.muted}>
+                <T size={13} color={colors.textMuted}>
                   {everyone === 2 ? 'You would both do it again' : 'Everyone would do it again'}
                 </T>
               </View>
@@ -137,7 +138,7 @@ export default function ThingsWeDid() {
                 {idea.title}
               </T>
               {list ? (
-                <T size={13} color={colors.muted}>
+                <T size={13} color={colors.textMuted}>
                   {list}
                 </T>
               ) : null}
@@ -173,7 +174,7 @@ export default function ThingsWeDid() {
                     )
                   }
                 />
-                <T size={13} color={colors.muted}>
+                <T size={13} color={colors.textMuted}>
                   For {UNDO_MINUTES} minutes after marking. It goes back on its list and its points and stamp are taken back.
                 </T>
               </View>
@@ -189,7 +190,7 @@ export default function ThingsWeDid() {
                   onAnswer={(again) => change(idea.id, () => setDoAgain(id as string, idea.id, userId, again), 'Could not save your answer.')}
                 />
                 {everyone > 1 ? (
-                  <T size={13} color={colors.muted}>
+                  <T size={13} color={colors.textMuted}>
                     {answers.yes} of {everyone} said yes
                     {answers.waiting > 0 ? `, ${answers.waiting} still to answer` : ''}
                   </T>

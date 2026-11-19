@@ -12,7 +12,7 @@ import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/component
 import { fetchGroups, type GroupSummary } from '@/lib/data';
 import { levelFor } from '@/lib/points';
 import { useSession } from '@/lib/session';
-import { colors, covers } from '@/lib/theme';
+import { covers, useTheme } from '@/lib/theme';
 import { fetchPointsByGroup } from '@/lib/together';
 
 function Brand() {
@@ -20,6 +20,7 @@ function Brand() {
 }
 
 export default function Index() {
+  const { colors } = useTheme();
   const { ready, configured, error, profile } = useSession();
   if (!ready) return <Loading />;
   if (!configured) {
@@ -29,7 +30,7 @@ export default function Index() {
         <T size={28} weight="black">
           Almost there
         </T>
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           Add your Supabase URL and key to the .env file, then restart the app.
         </T>
       </Screen>
@@ -40,7 +41,7 @@ export default function Index() {
       <Screen>
         <Brand />
         <ErrorNote message={`Could not connect: ${error}`} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           Check that Anonymous sign-ins are turned on in Supabase and that the database setup script has been run.
         </T>
       </Screen>
@@ -50,6 +51,7 @@ export default function Index() {
 }
 
 function Welcome() {
+  const { colors } = useTheme();
   return (
     <Screen>
       <Brand />
@@ -57,12 +59,12 @@ function Welcome() {
         <T size={34} weight="black" style={{ lineHeight: 38 }}>
           Turn someday into a day
         </T>
-        <T size={17} weight="medium" color={colors.muted} style={{ lineHeight: 24 }}>
+        <T size={17} weight="medium" color={colors.textMuted} style={{ lineHeight: 24 }}>
           Collect ideas with friends, vote on them, and stop forgetting the good ones.
         </T>
       </View>
       <NameForm cta="Get started" onDone={() => {}} />
-      <T size={14} color={colors.muted} center>
+      <T size={14} color={colors.textMuted} center>
         No account needed. Got an invite link? Open it and you will land in the group.
       </T>
       <Button label="I already have an account" kind="ghost" small onPress={() => router.push('/account?mode=signin' as never)} />
@@ -72,6 +74,7 @@ function Welcome() {
 }
 
 function Home() {
+  const { colors } = useTheme();
   const { profile, email } = useSession();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   // Each group's points, by group id. Null until loaded, and when points are not set up yet.
@@ -112,7 +115,7 @@ function Home() {
         <T size={32} weight="black" style={{ lineHeight: 36 }}>
           Who are you making plans with?
         </T>
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           Pick a group to see your shared lists.
         </T>
       </View>
@@ -123,7 +126,7 @@ function Home() {
           <T size={18} weight="extra">
             No groups yet
           </T>
-          <T weight="medium" color={colors.muted}>
+          <T weight="medium" color={colors.textMuted}>
             Start one and invite a friend with a link.
           </T>
         </Card>
@@ -145,7 +148,7 @@ function Home() {
                   {g.name}
                 </T>
                 {points ? (
-                  <T size={13} weight="extra" color={colors.pink} lines={1}>
+                  <T size={13} weight="extra" color={colors.accent} lines={1}>
                     {levelFor(points[g.id] ?? 0).title}
                   </T>
                 ) : null}
@@ -168,7 +171,7 @@ function Home() {
           <T size={17} weight="extra">
             Keep your groups
           </T>
-          <T size={14} weight="medium" color={colors.muted}>
+          <T size={14} weight="medium" color={colors.textMuted}>
             You are a guest, so your groups live only on this device. Add your email to get back to them anywhere.
           </T>
           <Button label="Add my email" small onPress={() => router.push('/account' as never)} />

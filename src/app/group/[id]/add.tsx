@@ -10,9 +10,10 @@ import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { formShows } from '@/lib/list-options';
 import { attachPreview } from '@/lib/preview';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 export default function AddIdea() {
+  const { colors } = useTheme();
   const { id, list } = useLocalSearchParams<{ id: string; list?: string }>();
   const { userId } = useSession();
   const [lists, setLists] = useState<List[] | null>(null);
@@ -103,11 +104,11 @@ export default function AddIdea() {
           <T size={16} weight="extra">
             Count me in
           </T>
-          <T size={14} color={colors.muted}>
+          <T size={14} color={colors.textMuted}>
             {`Adds your "I'm down" right away`}
           </T>
         </View>
-        <Switch accessibilityLabel="Add my I'm down" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.grape, false: '#8E80A3' }} thumbColor={colors.white} />
+        <Switch accessibilityLabel="Add my I'm down" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.button, false: colors.textDisabled }} thumbColor={colors.white} />
       </View>
       <ErrorNote message={error} />
     </Screen>

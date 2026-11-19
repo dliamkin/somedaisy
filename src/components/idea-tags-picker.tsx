@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import type { IdeaTags } from '@/lib/data';
 import { SETTINGS, TAKES } from '@/lib/pick';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { Chip, T } from './ui';
 
@@ -11,13 +11,14 @@ import { Chip, T } from './ui';
  * us" uses them to match the time the group has. Tapping the chosen one again clears it.
  */
 export function IdeaTagsPicker({ value, onChange }: { value: IdeaTags; onChange: (tags: IdeaTags) => void }) {
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 8 }}>
       <View style={{ gap: 2 }}>
         <T size={16} weight="extra">
           Good for... (optional)
         </T>
-        <T size={14} color={colors.muted}>
+        <T size={14} color={colors.textMuted}>
           Helps &quot;Pick for us&quot; find something that fits the time you have.
         </T>
       </View>

@@ -12,13 +12,14 @@ import { Launch } from '@/components/launch';
 import { Loading } from '@/components/ui';
 import { onPushTapped, showPushesWhileOpen } from '@/lib/push';
 import { SessionProvider } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { light, useTheme } from '@/lib/theme';
 import { steadyWebPage } from '@/lib/web-page';
 
 // Once, when the website opens. Does nothing in the phone app.
-steadyWebPage();
+steadyWebPage(light.background);
 
 export default function RootLayout() {
+  const { colors } = useTheme();
   const [loaded] = useFonts({ Nunito_500Medium, Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black });
 
   // Tapping a notification opens the group it is about. Waits for the fonts so the screens can render.
@@ -49,7 +50,7 @@ export default function RootLayout() {
   return (
     <SessionProvider>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
     </SessionProvider>
   );
 }

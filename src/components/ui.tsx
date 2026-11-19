@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fonts, shadow } from '@/lib/theme';
+import { fonts, useTheme } from '@/lib/theme';
 
 import { BackIcon } from './daisy';
 import { FlowerField } from './flower-outlines';
@@ -26,7 +26,7 @@ export function T({
   children,
   size = 16,
   weight = 'bold',
-  color = colors.text,
+  color,
   center,
   style,
   lines,
@@ -39,10 +39,11 @@ export function T({
   style?: StyleProp<TextStyle>;
   lines?: number;
 }) {
+  const { colors } = useTheme();
   return (
     <Text
       numberOfLines={lines}
-      style={[{ fontFamily: fonts[weight], fontSize: size, color, textAlign: center ? 'center' : 'left' }, style]}>
+      style={[{ fontFamily: fonts[weight], fontSize: size, color: color ?? colors.text, textAlign: center ? 'center' : 'left' }, style]}>
       {children}
     </Text>
   );
@@ -53,11 +54,12 @@ export function T({
  * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
  */
 export function Screen({ children, footer, flowers }: { children: ReactNode; footer?: ReactNode; flowers?: boolean }) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const band = Boolean(footer && flowers);
   return (
     // With the band, the bottom edge is left to the band itself, so its colour runs under the phone's own bar.
-    <SafeAreaView edges={band ? ['top', 'left', 'right'] : undefined} style={{ flex: 1, backgroundColor: colors.ground }}>
+    <SafeAreaView edges={band ? ['top', 'left', 'right'] : undefined} style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Makes room for the keyboard: the page gets shorter, so the box being typed in and the pinned buttons stay in view. */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
         <ScrollView
@@ -71,7 +73,7 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
           // The band is white like the cards and lifts off the page with a shadow cast upward, which
           // is what sets it apart from the list scrolling behind it. The shadow is on the outer box
           // and the flowers are cut to shape by the inner one, so neither clips the other.
-          <View style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.white, boxShadow: '0 -6px 18px rgba(90, 40, 140, 0.22)' }}>
+          <View style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.card, boxShadow: `0 -6px 18px ${colors.shadowStrong}` }}>
             <View
               style={{
                 paddingHorizontal: 24,
@@ -96,10 +98,11 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
 }
 
 export function Loading({ label }: { label?: string }) {
+  const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.ground }}>
-      <ActivityIndicator color={colors.grape} />
-      {label ? <T color={colors.muted} size={14}>{label}</T> : null}
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: colors.background }}>
+      <ActivityIndicator color={colors.button} />
+      {label ? <T color={colors.textMuted} size={14}>{label}</T> : null}
     </View>
   );
 }
@@ -123,9 +126,10 @@ export function Button({
   small?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { colors, shadow } = useTheme();
   const height = small ? 44 : 56;
-  const bg = kind === 'primary' ? colors.grape : kind === 'ghost' ? 'transparent' : colors.white;
-  const fg = kind === 'primary' ? colors.white : kind === 'soft' ? colors.text : kind === 'danger' ? colors.danger : colors.link;
+  const bg = kind === 'primary' ? colors.button : kind === 'ghost' ? 'transparent' : colors.card;
+  const fg = kind === 'primary' ? colors.onButton : kind === 'soft' ? colors.text : kind === 'danger' ? colors.danger : colors.link;
   return (
     <Pressable
       accessibilityRole="button"
@@ -142,7 +146,7 @@ export function Button({
           paddingHorizontal: 20,
           opacity: disabled ? 0.45 : pressed ? 0.85 : 1,
           borderWidth: kind === 'outline' || kind === 'danger' ? 3 : 0,
-          borderColor: kind === 'danger' ? colors.danger : colors.grape,
+          borderColor: kind === 'danger' ? colors.danger : colors.button,
         },
         kind === 'primary' || kind === 'soft' ? shadow : null,
         style,
@@ -159,7 +163,8 @@ export function Button({
 }
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[{ backgroundColor: colors.white, borderRadius: 24, padding: 14, gap: 12 }, shadow, style]}>{children}</View>;
+  const { colors, shadow } = useTheme();
+  return <View style={[{ backgroundColor: colors.card, borderRadius: 24, padding: 14, gap: 12 }, shadow, style]}>{children}</View>;
 }
 
 /**
@@ -180,6 +185,7 @@ export function FlowerCard({ children, shift = 21 }: { children: ReactNode; shif
 
 /** A person's circle: their photo when they have one that loads, otherwise their initial on their colour. */
 export function Avatar({ name, color, size = 30, photo }: { name: string; color: string; size?: number; photo?: string | null }) {
+  const { colors } = useTheme();
   // Remember the photo that failed, so a different one gets its own chance.
   const [broken, setBroken] = useState<string | null>(null);
   if (photo && broken !== photo) {
@@ -203,7 +209,7 @@ export function Avatar({ name, color, size = 30, photo }: { name: string; color:
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-      <T size={Math.round(size * 0.43)} weight="extra">
+      <T size={Math.round(size * 0.43)} weight="extra" color={colors.onPastel}>
         {(name.trim()[0] ?? '?').toUpperCase()}
       </T>
     </View>
@@ -234,6 +240,7 @@ export function Chip({
   soft?: boolean;
   accessibilityLabel?: string;
 }) {
+  const { colors } = useTheme();
   const active = Boolean(selected);
   const hairline = Boolean(soft) && !active;
   return (
@@ -251,10 +258,10 @@ export function Chip({
         justifyContent: 'center',
         borderWidth: hairline ? 1 : 2,
         borderStyle: dashed ? 'dashed' : 'solid',
-        borderColor: dashed ? colors.dash : hairline ? colors.edge : active && soft ? colors.grape : active && !dark ? colors.pink : outlined ? colors.dash : 'transparent',
-        backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.text : soft ? colors.grapeTint : colors.pinkTint) : colors.white,
+        borderColor: dashed ? colors.outline : hairline ? colors.edge : active && soft ? colors.button : active && !dark ? colors.accent : outlined ? colors.outline : 'transparent',
+        backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.tabOn : soft ? colors.voteOn : colors.selected) : colors.card,
       }}>
-      <T size={15} weight="extra" color={active && dark ? colors.white : colors.text}>
+      <T size={15} weight="extra" color={active && dark ? colors.onTabOn : colors.text}>
         {label}
       </T>
     </Pressable>
@@ -283,6 +290,7 @@ export function Field({
   /** Picks the right keyboard and autofill for an email address, an emailed code or a web address. */
   kind?: 'email' | 'code' | 'link';
 }) {
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 6 }}>
       <T size={14} weight="extra">
@@ -293,7 +301,7 @@ export function Field({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#8B7E9C"
+        placeholderTextColor={colors.textDisabled}
         multiline={multiline}
         autoFocus={autoFocus}
         maxLength={maxLength}
@@ -309,7 +317,7 @@ export function Field({
           borderRadius: 18,
           borderWidth: 2,
           borderColor: colors.line,
-          backgroundColor: colors.white,
+          backgroundColor: colors.card,
           paddingHorizontal: 16,
           paddingVertical: multiline ? 14 : 0,
           fontFamily: fonts.bold,
@@ -323,13 +331,14 @@ export function Field({
 }
 
 export function CircleButton({ children, onPress, label }: { children: ReactNode; onPress: () => void; label: string }) {
+  const { colors, shadow } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
       style={[
-        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
         shadow,
       ]}>
       {children}
@@ -338,6 +347,7 @@ export function CircleButton({ children, onPress, label }: { children: ReactNode
 }
 
 export function TopBar({ title, subtitle, backTo, right }: { title: string; subtitle?: string; backTo?: string; right?: ReactNode }) {
+  const { colors } = useTheme();
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace((backTo ?? '/') as never);
@@ -356,7 +366,7 @@ export function TopBar({ title, subtitle, backTo, right }: { title: string; subt
           {title}
         </T>
         {subtitle ? (
-          <T size={13} color={colors.muted}>
+          <T size={13} color={colors.textMuted}>
             {subtitle}
           </T>
         ) : null}
@@ -367,9 +377,10 @@ export function TopBar({ title, subtitle, backTo, right }: { title: string; subt
 }
 
 export function ErrorNote({ message }: { message: string | null }) {
+  const { colors } = useTheme();
   if (!message) return null;
   return (
-    <View accessibilityRole="alert" style={{ backgroundColor: '#FDE7E5', borderRadius: 16, padding: 12 }}>
+    <View accessibilityRole="alert" style={{ backgroundColor: colors.dangerTint, borderRadius: 16, padding: 12 }}>
       <T size={14} color={colors.danger}>
         {message}
       </T>

@@ -1,7 +1,5 @@
 import { Platform } from 'react-native';
 
-import { colors } from './theme';
-
 /**
  * Website only. Two things a phone browser can do to the page that the app's screens cannot fix
  * from inside:
@@ -14,10 +12,10 @@ import { colors } from './theme';
  *    still moves the page to bring a text box above the keyboard and does not always move it back.
  *    Once nothing is being typed in, the page is put back at the top.
  */
-export function steadyWebPage(): void {
+export function steadyWebPage(background: string): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-  document.documentElement.style.backgroundColor = colors.ground;
-  document.body.style.backgroundColor = colors.ground;
+  document.documentElement.style.backgroundColor = background;
+  document.body.style.backgroundColor = background;
 
   const typing = () => {
     const el = document.activeElement;

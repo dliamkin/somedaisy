@@ -7,10 +7,11 @@ import { Button, Card, Chip, ErrorNote, FlowerCard, Loading, Screen, T, TopBar }
 import { byDay, dayKey, longDayLabel, monthOf, shiftMonth, type Month } from '@/lib/calendar';
 import { fetchDone, fetchGroup, type DoneIdea, type GroupData } from '@/lib/data';
 import { dayLabel, plannedIdeas, timeLabel } from '@/lib/plans';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 /** The group's calendar: a month at a time, with its plans and the things it has done on their days. */
 export default function GroupCalendar() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [now, setNow] = useState(() => new Date());
   const [month, setMonth] = useState<Month>(() => monthOf(new Date()));
@@ -50,7 +51,7 @@ export default function GroupCalendar() {
       <Screen footer={<Button label="Back to groups" kind="soft" onPress={() => router.replace('/')} />}>
         <TopBar title="Calendar" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           That group is not available.
         </T>
       </Screen>
@@ -87,7 +88,7 @@ export default function GroupCalendar() {
           marks={(key) => ({ plans: plansByDay[key]?.length, done: doneByDay[key]?.length })}
         />
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
-          <Legend color={colors.grape} label="Planned" />
+          <Legend color={colors.button} label="Planned" />
           <Legend color={colors.mintText} label="Done" />
         </View>
       </Card>
@@ -97,7 +98,7 @@ export default function GroupCalendar() {
       </T>
 
       {plans.length === 0 && finished.length === 0 ? (
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           Nothing on this day. To plan something, open an idea in the group and pick a date.
         </T>
       ) : null}
@@ -112,7 +113,7 @@ export default function GroupCalendar() {
               {plan.title}
             </T>
             {listName(plan.list_id) ? (
-              <T size={13} color={colors.muted}>
+              <T size={13} color={colors.textMuted}>
                 {listName(plan.list_id)}
               </T>
             ) : null}
@@ -133,7 +134,7 @@ export default function GroupCalendar() {
               {idea.title}
             </T>
             {listName(idea.list_id) ? (
-              <T size={13} color={colors.muted}>
+              <T size={13} color={colors.textMuted}>
                 {listName(idea.list_id)}
               </T>
             ) : null}
@@ -145,10 +146,11 @@ export default function GroupCalendar() {
 }
 
 function Legend({ color, label }: { color: string; label: string }) {
+  const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
-      <T size={12} color={colors.muted}>
+      <T size={12} color={colors.textMuted}>
         {label}
       </T>
     </View>

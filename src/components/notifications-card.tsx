@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Linking } from 'react-native';
 
 import { enablePush, getPushState, type PushState } from '@/lib/push';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { Button, Card, ErrorNote, T } from './ui';
 
@@ -11,6 +11,7 @@ import { Button, Card, ErrorNote, T } from './ui';
  * with `showStatus` it also says when they are on or blocked. Renders nothing on the web and in Expo Go.
  */
 export function NotificationsCard({ showStatus }: { showStatus?: boolean }) {
+  const { colors } = useTheme();
   const [state, setState] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export function NotificationsCard({ showStatus }: { showStatus?: boolean }) {
       <T size={17} weight="extra">
         {state === 'on' ? 'Notifications are on' : state === 'blocked' ? 'Notifications are off' : 'Get a nudge'}
       </T>
-      <T size={14} weight="medium" color={colors.muted}>
+      <T size={14} weight="medium" color={colors.textMuted}>
         {state === 'on'
           ? 'This phone can hear when a friend reacts to or comments on an idea you added, and shortly before a plan.'
           : state === 'blocked'
