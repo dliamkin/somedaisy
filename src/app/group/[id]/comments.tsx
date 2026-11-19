@@ -8,12 +8,13 @@ import { fetchGroup, markChanged, type Idea, type Member } from '@/lib/data';
 import { gather } from '@/lib/live';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 type Thread = { idea: Idea | null; members: Member[]; comments: Comment[] };
 
 /** The conversation about one idea. */
 export default function IdeaComments() {
+  const { colors } = useTheme();
   const { id, idea: ideaId } = useLocalSearchParams<{ id: string; idea?: string }>();
   const { userId } = useSession();
   const [thread, setThread] = useState<Thread | undefined>(undefined);
@@ -111,7 +112,7 @@ export default function IdeaComments() {
       <Screen footer={<Button label="Back to the group" kind="soft" onPress={back} />}>
         <TopBar title="Comments" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           That idea is no longer in the group.
         </T>
       </Screen>
@@ -142,7 +143,7 @@ export default function IdeaComments() {
           {idea.title}
         </T>
         {idea.note ? (
-          <T size={14} weight="medium" color={colors.muted}>
+          <T size={14} weight="medium" color={colors.textMuted}>
             {idea.note}
           </T>
         ) : null}
@@ -150,7 +151,7 @@ export default function IdeaComments() {
       <ErrorNote message={error} />
 
       {comments.length === 0 ? (
-        <T weight="medium" color={colors.muted} center style={{ paddingVertical: 24 }}>
+        <T weight="medium" color={colors.textMuted} center style={{ paddingVertical: 24 }}>
           No comments yet. Be the first to say something.
         </T>
       ) : null}
@@ -161,12 +162,12 @@ export default function IdeaComments() {
         return (
           <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
             <Avatar name={author?.name ?? '?'} color={author?.color ?? colors.line} photo={author?.photo} />
-            <Card style={{ flex: 1, gap: 4, backgroundColor: mine ? colors.today : colors.white }}>
+            <Card style={{ flex: 1, gap: 4, backgroundColor: mine ? colors.today : colors.card }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <T size={14} weight="extra" lines={1} style={{ flexShrink: 1 }}>
                   {mine ? 'You' : (author?.name ?? 'Someone who left')}
                 </T>
-                <T size={12} color={colors.muted}>
+                <T size={12} color={colors.textMuted}>
                   {timeAgo(comment.created_at, now)}
                 </T>
               </View>

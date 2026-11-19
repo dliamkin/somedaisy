@@ -4,9 +4,10 @@ import { Pressable, View } from 'react-native';
 
 import { Button, Chip, ErrorNote, Field, Screen, T, TopBar } from '@/components/ui';
 import { createGroup } from '@/lib/data';
-import { colors, covers, STARTER_LISTS } from '@/lib/theme';
+import { covers, STARTER_LISTS, useTheme } from '@/lib/theme';
 
 export default function NewGroup() {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [cover, setCover] = useState('sky');
   const [lists, setLists] = useState<string[]>(['Movies', 'Places', 'Food']);
@@ -46,7 +47,7 @@ export default function NewGroup() {
               accessibilityLabel={`${key} cover`}
               accessibilityState={{ selected: key === cover }}
               onPress={() => setCover(key)}
-              style={{ flex: 1, height: 72, borderRadius: 20, backgroundColor: value, borderWidth: 3, borderColor: key === cover ? colors.grape : 'transparent' }}
+              style={{ flex: 1, height: 72, borderRadius: 20, backgroundColor: value, borderWidth: 3, borderColor: key === cover ? colors.button : 'transparent' }}
             />
           ))}
         </View>
@@ -55,7 +56,7 @@ export default function NewGroup() {
         <T size={16} weight="extra">
           Start with some lists
         </T>
-        <T size={14} color={colors.muted}>
+        <T size={14} color={colors.textMuted}>
           You can add more inside the group.
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

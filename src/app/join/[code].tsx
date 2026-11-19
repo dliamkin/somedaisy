@@ -7,9 +7,10 @@ import { NameForm } from '@/components/name-form';
 import { Button, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { joinGroup, previewGroup } from '@/lib/data';
 import { useSession } from '@/lib/session';
-import { colors, covers } from '@/lib/theme';
+import { covers, useTheme } from '@/lib/theme';
 
 export default function Join() {
+  const { colors } = useTheme();
   const { code } = useLocalSearchParams<{ code: string }>();
   const { ready, error: sessionError, profile, userId, ensureUser } = useSession();
   const [preview, setPreview] = useState<{ name: string; cover: string; member_count: number } | null | undefined>(undefined);
@@ -49,7 +50,7 @@ export default function Join() {
         <T size={28} weight="black">
           {preview === null ? 'This invite link is not valid' : 'Could not connect'}
         </T>
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           {preview === null ? 'Ask your friend to send the link again.' : (sessionError ?? error)}
         </T>
       </Screen>
@@ -62,14 +63,14 @@ export default function Join() {
         <View style={{ width: 88, height: 88, borderRadius: 28, backgroundColor: covers[preview?.cover ?? 'sky'] ?? colors.sky, alignItems: 'center', justifyContent: 'center' }}>
           <Daisy size={52} petal={colors.white} />
         </View>
-        <T color={colors.muted} style={{ marginTop: 8 }}>
+        <T color={colors.textMuted} style={{ marginTop: 8 }}>
           You are invited to
         </T>
         <T size={34} weight="black" center>
           {preview?.name ?? 'a group'}
         </T>
         {preview ? (
-          <T size={14} color={colors.muted}>
+          <T size={14} color={colors.textMuted}>
             {preview.member_count === 1 ? '1 person so far' : `${preview.member_count} people so far`}
           </T>
         ) : null}
@@ -80,7 +81,7 @@ export default function Join() {
       ) : (
         <>
           <NameForm cta="Join group" onDone={join} />
-          <T size={14} color={colors.muted} center>
+          <T size={14} color={colors.textMuted} center>
             No account needed.
           </T>
         </>

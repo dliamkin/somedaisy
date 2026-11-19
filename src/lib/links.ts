@@ -46,6 +46,17 @@ export function tidyLink(input: string): { ok: boolean; link: string | null } {
   return { ok: true, link };
 }
 
+/** Whether what was typed is plainly a web address and nothing else, such as a link pasted into the box for an idea's name. */
+export function looksLikeLink(text: string): boolean {
+  const typed = text.trim();
+  return /^(https?:\/\/|www\.)\S+\.\S+$/i.test(typed) && tidyLink(typed).ok;
+}
+
+/** The site a link goes to, as people say it: "example.com" for "https://www.example.com/menu". */
+export function siteName(link: string): string {
+  return (/^https?:\/\/([^/?#:@\s]+)/i.exec(link.trim())?.[1] ?? '').replace(/^www\./i, '').toLowerCase();
+}
+
 /** Open an idea's link, if it is a web address. Links saved before they were tidied are tidied now. */
 export function openLink(link: string): void {
   const tidy = tidyLink(link);

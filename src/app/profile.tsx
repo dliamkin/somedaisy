@@ -5,10 +5,11 @@ import { Switch, View } from 'react-native';
 import { NameForm } from '@/components/name-form';
 import { Avatar, Card, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 /** Change the name, avatar colour and photo friends see. */
 export default function Profile() {
+  const { colors } = useTheme();
   const { ready, profile } = useSession();
   if (!ready) return <Loading />;
 
@@ -17,7 +18,7 @@ export default function Profile() {
   return (
     <Screen>
       <TopBar title="Your name" backTo="/" />
-      <T weight="medium" color={colors.muted}>
+      <T weight="medium" color={colors.textMuted}>
         This is how you show up to friends in every group.
       </T>
       <PhotoChoice />
@@ -28,6 +29,7 @@ export default function Profile() {
 
 /** For someone who has signed in with Google: whether their Google picture is their circle. */
 function PhotoChoice() {
+  const { colors } = useTheme();
   const { profile, googlePhoto, showPhoto } = useSession();
   const [error, setError] = useState<string | null>(null);
   // What the switch says while the change is being saved.
@@ -56,7 +58,7 @@ function PhotoChoice() {
             <T size={16} weight="extra">
               Show my Google photo
             </T>
-            <T size={14} weight="medium" color={colors.muted}>
+            <T size={14} weight="medium" color={colors.textMuted}>
               Friends see it in place of your initial.
             </T>
           </View>
@@ -65,7 +67,7 @@ function PhotoChoice() {
             value={shown}
             onValueChange={change}
             disabled={pending !== null}
-            trackColor={{ false: colors.dash, true: colors.grape }}
+            trackColor={{ false: colors.outline, true: colors.button }}
             thumbColor={colors.white}
           />
         </View>

@@ -189,7 +189,10 @@ things, and without either the app simply shows no pictures:
    (the dashboard keeps no history; this repository is the record).
 
 The helper only answers signed-in people, only reads ordinary web addresses (never addresses
-inside Supabase's own network), and returns nothing but a picture's address. Its rules are
+inside Supabase's own network), and returns nothing but a picture's address and the page's title.
+The title is what fills in the name when an idea is started from a pasted link ("Paste a link" on
+the New idea screen). A helper deployed before it learned to read titles still works: the picture
+shows and the name is left for the person to type. To get titles, deploy the current file again. Its rules are
 tested in `src/lib/__tests__/link-preview-test.ts`. The picture is looked up in the background
 While a link is being typed on the form for an idea, the picture is looked up once the typing
 pauses and shown under the link box, so the person knows what the card will get. On saving, a
@@ -211,7 +214,8 @@ Marking a plan as done opens one "You did it" screen: the points it earned, the 
 title if the group reached one, and the question "Would you do it again?". Each group has one
 shared bar and rises through eight titles, from Homebodies to Legends (shown in the app as the
 group's rank). The bar sits under the
-group's name, the title shows on the home screen, and the stamps page lists everything done.
+group's name with "Grow your group's petals!" above it (each rank is a petal on the group's
+daisy), the title shows on the home screen, and the stamps page lists everything done.
 A stamp has the icon and colour its list has today (`stampLook` in `src/lib/looks.ts`); if the
 list has been removed, both are worked out from the name the list had.
 
@@ -249,12 +253,70 @@ and is saved as a download otherwise.
 
 Every idea needs a name, and nothing else. Each list says whether its ideas can be given a date,
 and whether the form for a new idea shows the link box and the note box. Movies, Places and Food
-want all of that; a list such as "Song titles" can be a list of names only. The choices are made
+want all of that; a list such as "Song titles" can be a list of names only. The choice is put as
+two kinds of list. "Things to do" can be given dates, and starts with the link and the note on.
+"Just a list" cannot, and starts with only the name. The link and the note each have a switch
+under the kind, so either can be changed. The kind is not stored by itself: it is whether the
+list gives dates (`kindOf` and `withKind`). The choices are made
 when adding a list and changed under Group settings, by any member. They need
 `supabase/updates/015-list-options.sql`; without it every list has everything turned on, as
 before. Turning something off only changes what the app offers: an idea that already has a
 date, a link or a note keeps it, and can still have it changed or taken off. The rules are in
 `src/lib/list-options.ts`.
+
+A list without dates is for keeping things, not for making plans, and its ideas are shown that
+way. Instead of the "I'm in" and "Eh" votes there is a thumbs up and a thumbs down beside the
+comment, share and edit icons. There is no "Plan it" button, nobody is said to be waited on, a
+thumbs up from everyone is not celebrated, and the form for a new idea has no "Count me in". The
+votes are stored the same either way, so turning dates on or off loses nothing.
+
+A list's kind is never dropped quietly. If update 015 has not been run, a list with anything
+turned off is not made at all, and the "New list" page says the database is missing the update
+(`NO_LIST_OPTIONS` in `src/lib/data.ts`). To check the database, run this in the SQL editor. It
+should list `dates`, `links` and `notes`:
+
+```sql
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'lists' order by 1;
+```
+
+A box the list leaves off can still be added to one idea: the forms for a new idea and for
+editing one show "+ Add a link" and "+ Add a note" for whatever is not on show. That changes the
+idea only, not the list.
+
+### Finding and making lists
+
+The group's page shows its lists as one row of tabs that slides sideways
+(`src/components/list-strip.tsx`), so the row stays one line tall however many lists there are.
+From four lists up, a button at the start of the row opens a page of every list
+(`src/app/group/[id]/lists.tsx`): one under the other in order of name, each with its icon and how
+many ideas it holds, and from eight lists up a box to type part of a name in. Tapping a list there shuts the
+page and shows that list, and the row of tabs moves to bring its tab into view. On a computer the
+mouse wheel slides the row, since a wheel only turns up and down.
+
+"+ List" opens a page of its own (`src/app/group/[id]/new-list.tsx`) with the name, the kind and
+the look, an X to shut it and "Add list" pinned at the bottom. Both pages tell the group page which
+list to show by leaving word in `openList` (`src/lib/data.ts`), which the group page reads when it
+comes back into view. No form opens the keyboard by itself, so the whole form is seen first.
+
+"Which list?" on the forms for an idea (`ListChooser` in `src/components/list-chooser.tsx`) is a
+row of chips for up to six lists. With more, the form shows only the chosen list, and tapping it
+opens every list in order of name, with the same box to find one by name.
+
+### Reaction emoji
+
+The emoji under "+ emoji" are drawn from pictures kept in the app (`assets/emoji`, one 72 by 72
+PNG for each), so a reaction looks the same on every phone and in every browser. Left to the
+device, Apple, Google, Samsung and Windows each draw their own. The pictures are Google's Noto
+Emoji, used under the Apache licence, which is kept beside them in `assets/emoji/LICENSE`.
+`src/lib/emoji-pictures.ts` maps each emoji to its picture and `src/components/emoji.tsx` shows
+one. The emoji itself is still what is stored and what a notification says. To offer a new one,
+add it to `MORE_REACTIONS` in `src/lib/theme.ts` and add its picture: a test fails if one is
+missing.
+
+On a list that is just a list, the thumbs, the emoji people have used and the icon that adds one
+all sit on the one line with the comment, share and edit icons. They run on to a second line only
+when there are more than fit.
 
 ### Live updates
 
@@ -311,25 +373,27 @@ private browser window or on another device.
 | `src/app/` | Screens. Each file is a page (Expo Router). |
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
-| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out, delete the account |
+| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out, delete the account, and choose light or dark mode |
 | `src/app/privacy.tsx` | The privacy policy, at `/privacy`. Its words are in `src/lib/privacy.ts` |
 | `src/app/notifications.tsx` | Choose which notifications to get |
 | `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
-| `src/app/group/[id]/add.tsx` | Add an idea |
+| `src/app/group/[id]/add.tsx` | Add an idea, by typing it or from a pasted link |
 | `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
-| `src/app/group/[id]/stamps.tsx` | The group's title, points and stamps |
+| `src/app/group/[id]/stamps.tsx` | The group's rank, the ladder of ranks, points and stamps |
 | `src/app/group/[id]/pick.tsx` | Pick for us |
 | `src/app/group/[id]/share.tsx` | Share an idea as a picture |
-| `src/app/group/[id]/invite.tsx` | Invite link and members |
+| `src/app/group/[id]/invite.tsx` | Invite link, a QR code of it, and members |
 | `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
 | `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |
+| `src/lib/theme.ts` | Every colour in the app, for light and dark mode. Screens read them with `useTheme()` |
+| `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews) |
 
@@ -340,10 +404,25 @@ npx tsc --noEmit         # type-check
 npx expo export -p web   # production web build into dist/
 ```
 
+## Colours, and light and dark mode
+
+No screen or component has a colour value of its own. They are all in `src/lib/theme.ts`, as two
+sets with the same names (`light` and `dark`) plus the colours that never change (the pastels, the
+daisy, the logo tile). A screen gets the right set from `useTheme()`. The names and values come from
+`docs/POLISH-AND-DARK-MODE.md`, and `src/lib/__tests__/theme-test.ts` checks that both sets have the
+same names and that text can be read on what it sits on.
+
+The mode is chosen under **Appearance** on the account screen: Auto (follow the phone or browser),
+Light or Dark. The choice is kept on the device, not the account, so guests have it too. Two things
+are always light: the picture made for sharing, and the QR code on the invite screen.
+
+`app.json` allows both modes (`userInterfaceStyle`), and the `expo-navigation-bar` entry there stops
+Android drawing its own see-through strip behind the bottom buttons. Both are native settings, so
+they need a new build to take effect on a phone.
+
 ## Not built yet
 
-Apple and Facebook sign-in,
-dark mode, and the app store listings.
+Apple and Facebook sign-in, and the app store listings.
 
 ## Splash screen, icons and link previews
 

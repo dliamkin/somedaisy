@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { tidyLink } from '@/lib/links';
-import { fetchPreviewPicture, previewState, type LinkPreview, type Looked } from '@/lib/preview';
-import { colors } from '@/lib/theme';
+import { fetchPreview, previewState, type LinkPreview, type Looked } from '@/lib/preview';
+import { useTheme } from '@/lib/theme';
 
 import { PreviewPicture } from './preview-picture';
 import { T } from './ui';
@@ -27,9 +27,9 @@ export function useLinkPreview(typed: string, known?: Looked | null): LinkPrevie
     if (!link || !waiting) return;
     let alive = true;
     const timer = setTimeout(() => {
-      void fetchPreviewPicture(link).then((picture) => {
+      void fetchPreview(link).then(({ picture, title }) => {
         // An answer for a link that has since been changed is dropped.
-        if (alive) setLooked({ link, picture });
+        if (alive) setLooked({ link, picture, title });
       });
     }, WAIT);
     return () => {
@@ -43,14 +43,15 @@ export function useLinkPreview(typed: string, known?: Looked | null): LinkPrevie
 
 /** Under a form's link box: the picture the idea will get, or a line saying there is none. */
 export function LinkPreviewNote({ preview, label }: { preview: LinkPreview; label: string }) {
+  const { colors } = useTheme();
   // The picture's address was found but the picture itself would not load.
   const [broken, setBroken] = useState<string | null>(null);
   if (preview.state === 'none') return null;
   if (preview.state === 'looking') {
     return (
       <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <ActivityIndicator size="small" color={colors.grape} />
-        <T size={14} color={colors.muted}>
+        <ActivityIndicator size="small" color={colors.button} />
+        <T size={14} color={colors.textMuted}>
           Looking for a picture...
         </T>
       </View>
@@ -60,14 +61,14 @@ export function LinkPreviewNote({ preview, label }: { preview: LinkPreview; labe
     return (
       <View style={{ gap: 6 }}>
         <PreviewPicture uri={preview.picture} label={label || 'this idea'} onBroken={() => setBroken(preview.picture)} />
-        <T size={14} color={colors.muted}>
+        <T size={14} color={colors.textMuted}>
           This picture will show on the idea.
         </T>
       </View>
     );
   }
   return (
-    <T size={14} color={colors.muted}>
+    <T size={14} color={colors.textMuted}>
       No picture found for this link. The idea will show its list&apos;s icon, and the link still works.
     </T>
   );

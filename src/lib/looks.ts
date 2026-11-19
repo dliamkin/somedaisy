@@ -4,6 +4,8 @@
 // them, which is every list made before that update or made without choosing, gets an icon guessed
 // from its name and a colour by its place among the group's lists.
 
+import { LIST_COLORS, TILE_INK } from './theme';
+
 /** Every icon a list can have, in the order the picker shows them. The drawings live in components/list-tile.tsx. */
 export const ICONS = [
   'daisy',
@@ -247,11 +249,7 @@ export function guessIcon(listName: string | null | undefined): IconName {
 }
 
 /** The colours offered as ready-made choices, and handed out in turn to lists that have not chosen. */
-export const TILE_COLORS = [
-  '#7B3FE4', '#2F7BE8', '#E0489E', '#1FA98A', '#4B5FE0', '#B8339A', '#0F9BB5', '#5BAA3C', '#D43D6B', '#3D4A6B',
-  '#9B5DE5', '#5E35B1', '#3F51B5', '#1565C0', '#42A5F5', '#00ACC1', '#00897B', '#2E7D32', '#7CB342', '#C2185B',
-  '#EC407A', '#F48FB1', '#AB47BC', '#6C63FF', '#E53935', '#546E7A', '#26A69A', '#80CBC4', '#F2C94C', '#111827',
-];
+export const TILE_COLORS = LIST_COLORS;
 
 /** A colour as "#RRGGBB" in capitals, from what someone typed ("#abc", "A1B2C3"), or null if it is not one. */
 export function cleanHex(input: unknown): string | null {
@@ -313,7 +311,7 @@ export function blendFor(color: string): TileBlend {
   // How bright the colour looks to the eye, the usual way of weighing red, green and blue.
   const n = parseInt(color.slice(1), 16);
   const bright = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-  return { from: color, to, ink: bright > 0.72 ? '#2C2040' : '#FFFFFF' };
+  return { from: color, to, ink: bright > 0.72 ? TILE_INK.onLight : TILE_INK.onDark };
 }
 
 /**

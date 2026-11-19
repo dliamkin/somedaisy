@@ -10,10 +10,11 @@ import {
   saveNotificationSettings,
 } from '@/lib/push';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 /** Choose which notifications to get. The choices follow the person to every phone they use. */
 export default function Notifications() {
+  const { colors } = useTheme();
   const { ready, profile } = useSession();
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,12 +48,12 @@ export default function Notifications() {
   return (
     <Screen>
       <TopBar title="Notifications" backTo="/" />
-      <T weight="medium" color={colors.muted}>
+      <T weight="medium" color={colors.textMuted}>
         SomeDaisy only nudges you about the things below. Switch off any you do not want.
       </T>
       <NotificationsCard showStatus />
       {!pushAvailable ? (
-        <T size={14} weight="medium" color={colors.muted}>
+        <T size={14} weight="medium" color={colors.textMuted}>
           Notifications arrive on phones with the SomeDaisy app installed. Your choices here apply to every phone you use.
         </T>
       ) : null}
@@ -88,13 +89,14 @@ export default function Notifications() {
 }
 
 function Choice({ title, detail, value, onChange }: { title: string; detail: string; value: boolean; onChange: (value: boolean) => void }) {
+  const { colors } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ flex: 1, gap: 2 }}>
         <T size={16} weight="extra">
           {title}
         </T>
-        <T size={14} weight="medium" color={colors.muted}>
+        <T size={14} weight="medium" color={colors.textMuted}>
           {detail}
         </T>
       </View>
@@ -102,7 +104,7 @@ function Choice({ title, detail, value, onChange }: { title: string; detail: str
         accessibilityLabel={title}
         value={value}
         onValueChange={onChange}
-        trackColor={{ false: colors.dash, true: colors.grape }}
+        trackColor={{ false: colors.outline, true: colors.button }}
         thumbColor={colors.white}
       />
     </View>

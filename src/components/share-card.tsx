@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
+import { AlwaysLight } from '@/lib/appearance';
 import type { ListLook } from '@/lib/looks';
 import type { CardRef } from '@/lib/share-picture';
 import type { ShareWords } from '@/lib/share';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { FlowerOutlines } from './flower-outlines';
 import { ListTile } from './list-tile';
@@ -13,8 +14,6 @@ import { T } from './ui';
 /** The card as drawn on screen. The picture made from it is larger, in the same four-to-five shape. */
 export const CARD = { width: 300, height: 375 };
 
-// The brand violet, the same as the splash screen.
-const VIOLET = '#8A4BE6';
 // The flower strip is 480 wide and 72 tall. A row of this height shows it at about the size it has on a group's cover.
 const ROW = 54;
 const ROWS = ['start', 'end', 'middle', 'start', 'end', 'middle', 'start'] as const;
@@ -26,8 +25,20 @@ const LOGO_RATIO = 1941 / 448;
  * flowers, with what is happening across the top and the SomeDaisy name along the bottom.
  * Everything on it is drawn in the app. `cardRef` is how the picture is taken of it.
  */
-export function ShareCard({ cardRef, title, listName, look, words }: { cardRef: CardRef; title: string; listName: string | null; look: ListLook; words: ShareWords }) {
-  const pill = words.kind === 'done' ? { bg: colors.mint, fg: colors.mintText } : words.kind === 'plan' ? { bg: colors.pinkTint, fg: colors.pink } : { bg: colors.grapeTint, fg: colors.link };
+export function ShareCard(props: ShareCardProps) {
+  // The picture goes to people outside the app, so it looks the same whatever mode this phone is in.
+  return (
+    <AlwaysLight>
+      <Drawn {...props} />
+    </AlwaysLight>
+  );
+}
+
+type ShareCardProps = { cardRef: CardRef; title: string; listName: string | null; look: ListLook; words: ShareWords };
+
+function Drawn({ cardRef, title, listName, look, words }: ShareCardProps) {
+  const { colors } = useTheme();
+  const pill = words.kind === 'done' ? { bg: colors.mint, fg: colors.mintText } : words.kind === 'plan' ? { bg: colors.selected, fg: colors.accent } : { bg: colors.voteOn, fg: colors.link };
   return (
     // "collapsable" off keeps this a real view on Android, which taking its picture needs.
     <View
@@ -35,7 +46,7 @@ export function ShareCard({ cardRef, title, listName, look, words }: { cardRef: 
       collapsable={false}
       accessible
       accessibilityLabel={`A picture to share: ${words.kicker.toLowerCase()} ${title}${words.line ? `, ${words.line}` : ''}`}
-      style={{ width: CARD.width, height: CARD.height, backgroundColor: VIOLET, overflow: 'hidden', padding: 20, justifyContent: 'space-between' }}>
+      style={{ width: CARD.width, height: CARD.height, backgroundColor: colors.logoTile, overflow: 'hidden', padding: 20, justifyContent: 'space-between' }}>
       {/* The flower pattern is a wide strip, so it is laid in rows down the card, each row showing a different stretch. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
         {ROWS.map((part, i) => (
@@ -47,7 +58,7 @@ export function ShareCard({ cardRef, title, listName, look, words }: { cardRef: 
       <T size={15} weight="black" color={colors.white} center style={{ letterSpacing: 1.5 }}>
         {words.kicker}
       </T>
-      <View style={{ backgroundColor: colors.white, borderRadius: 24, padding: 18, gap: 12, alignItems: 'center' }}>
+      <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 18, gap: 12, alignItems: 'center' }}>
         {/* A long name gets a smaller icon, so four lines of it still fit. */}
         <ListTile icon={look.icon} color={look.color} size={title.length > 48 ? 44 : 60} flat />
         <View style={{ gap: 2, alignSelf: 'stretch' }}>
@@ -55,7 +66,7 @@ export function ShareCard({ cardRef, title, listName, look, words }: { cardRef: 
             {title}
           </T>
           {listName ? (
-            <T size={13} color={colors.muted} center lines={1}>
+            <T size={13} color={colors.textMuted} center lines={1}>
               {listName}
             </T>
           ) : null}

@@ -10,7 +10,7 @@ import { fetchGroup, type GroupData, type Idea } from '@/lib/data';
 import { optionsOf } from '@/lib/list-options';
 import { lookFor } from '@/lib/looks';
 import { ANY, pickOne, pickPool, SETTINGS, tagLine, TAKES, type PickFilter } from '@/lib/pick';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 // How the pick is drawn out: a different idea's name flashes by every so often, for a moment.
 const FLASH_MS = 90;
@@ -18,6 +18,7 @@ const FLASHES = 14;
 
 /** Pick for us: say what time there is, and the app picks one of the ideas everyone is in on. */
 export default function PickForUs() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const reduced = useReducedMotion();
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
@@ -62,7 +63,7 @@ export default function PickForUs() {
       <Screen footer={<Button label="Back to the group" kind="soft" onPress={back} />}>
         <TopBar title="Pick for us" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           {error ? 'The ideas could not be loaded. Check your connection, then try again.' : 'That group could not be found.'}
         </T>
       </Screen>
@@ -163,7 +164,7 @@ export default function PickForUs() {
             <T size={16} weight="extra">
               Include ideas still waiting on someone
             </T>
-            <T size={14} color={colors.muted}>
+            <T size={14} color={colors.textMuted}>
               Never one that somebody said &quot;Eh&quot; to
             </T>
           </View>
@@ -171,7 +172,7 @@ export default function PickForUs() {
             accessibilityLabel="Include ideas still waiting on someone"
             value={filter.undecided}
             onValueChange={(undecided) => change({ undecided })}
-            trackColor={{ true: colors.grape, false: '#8E80A3' }}
+            trackColor={{ true: colors.button, false: colors.textDisabled }}
             thumbColor={colors.white}
           />
         </View>
@@ -189,7 +190,7 @@ export default function PickForUs() {
       ) : chosen ? (
         <PopIn key={picked?.turn}>
           <Card style={{ padding: 18, gap: 14 }}>
-            <T size={13} weight="extra" color={colors.pink}>
+            <T size={13} weight="extra" color={colors.accent}>
               THE DAISY SAYS
             </T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -199,7 +200,7 @@ export default function PickForUs() {
                   {chosen.title}
                 </T>
                 {details ? (
-                  <T size={13} color={colors.muted}>
+                  <T size={13} color={colors.textMuted}>
                     {details}
                   </T>
                 ) : null}
@@ -220,7 +221,7 @@ export default function PickForUs() {
           <T size={20} weight="black" center>
             Nothing to pick from
           </T>
-          <T weight="medium" color={colors.muted} center>
+          <T weight="medium" color={colors.textMuted} center>
             {alone
               ? 'The daisy picks among ideas you gave an "I\'m down" that have no date yet. Try a wider choice above, or add some ideas.'
               : filter.undecided
@@ -229,7 +230,7 @@ export default function PickForUs() {
           </T>
         </View>
       ) : (
-        <T weight="medium" color={colors.muted} center>
+        <T weight="medium" color={colors.textMuted} center>
           {pool.length === 1 ? '1 idea to pick from' : `${pool.length} ideas to pick from`}
         </T>
       )}

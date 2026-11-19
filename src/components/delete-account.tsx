@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, Card, ErrorNote, T } from '@/components/ui';
 import { deleteAccount } from '@/lib/account';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 /**
  * "Delete my account", with a second step so it cannot happen by accident. For a guest, who has
@@ -12,6 +12,7 @@ import { colors } from '@/lib/theme';
  * to its welcome screen, with nobody signed in.
  */
 export function DeleteAccount({ guest, disabled }: { guest?: boolean; disabled?: boolean }) {
+  const { colors } = useTheme();
   const { refresh } = useSession();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,7 @@ export function DeleteAccount({ guest, disabled }: { guest?: boolean; disabled?:
       <T size={16} weight="extra">
         {guest ? 'Delete everything of yours?' : 'Delete your account?'}
       </T>
-      <T size={14} weight="medium" color={colors.muted}>
+      <T size={14} weight="medium" color={colors.textMuted}>
         {guest
           ? 'This removes your name, reactions and comments for good.'
           : 'This removes your name, email, picture, reactions and comments for good.'}{' '}

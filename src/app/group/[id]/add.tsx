@@ -1,29 +1,54 @@
+import * as Clipboard from 'expo-clipboard';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Switch, View } from 'react-native';
+import { ActivityIndicator, Switch, View } from 'react-native';
 
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
-import { Button, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
+import { AddBoxes, ListChooser } from '@/components/list-chooser';
+import { Button, Card, ErrorNote, Field, Loading, Screen, Segmented, T, TopBar } from '@/components/ui';
 import { addIdea, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
-import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
-import { formShows } from '@/lib/list-options';
-import { attachPreview } from '@/lib/preview';
+import { LINK_MAX, looksLikeLink, NOTE_MAX, siteName, tidyLink } from '@/lib/links';
+import { formShows, optionsOf } from '@/lib/list-options';
+import { attachPreview, nameFromTitle, TITLE_MAX } from '@/lib/preview';
 import { useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
+
+// The two ways to add an idea. "type" is the form: a name, and whatever else the list asks for.
+// "paste" starts from a link, and the page it goes to fills in the picture and the name.
+type Mode = 'type' | 'paste';
+
+const MODES: { key: Mode; label: string }[] = [
+  { key: 'type', label: 'Type it' },
+  { key: 'paste', label: 'Paste a link' },
+];
 
 export default function AddIdea() {
+  const { colors, dark } = useTheme();
   const { id, list } = useLocalSearchParams<{ id: string; list?: string }>();
   const { userId } = useSession();
   const [lists, setLists] = useState<List[] | null>(null);
   const [listId, setListId] = useState<string | null>(list ?? null);
+  const [mode, setMode] = useState<Mode>('type');
+  // The name and the link are shared by both ways in, so switching does not lose what was typed.
   const [title, setTitle] = useState('');
   const [link, setLink] = useState('');
   const [note, setNote] = useState('');
   const [tags, setTags] = useState<IdeaTags>({ takes: null, setting: null });
   const [thumbsUp, setThumbsUp] = useState(true);
+  // Boxes the list leaves off the form that the person has asked for, for this idea only.
+  const [added, setAdded] = useState({ link: false, note: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // What the "Paste" button could not do, said under the link box.
+  const [pasteNote, setPasteNote] = useState<string | null>(null);
+  // The link whose page was last asked for a name, and the name it gave. A name the person has
+  // typed or changed themselves is never replaced.
+  const [namedFor, setNamedFor] = useState<string | null>(null);
+  const [offered, setOffered] = useState<string | null>(null);
+  // The picture found for the link would not load.
+  const [brokenPicture, setBrokenPicture] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -37,30 +62,79 @@ export default function AddIdea() {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
 
+  // Pasting a link only makes sense for a list that keeps links, so only those are offered there.
+  // With no such list there is one way in, and the switch is not shown.
+  const linkLists = (lists ?? []).filter((l) => optionsOf(l).links);
+  const canPaste = linkLists.length > 0;
+  const pasting = mode === 'paste' && canPaste;
+  const offeredLists = pasting ? linkLists : (lists ?? []);
+  const chosenId = offeredLists.some((l) => l.id === listId) ? listId : (offeredLists[0]?.id ?? null);
+
   // Each list says which boxes it wants. What was typed in a box that is then hidden is not sent.
-  const shows = formShows((lists ?? []).find((l) => l.id === listId), { link: false, note: false });
-  // The picture the idea will get, looked up while the link is being typed.
-  const preview = useLinkPreview(shows.link ? link : '');
+  const shows = formShows((lists ?? []).find((l) => l.id === chosenId), added);
+  const usesLink = pasting || shows.link;
+  // The picture and the page's name, looked up while the link is being typed.
+  const preview = useLinkPreview(usesLink ? link : '');
+  const settled = preview.state === 'found' || preview.state === 'missing' ? preview : null;
+
+  // When a pasted link's page has been read, its title becomes the idea's name, unless the person
+  // has already written one of their own.
+  if (pasting && settled && settled.link !== namedFor) {
+    setNamedFor(settled.link);
+    const name = settled.title ? nameFromTitle(settled.title) : null;
+    if (name && (!title.trim() || title === offered)) {
+      setTitle(name);
+      setOffered(name);
+    }
+  }
+
+  const tidy = tidyLink(usesLink ? link : '');
+  const ready = Boolean(title.trim() && chosenId) && (!pasting || (tidy.ok && tidy.link !== null));
+
+  const paste = async () => {
+    try {
+      const copied = (await Clipboard.getStringAsync()).trim();
+      if (copied) {
+        setLink(copied.slice(0, LINK_MAX));
+        setPasteNote(null);
+      } else {
+        setPasteNote('There is nothing to paste yet. Copy a link first, or type it in the box.');
+      }
+    } catch {
+      setPasteNote('Could not read what you copied. Paste it into the box yourself.');
+    }
+  };
+
+  // A web address typed where the name goes: move it to the link box and start from there.
+  const useAsLink = () => {
+    setLink(title.trim());
+    setTitle('');
+    setOffered(null);
+    setNamedFor(null);
+    setMode('paste');
+  };
 
   const submit = async () => {
-    if (!id || !userId || !listId || !title.trim() || busy) return;
-    const tidy = tidyLink(shows.link ? link : '');
+    if (!id || !userId || !chosenId || !title.trim() || busy) return;
     if (!tidy.ok) {
-      setError('That link does not look like a web address. Check it, or leave it empty.');
+      setError(pasting ? 'That link does not look like a web address. Check it and try again.' : 'That link does not look like a web address. Check it, or leave it empty.');
       return;
     }
+    if (pasting && !tidy.link) return;
     setBusy(true);
     setError(null);
     try {
       const ideaId = await addIdea({
         groupId: id,
-        listId,
+        listId: chosenId,
         title: title.trim(),
         link: tidy.link ?? undefined,
-        note: shows.note ? note.trim() : '',
+        // The note and the tags belong to the typed form. They are not sent from the other one.
+        note: !pasting && shows.note ? note.trim() : '',
         userId,
-        thumbsUp,
-        tags: shows.tags ? tags : undefined,
+        // Only a thing to go and do can be counted in on.
+        thumbsUp: shows.countMeIn && thumbsUp,
+        tags: !pasting && shows.tags ? tags : undefined,
       });
       // The link's picture is saved in the background and appears on the card shortly after. If
       // it was already found while typing, that one is used and it is not looked up again.
@@ -76,39 +150,127 @@ export default function AddIdea() {
 
   if (lists === null && !error) return <Loading />;
 
+  const picture = preview.state === 'found' && preview.picture !== brokenPicture ? preview.picture : null;
+  // Nothing at all came back for the link: no picture and no name.
+  const unread = preview.state === 'missing' && !preview.title;
+
+  const listPicker = <ListChooser all={lists ?? []} lists={offeredLists} chosenId={chosenId} onChoose={setListId} />;
+
   return (
-    <Screen footer={<Button label="Add to list" onPress={submit} disabled={!title.trim() || !listId} busy={busy} />}>
+    <Screen footer={<Button label="Add to list" onPress={submit} disabled={!ready} busy={busy} />}>
       <TopBar title="New idea" backTo={`/group/${id}`} />
-      <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="Sunrise beach walk, a movie, a new taco spot..." maxLength={120} autoFocus />
-      <View style={{ gap: 8 }}>
-        <T size={16} weight="extra">
-          Which list?
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {(lists ?? []).map((l) => (
-            <Chip key={l.id} label={l.name} selected={l.id === listId} onPress={() => setListId(l.id)} />
-          ))}
-        </View>
-      </View>
-      {shows.link ? (
-        <View style={{ gap: 8 }}>
-          <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="Paste a trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
-          <LinkPreviewNote preview={preview} label={title.trim()} />
-        </View>
-      ) : null}
-      {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
-      {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
+      {/* Both ways in are always on show, so nobody has to find out there are two. */}
+      {canPaste ? <Segmented label="How to add the idea" options={MODES} value={mode} onChange={setMode} /> : null}
+
+      {pasting ? (
+        <>
+          <View style={{ gap: 6 }}>
+            <Field
+              label="Paste a link and we will fill in the rest"
+              value={link}
+              onChangeText={(v) => {
+                setLink(v);
+                setPasteNote(null);
+              }}
+              placeholder="A trailer, a map pin..."
+              kind="link"
+              maxLength={LINK_MAX}
+              after={<Button label="Paste" kind="outline" small onPress={() => void paste()} style={{ height: 52, borderRadius: 26, paddingHorizontal: 16 }} />}
+            />
+            {pasteNote ? (
+              <T size={14} color={colors.textMuted}>
+                {pasteNote}
+              </T>
+            ) : null}
+          </View>
+
+          {preview.state === 'looking' ? (
+            <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator size="small" color={colors.button} />
+              <T size={14} color={colors.textMuted}>
+                Reading the page...
+              </T>
+            </View>
+          ) : null}
+
+          {settled ? (
+            <Card>
+              {unread ? (
+                <T size={14} color={colors.textMuted}>
+                  We couldn&apos;t read that page. You can still name the idea yourself.
+                </T>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  {picture ? (
+                    <Image
+                      source={{ uri: picture }}
+                      style={{ width: 96, height: 72, borderRadius: 12, backgroundColor: colors.background, borderWidth: dark ? 1 : 0, borderColor: colors.line }}
+                      contentFit="cover"
+                      accessibilityLabel="The picture from the page"
+                      onError={() => setBrokenPicture(picture)}
+                    />
+                  ) : null}
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <T size={12} color={colors.textMuted}>
+                      Found this
+                    </T>
+                    <T size={16} weight="extra" lines={3}>
+                      {settled.title ?? siteName(settled.link)}
+                    </T>
+                    {settled.title ? (
+                      <T size={12} color={colors.textMuted} lines={1}>
+                        {siteName(settled.link)}
+                      </T>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+              <Field label={unread ? 'Idea name' : 'Idea name (edit if you like)'} value={title} onChangeText={setTitle} maxLength={TITLE_MAX} />
+            </Card>
+          ) : null}
+
+          {listPicker}
+        </>
+      ) : (
+        <>
+          {/* The keyboard does not open by itself, so the whole form shows first. */}
+          <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="A beach walk, a movie, tacos..." maxLength={TITLE_MAX} />
+          {canPaste && looksLikeLink(title) ? (
+            <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <T size={14} weight="medium" color={colors.textMuted} style={{ flex: 1 }}>
+                That looks like a link. We can read the page and fill in the name.
+              </T>
+              <Button label="Use the link" small onPress={useAsLink} />
+            </Card>
+          ) : null}
+          {listPicker}
+          {shows.link ? (
+            <View style={{ gap: 8 }}>
+              <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="A trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
+              <LinkPreviewNote preview={preview} label={title.trim()} />
+            </View>
+          ) : null}
+          {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
+          {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
+          {/* What the list leaves off can still be added to this one idea. */}
+          <AddBoxes link={!shows.link} note={!shows.note} onLink={() => setAdded({ ...added, link: true })} onNote={() => setAdded({ ...added, note: true })} />
+        </>
+      )}
+
+      {/* For a list of things to go and do. A list that is only for keeping things has nothing to be in on. */}
+      {shows.countMeIn ? (
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <T size={16} weight="extra">
             Count me in
           </T>
-          <T size={14} color={colors.muted}>
-            {`Adds your "I'm down" right away`}
+          <T size={14} color={colors.textMuted}>
+            {`Adds your "I'm in" right away`}
           </T>
         </View>
-        <Switch accessibilityLabel="Add my I'm down" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.grape, false: '#8E80A3' }} thumbColor={colors.white} />
+        <Switch accessibilityLabel="Add my I'm in" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.button, false: colors.textDisabled }} thumbColor={colors.white} />
       </View>
+      ) : null}
       <ErrorNote message={error} />
     </Screen>
   );

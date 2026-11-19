@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { cleanHex, ICON_LABELS, ICONS, lookFor, TILE_COLORS, type IconName } from '@/lib/looks';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { ListIcon, ListTile } from './list-tile';
 import { Field, T } from './ui';
@@ -20,6 +20,7 @@ export type LookChoice = { icon: IconName | null; color: string | null };
  * does not recognise).
  */
 export function ListLookPicker({ name, place, value, onChange }: { name: string; place: number; value: LookChoice; onChange: (next: LookChoice) => void }) {
+  const { colors } = useTheme();
   const shown = lookFor({ name, icon: value.icon, color: value.color }, place);
   // What is in the colour code box. It can be half typed, so it is kept apart from the colour in use.
   const [code, setCode] = useState(value.color ?? '');
@@ -44,7 +45,7 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
           <T size={14} weight="extra">
             How it looks
           </T>
-          <T size={13} color={colors.muted}>
+          <T size={13} color={colors.textMuted}>
             Pick an icon and a colour, or leave them and the app chooses.
           </T>
         </View>
@@ -73,7 +74,7 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
         </View>
         <Field label="Or a colour code" value={code} onChangeText={typeCode} placeholder={shown.color} maxLength={7} kind="link" />
         {code.trim() !== '' && !typed ? (
-          <T size={13} color={colors.muted}>
+          <T size={13} color={colors.textMuted}>
             A colour code is # followed by six letters or numbers, such as #2F7BE8.
           </T>
         ) : null}
@@ -100,8 +101,8 @@ export function ListLookPicker({ name, place, value, onChange }: { name: string;
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderWidth: 2,
-                  borderColor: on ? colors.grape : 'transparent',
-                  backgroundColor: on ? colors.grapeTint : colors.ground,
+                  borderColor: on ? colors.button : 'transparent',
+                  backgroundColor: on ? colors.voteOn : colors.background,
                 }}>
                 <ListIcon name={icon} size={26} color={colors.text} />
               </Pressable>

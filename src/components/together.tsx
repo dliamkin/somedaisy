@@ -4,7 +4,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { stampLook, type IconName, type StampList } from '@/lib/looks';
 import { breakdown, levelFor, TITLES, type Completion, type Level } from '@/lib/points';
-import { colors } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 import { Blooming, Confetti, Overlay, PopIn, useReducedMotion } from './celebrate';
 import { Daisy } from './daisy';
@@ -17,11 +17,12 @@ import { Button, Card, Chip, T } from './ui';
  * `fill` is the coloured part of the bar, which the two bars below draw in their own way.
  */
 function BarFrame({ level, points, fill, tip }: { level: Level; points: number; fill: ReactNode; tip?: ReactNode }) {
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 }}>
         <View style={{ flexShrink: 1 }}>
-          <T size={11} weight="extra" color={colors.muted}>
+          <T size={11} weight="extra" color={colors.textMuted}>
             GROUP RANK
           </T>
           <T size={15} weight="black" lines={1}>
@@ -29,10 +30,10 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
           </T>
         </View>
         <View style={{ flexShrink: 1, alignItems: 'flex-end' }}>
-          <T size={11} weight="extra" color={colors.muted}>
+          <T size={11} weight="extra" color={colors.textMuted}>
             {level.next ? 'NEXT' : 'TOP RANK'}
           </T>
-          <T size={15} weight="extra" color={colors.muted} lines={1}>
+          <T size={15} weight="extra" color={colors.textMuted} lines={1}>
             {level.next ? level.next.title : 'You made it'}
           </T>
         </View>
@@ -42,7 +43,7 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
         {tip}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-        <T size={12} color={colors.muted}>
+        <T size={12} color={colors.textMuted}>
           Rank {level.index + 1} of {TITLES.length} · {points} {points === 1 ? 'point' : 'points'}
         </T>
         {level.next ? (
@@ -58,25 +59,67 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
 const percent = (progress: number) => `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` as const;
 
 /** What a screen reader says for the bar. */
-function barSays(level: Level): string {
+export function barSays(level: Level): string {
   const place = `${level.title}, rank ${level.index + 1} of ${TITLES.length}, ${level.points} points`;
   return level.next ? `${place}. ${level.toNext} to go to ${level.next.title}` : `${place}. The top rank`;
 }
 
 /** The group's shared bar: its title, the next one, and how far along it is. */
 export function PointsBar({ points, onPress }: { points: number; onPress?: () => void }) {
+  const { colors } = useTheme();
   const level = levelFor(points);
   const bar = (
     <BarFrame
       level={level}
       points={level.points}
-      fill={<View style={{ width: percent(level.progress), height: 12, borderRadius: 6, backgroundColor: colors.pink }} />}
+      fill={<View style={{ width: percent(level.progress), height: 12, borderRadius: 6, backgroundColor: colors.accent }} />}
     />
   );
   if (!onPress) return <View accessibilityLabel={barSays(level)}>{bar}</View>;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`${barSays(level)}. See your stamps`} onPress={onPress}>
       {bar}
+    </Pressable>
+  );
+}
+
+/** A thin progress bar: how far along something is, from 0 to 1. */
+export function ThinBar({ progress }: { progress: number }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.today, overflow: 'hidden' }}>
+      <View style={{ width: percent(progress), height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+    </View>
+  );
+}
+
+/**
+ * The group's rank, for the top of its page: a few words on what the bar is for, then the rank's
+ * name, how far it is to the next one, and a thin bar under both. The next rank is not named
+ * here, only the points to go. Each rank reached is a petal on the group's daisy, which is what
+ * the words at the top are about. Nothing here wraps; what cannot fit is cut short.
+ */
+export function RankLine({ points, onPress }: { points: number; onPress: () => void }) {
+  const { colors } = useTheme();
+  const level = levelFor(points);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${barSays(level)}. See your stamps`}
+      onPress={onPress}
+      style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: 5 }}>
+      <T size={12} weight="extra" color={colors.link} lines={1}>
+        {level.next ? "Grow your group's petals!" : 'Every petal has grown!'}
+      </T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <T size={15} weight="black" lines={1} style={{ flex: 1 }}>
+          {level.title}
+        </T>
+        <T size={13} color={colors.textMuted} lines={1}>
+          {level.next ? `${level.toNext} to go` : 'Top rank'}
+        </T>
+      </View>
+      <ThinBar progress={level.progress} />
     </Pressable>
   );
 }
@@ -88,6 +131,7 @@ export function PointsBar({ points, onPress }: { points: number; onPress?: () =>
  * the new title's bar.
  */
 export function GrowingPointsBar({ from, to, delay = 0 }: { from: number; to: number; delay?: number }) {
+  const { colors } = useTheme();
   const reduced = useReducedMotion();
   const start = levelFor(from);
   const end = levelFor(to);
@@ -156,7 +200,7 @@ export function GrowingPointsBar({ from, to, delay = 0 }: { from: number; to: nu
       <BarFrame
         level={shown}
         points={counted}
-        fill={<Animated.View style={{ width, height: 12, borderRadius: 6, backgroundColor: colors.pink }} />}
+        fill={<Animated.View style={{ width, height: 12, borderRadius: 6, backgroundColor: colors.accent }} />}
         tip={
           <Animated.View pointerEvents="none" style={{ position: 'absolute', top: -7, left: width, marginLeft: -13, opacity: sparkle, transform: [{ scale: bounce }] }}>
             <Spark size={26} />
@@ -172,10 +216,11 @@ export function GrowingPointsBar({ from, to, delay = 0 }: { from: number; to: nu
  * yellow with a white heart and a soft glow, drawn here so it looks the same on every phone.
  */
 function Spark({ size }: { size: number }) {
+  const { colors } = useTheme();
   return (
     <Svg width={size} height={size} viewBox="0 0 26 26">
-      <Circle cx={13} cy={13} r={12} fill="#FFD25A" opacity={0.4} />
-      <Path d="M13 1.5 L15.4 10.6 L24.5 13 L15.4 15.4 L13 24.5 L10.6 15.4 L1.5 13 L10.6 10.6 Z" fill="#FFD25A" stroke={colors.pink} strokeWidth={1.4} strokeLinejoin="round" />
+      <Circle cx={13} cy={13} r={12} fill={colors.daisyCenter} opacity={0.4} />
+      <Path d="M13 1.5 L15.4 10.6 L24.5 13 L15.4 15.4 L13 24.5 L10.6 15.4 L1.5 13 L10.6 10.6 Z" fill={colors.daisyCenter} stroke={colors.accent} strokeWidth={1.4} strokeLinejoin="round" />
       <Circle cx={13} cy={13} r={2.6} fill={colors.white} />
     </Svg>
   );
@@ -193,6 +238,7 @@ export function AgainChoice({ answer, onAnswer, disabled }: { answer: boolean | 
 
 /** The daisy and headline at the top of a celebration, popping in one after the other. */
 function Headline({ small, title }: { small?: string; title: string }) {
+  const { colors } = useTheme();
   return (
     <View style={{ alignItems: 'center', gap: 10 }}>
       <PopIn>
@@ -200,11 +246,11 @@ function Headline({ small, title }: { small?: string; title: string }) {
       </PopIn>
       <PopIn delay={180} style={{ alignItems: 'center', gap: 4 }}>
         {small ? (
-          <T size={18} weight="extra" color={colors.white} center>
+          <T size={18} weight="extra" color={colors.onButton} center>
             {small}
           </T>
         ) : null}
-        <T size={40} weight="black" color={colors.white} center style={{ lineHeight: 46 }}>
+        <T size={40} weight="black" color={colors.onButton} center style={{ lineHeight: 46 }}>
           {title}
         </T>
       </PopIn>
@@ -242,6 +288,7 @@ export function YouDidIt({
   onAnswer: (again: boolean) => void;
   onClose: () => void;
 }) {
+  const { colors } = useTheme();
   const lines = breakdown(completion);
   const look = stampLook(completion.list_id, completion.list_name, lists);
   return (
@@ -256,7 +303,7 @@ export function YouDidIt({
                 <T size={19} weight="black">
                   {completion.title}
                 </T>
-                <T size={13} color={colors.muted}>
+                <T size={13} color={colors.textMuted}>
                   A new stamp for your group
                 </T>
               </View>
@@ -272,7 +319,7 @@ export function YouDidIt({
                   <T size={14} weight="medium">
                     {line.label}
                   </T>
-                  <T size={14} weight="extra" color={colors.mintText}>
+                  <T size={14} weight="extra" color={colors.good}>
                     +{line.points}
                   </T>
                 </View>
@@ -290,7 +337,7 @@ export function YouDidIt({
               <T size={17} weight="black">
                 Would you do it again?
               </T>
-              <T size={13} color={colors.muted}>
+              <T size={13} color={colors.textMuted}>
                 If everyone says yes, it goes on your do-again shelf.
               </T>
               <AgainChoice answer={answer} onAnswer={onAnswer} />
@@ -310,7 +357,7 @@ export function YouDidIt({
             onPress={onUndo}
             hitSlop={10}
             style={{ alignSelf: 'center', paddingVertical: 6 }}>
-            <T size={14} weight="extra" color={colors.white} center style={{ textDecorationLine: 'underline' }}>
+            <T size={14} weight="extra" color={colors.onButton} center style={{ textDecorationLine: 'underline' }}>
               {undoing ? 'Undoing...' : 'Tapped by mistake? Undo'}
             </T>
           </Pressable>
@@ -341,6 +388,7 @@ export function NewTitle({ level, onClose }: { level: Level; onClose: () => void
 
 /** The whole group has said yes to an idea. */
 export function EveryonesIn({ title, onPlan, onClose }: { title: string; /** Absent when the idea already has a date. */ onPlan?: () => void; onClose: () => void }) {
+  const { colors } = useTheme();
   return (
     <Overlay behind={<Confetti />}>
       <Headline title="Everyone's in!" />
@@ -350,14 +398,14 @@ export function EveryonesIn({ title, onPlan, onClose }: { title: string; /** Abs
             <T size={19} weight="black">
               {title}
             </T>
-            <T size={14} color={colors.muted}>
+            <T size={14} color={colors.textMuted}>
               The whole group said yes.
             </T>
           </Card>
         </Blooming>
       </PopIn>
       <PopIn delay={520} style={{ gap: 10 }}>
-        {onPlan ? <Button label="Pick a date" kind="soft" onPress={onPlan} /> : null}
+        {onPlan ? <Button label="Plan it" kind="soft" onPress={onPlan} /> : null}
         <Button label={onPlan ? 'Later' : 'Nice'} kind="outline" onPress={onClose} />
       </PopIn>
     </Overlay>
@@ -371,6 +419,7 @@ export function EveryonesIn({ title, onPlan, onClose }: { title: string; /** Abs
  * daisy's yellow and a small star on its shoulder.
  */
 export function StampMark({ icon, color, size = 56, special, tilt = 0 }: { icon: IconName; color: string; size?: number; special?: boolean; tilt?: number }) {
+  const { colors } = useTheme();
   const ring = special ? 3 : 2;
   const gap = 3;
   const outer = size + (ring + gap) * 2;
@@ -383,7 +432,7 @@ export function StampMark({ icon, color, size = 56, special, tilt = 0 }: { icon:
           borderRadius: outer / 2,
           borderWidth: ring,
           borderStyle: 'dashed',
-          borderColor: special ? '#E8B923' : colors.dash,
+          borderColor: special ? colors.gold : colors.outline,
           alignItems: 'center',
           justifyContent: 'center',
         }}>

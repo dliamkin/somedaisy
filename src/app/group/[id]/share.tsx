@@ -8,10 +8,11 @@ import { fetchIdea, fetchLists, type List, type SharedIdea } from '@/lib/data';
 import { lookFor } from '@/lib/looks';
 import { shareFileName, shareWords } from '@/lib/share';
 import { sharePicture, type CardRef } from '@/lib/share-picture';
-import { colors, shadow } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
 /** Share an idea as a picture: shows the card, and hands its picture to the phone's share sheet. */
 export default function ShareIdea() {
+  const { colors, shadow } = useTheme();
   const { id, idea: ideaId } = useLocalSearchParams<{ id: string; idea?: string }>();
   const [now] = useState(() => new Date());
   const [idea, setIdea] = useState<SharedIdea | null | undefined>(undefined);
@@ -44,7 +45,7 @@ export default function ShareIdea() {
       <Screen footer={<Button label="Back to the group" kind="soft" onPress={back} />}>
         <TopBar title="Share" backTo={`/group/${id}`} />
         <ErrorNote message={error} />
-        <T weight="medium" color={colors.muted}>
+        <T weight="medium" color={colors.textMuted}>
           {error ? 'The idea could not be loaded. Check your connection, then try again.' : 'That idea is no longer in the group.'}
         </T>
       </Screen>
@@ -74,24 +75,24 @@ export default function ShareIdea() {
       <TopBar title="Share" subtitle="A picture for a chat or a story" backTo={`/group/${id}`} />
       <View style={{ alignItems: 'center', paddingVertical: 8 }}>
         {/* The shadow and rounded corners are on this frame, not on the card, so the picture itself has square corners. */}
-        <View style={[{ width: CARD.width, height: CARD.height, borderRadius: 20, backgroundColor: colors.white }, shadow]}>
+        <View style={[{ width: CARD.width, height: CARD.height, borderRadius: 20, backgroundColor: colors.card }, shadow]}>
           <View style={{ borderRadius: 20, overflow: 'hidden' }}>
             <ShareCard cardRef={card} title={idea.title} listName={list?.name ?? null} look={lookFor(list, Math.max(0, place))} words={shareWords(idea, now)} />
           </View>
         </View>
       </View>
-      <T size={14} weight="medium" color={colors.muted} center>
+      <T size={14} weight="medium" color={colors.textMuted} center>
         Only the idea&apos;s name, its list and its date are on the picture. No names, notes or links.
       </T>
       {/* A picture is easy to mistake for an invitation. It is not one, so say so and offer the real thing. */}
       <View style={{ alignItems: 'center', gap: 2 }}>
-        <T size={14} weight="medium" color={colors.muted} center>
+        <T size={14} weight="medium" color={colors.textMuted} center>
           A picture cannot let anyone join the group. For that, send the invite link.
         </T>
         <Button label="Invite someone instead" kind="ghost" small onPress={() => router.push(`/group/${id}/invite` as never)} />
       </View>
       {note ? (
-        <T size={14} weight="extra" color={colors.mintText} center>
+        <T size={14} weight="extra" color={colors.good} center>
           {note}
         </T>
       ) : null}
