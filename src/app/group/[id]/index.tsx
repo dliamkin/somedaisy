@@ -366,7 +366,7 @@ export default function GroupScreen() {
         {prompt && !didIt ? (
           <Card style={{ padding: 16, gap: 10 }}>
             <View style={{ gap: 2 }}>
-              <T size={13} weight="extra" color={colors.mintText}>
+              <T size={13} weight="extra" color={colors.good}>
                 You did it
               </T>
               <T size={17} weight="extra">

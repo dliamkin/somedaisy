@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon/square/somedaisy-icon-square-1024.png",
     "scheme": "somedaisy",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#F6F0FB",
     "ios": {
       "icon": "./assets/icon/square/somedaisy-icon-square-1024.png"

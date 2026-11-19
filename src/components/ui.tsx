@@ -292,7 +292,7 @@ export function Field({
   /** Something to sit beside the box, such as a button that fills it in. */
   after?: ReactNode;
 }) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   // The box being typed in gets an edge in the button colour, in place of the browser's own focus ring.
   const [focused, setFocused] = useState(false);
   return (
@@ -307,6 +307,7 @@ export function Field({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.textDisabled}
+        keyboardAppearance={dark ? 'dark' : 'light'}
         multiline={multiline}
         autoFocus={autoFocus}
         maxLength={maxLength}
@@ -346,10 +347,24 @@ export function Field({
  * A switch between a few choices that are always all on show, such as two ways of doing the
  * same thing. One is always chosen.
  */
-export function Segmented<K extends string>({ label, options, value, onChange }: { /** What is being chosen, for a screen reader. */ label: string; options: { key: K; label: string }[]; value: K; onChange: (key: K) => void }) {
+export function Segmented<K extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  flat,
+}: {
+  /** What is being chosen, for a screen reader. */
+  label: string;
+  options: { key: K; label: string }[];
+  value: K;
+  onChange: (key: K) => void;
+  /** For a switch that sits on a card: the page's colour behind it, and no shadow. */
+  flat?: boolean;
+}) {
   const { colors, shadow } = useTheme();
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 26, backgroundColor: colors.card }, shadow]}>
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 26, backgroundColor: flat ? colors.background : colors.card }, flat ? null : shadow]}>
       {options.map((option) => {
         const on = option.key === value;
         return (

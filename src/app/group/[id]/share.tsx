@@ -92,7 +92,7 @@ export default function ShareIdea() {
         <Button label="Invite someone instead" kind="ghost" small onPress={() => router.push(`/group/${id}/invite` as never)} />
       </View>
       {note ? (
-        <T size={14} weight="extra" color={colors.mintText} center>
+        <T size={14} weight="extra" color={colors.good} center>
           {note}
         </T>
       ) : null}

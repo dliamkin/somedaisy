@@ -127,7 +127,7 @@ export default function Invite() {
               {CAN_SHARE ? <Button label="Send link" small onPress={() => void send()} style={{ flex: 1 }} /> : null}
             </View>
             {sent ? (
-              <T size={14} weight="extra" color={colors.mintText}>
+              <T size={14} weight="extra" color={colors.good}>
                 {sent === 'copied' ? 'Link copied. Paste it into a chat with your people.' : 'When they tap the link they will show up below.'}
               </T>
             ) : null}

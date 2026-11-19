@@ -24,7 +24,7 @@ const MODES: { key: Mode; label: string }[] = [
 ];
 
 export default function AddIdea() {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const { id, list } = useLocalSearchParams<{ id: string; list?: string }>();
   const { userId } = useSession();
   const [lists, setLists] = useState<List[] | null>(null);
@@ -211,7 +211,7 @@ export default function AddIdea() {
                   {picture ? (
                     <Image
                       source={{ uri: picture }}
-                      style={{ width: 96, height: 72, borderRadius: 12, backgroundColor: colors.background }}
+                      style={{ width: 96, height: 72, borderRadius: 12, backgroundColor: colors.background, borderWidth: dark ? 1 : 0, borderColor: colors.line }}
                       contentFit="cover"
                       accessibilityLabel="The picture from the page"
                       onError={() => setBrokenPicture(picture)}

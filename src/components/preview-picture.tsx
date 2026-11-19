@@ -26,7 +26,7 @@ export function PreviewPicture({
   bleed?: number;
   onBroken?: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   // Remember the picture that failed, so a different one gets its own chance.
   const [broken, setBroken] = useState<string | null>(null);
   const picture = usablePicture(uri);
@@ -34,7 +34,8 @@ export function PreviewPicture({
   const image = (
     <Image
       source={{ uri: picture }}
-      style={{ width: '100%', aspectRatio: 1.91, borderRadius: bleed ? 0 : 16, backgroundColor: colors.background }}
+      // In dark mode a hairline goes round it, so a bright picture has an edge and a dark one does not melt into the card.
+      style={{ width: '100%', aspectRatio: 1.91, borderRadius: bleed ? 0 : 16, backgroundColor: colors.background, borderWidth: dark ? 1 : 0, borderColor: colors.line }}
       contentFit="cover"
       accessibilityLabel={onPress ? undefined : `Picture for ${label}`}
       onError={() => {

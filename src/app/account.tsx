@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { AppearanceRow } from '@/components/appearance-row';
 import { DeleteAccount } from '@/components/delete-account';
 import { GoogleButton, OrLine } from '@/components/google-button';
 import { PrivacyLink } from '@/components/privacy-link';
@@ -81,6 +82,7 @@ function SignedIn({ email }: { email: string }) {
         <Button label="Change name or colour" kind="outline" small onPress={() => router.push('/profile' as never)} />
       </Card>
       <Button label="Notification settings" kind="outline" small onPress={() => router.push('/notifications' as never)} />
+      <AppearanceRow />
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18 }}>
@@ -209,6 +211,8 @@ function Guest({ guest }: { guest: Profile | null }) {
   return (
     <Screen footer={<Button label="Email me a code" onPress={() => send()} disabled={!isEmail(email) || googleBusy} busy={busy} />}>
       <TopBar title={mode === 'keep' ? 'Keep your groups' : 'Sign in'} backTo="/" />
+      {/* Guests choose light or dark here too. It is kept on the device, so it needs no account. */}
+      <AppearanceRow />
       <T weight="medium" color={colors.textMuted}>
         {mode === 'keep'
           ? `Right now your groups live only on this device. ${googleAvailable ? 'Continue with Google or add your email' : 'Add your email'} and you can get back to them from any phone or browser. No password needed.`

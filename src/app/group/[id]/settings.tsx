@@ -141,7 +141,7 @@ export default function GroupSettings() {
       <TopBar title="Group settings" subtitle={group.name} backTo={`/group/${id}`} />
       <ErrorNote message={error} />
       {note ? (
-        <T size={14} weight="extra" color={colors.mintText} center>
+        <T size={14} weight="extra" color={colors.good} center>
           {note}
         </T>
       ) : null}

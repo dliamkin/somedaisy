@@ -315,7 +315,7 @@ export function YouDidIt({
                   <T size={14} weight="medium">
                     {line.label}
                   </T>
-                  <T size={14} weight="extra" color={colors.mintText}>
+                  <T size={14} weight="extra" color={colors.good}>
                     +{line.points}
                   </T>
                 </View>

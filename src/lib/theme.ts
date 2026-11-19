@@ -3,7 +3,7 @@
 //
 // Three kinds of colour are here:
 //   * `fixed`: the same in every mode (the pastels, the daisy, the logo tile).
-//   * `light`: what changes with the mode. Dark mode will be a second set with the same names.
+//   * `light` and `dark`: what changes with the mode. Two sets with the same names.
 //   * A few palettes built from those, for things that never change: covers, avatars, confetti.
 
 import { createContext, useContext } from 'react';
@@ -78,9 +78,42 @@ export const light = {
   danger: '#A3221B',
   /** The box behind an error. */
   dangerTint: '#FDE7E5',
+  /** Green words for good news, on a card or the page. (On mint itself, use `mintText`.) */
+  good: '#17523A',
 };
 
 export type Colors = { [K in keyof typeof light]: string };
+
+export const dark: Colors = {
+  ...fixed,
+  background: '#171124',
+  card: '#2A2038',
+  text: '#F4EEFB',
+  textMuted: '#C4B5D4',
+  textDisabled: '#8C7CA3',
+  // Grape is too dim on a dark page, so dark mode uses the logo's brighter violet.
+  button: '#8A4BE6',
+  onButton: '#FFFFFF',
+  link: '#C9A6FF',
+  accent: '#E678CE',
+  accentText: '#F0A6DD',
+  selected: '#4A2040',
+  voteOn: '#3A2A5C',
+  today: '#3D2F5A',
+  line: '#3F3150',
+  outline: '#8A76A6',
+  tabOn: '#F4EEFB',
+  onTabOn: '#171124',
+  // Cards are lighter than the page in dark mode, which does the work shadows do in light mode.
+  shadow: 'rgba(0, 0, 0, 0.4)',
+  onPastel: '#171124',
+
+  shadowStrong: 'rgba(0, 0, 0, 0.5)',
+  bloom: '#A582E8',
+  danger: '#FF9E94',
+  dangerTint: '#4A1D22',
+  good: '#8FE0BD',
+};
 
 /** The card shadow, as the style a view takes. Made from the theme's `shadow` colour. */
 function shadowStyle(shadow: string) {
@@ -94,11 +127,27 @@ function shadowStyle(shadow: string) {
   };
 }
 
-export type Theme = { colors: Colors; shadow: ReturnType<typeof shadowStyle> };
+export type Theme = { colors: Colors; shadow: ReturnType<typeof shadowStyle>; /** True in dark mode, for the few things that are drawn differently there. */ dark: boolean };
 
-export const lightTheme: Theme = { colors: light, shadow: shadowStyle(light.shadow) };
+export const lightTheme: Theme = { colors: light, shadow: shadowStyle(light.shadow), dark: false };
+export const darkTheme: Theme = { colors: dark, shadow: shadowStyle(dark.shadow), dark: true };
 
-const ThemeContext = createContext<Theme>(lightTheme);
+/** Which theme the screens get. Set by the provider in appearance.tsx. */
+export const ThemeContext = createContext<Theme>(lightTheme);
+
+/** What a person can choose: follow the device, always light, or always dark. */
+export type Appearance = 'auto' | 'light' | 'dark';
+
+/** A saved choice, read back. Anything that is not a choice counts as Auto, which is the default. */
+export function toAppearance(saved: unknown): Appearance {
+  return saved === 'light' || saved === 'dark' ? saved : 'auto';
+}
+
+/** The mode to draw in: the person's choice, or with Auto whatever the device says. A device that does not say counts as light. */
+export function schemeFor(choice: Appearance, device: unknown): 'light' | 'dark' {
+  if (choice !== 'auto') return choice;
+  return device === 'dark' ? 'dark' : 'light';
+}
 
 /** The colours to draw with, and the card shadow. The one way a screen or component gets a colour. */
 export function useTheme(): Theme {
@@ -136,7 +185,7 @@ export const TILE_INK = { onDark: fixed.white, onLight: fixed.ink };
 /** The colours of Google's "G". Theirs, not ours, so they never change. */
 export const GOOGLE_LOGO = { red: '#EA4335', blue: '#4285F4', yellow: '#FBBC05', green: '#34A853' };
 
-/** Confetti is thrown over the celebration's violet in every mode, so its colours never change. */
+/** Confetti is thrown over the celebration's purple in every mode, so its colours never change. */
 export const CONFETTI = [fixed.white, fixed.yellow, fixed.daisyCenter, light.selected, fixed.daisyCheek, fixed.mint, fixed.sky, light.today];
 
 /** The petals of the daisies that bloom from a card's corners in a celebration. */

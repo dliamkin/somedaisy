@@ -89,7 +89,7 @@ export default function GroupCalendar() {
         />
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
           <Legend color={colors.button} label="Planned" />
-          <Legend color={colors.mintText} label="Done" />
+          <Legend color={colors.good} label="Done" />
         </View>
       </Card>
 
@@ -127,7 +127,7 @@ export default function GroupCalendar() {
       {finished.map((idea) => (
         <Card key={idea.id}>
           <View style={{ gap: 2 }}>
-            <T size={13} weight="extra" color={colors.mintText}>
+            <T size={13} weight="extra" color={colors.good}>
               Done
             </T>
             <T size={17} weight="extra">

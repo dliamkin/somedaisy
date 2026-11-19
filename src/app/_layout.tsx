@@ -4,22 +4,36 @@ import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
 import { Nunito_900Black } from '@expo-google-fonts/nunito/900Black';
 import { useFonts } from 'expo-font';
 import { router, Stack } from 'expo-router';
+import { NavigationBar } from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { Launch } from '@/components/launch';
 import { Loading } from '@/components/ui';
+import { AppearanceProvider, paintFirstWebPage, useAppearance } from '@/lib/appearance';
 import { onPushTapped, showPushesWhileOpen } from '@/lib/push';
 import { SessionProvider } from '@/lib/session';
-import { light, useTheme } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { steadyWebPage } from '@/lib/web-page';
 
 // Once, when the website opens. Does nothing in the phone app.
-steadyWebPage(light.background);
+steadyWebPage();
+paintFirstWebPage();
 
 export default function RootLayout() {
-  const { colors } = useTheme();
+  // Light or dark mode for everything inside.
+  return (
+    <AppearanceProvider>
+      <Root />
+    </AppearanceProvider>
+  );
+}
+
+function Root() {
+  const { colors, dark } = useTheme();
+  // On a phone, the saved choice of light or dark takes a moment to read.
+  const { ready } = useAppearance();
   const [loaded] = useFonts({ Nunito_500Medium, Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black });
 
   // Tapping a notification opens the group it is about. Waits for the fonts so the screens can render.
@@ -37,7 +51,8 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (Platform.OS !== 'web' && (!loaded || opening)) {
+  // The opening screen also covers reading the saved mode, so the first real screen is never in the wrong one.
+  if (Platform.OS !== 'web' && (!loaded || opening || !ready)) {
     return (
       <>
         <StatusBar style="light" />
@@ -49,7 +64,9 @@ export default function RootLayout() {
   if (!loaded) return <Loading />;
   return (
     <SessionProvider>
-      <StatusBar style="dark" />
+      {/* The phone's own bars follow the mode: dark words and buttons on a light page, light ones on a dark page. */}
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      {Platform.OS === 'android' ? <NavigationBar style={dark ? 'dark' : 'light'} /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
     </SessionProvider>
   );

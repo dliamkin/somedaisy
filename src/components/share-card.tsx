@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { View } from 'react-native';
 
+import { AlwaysLight } from '@/lib/appearance';
 import type { ListLook } from '@/lib/looks';
 import type { CardRef } from '@/lib/share-picture';
 import type { ShareWords } from '@/lib/share';
@@ -24,7 +25,18 @@ const LOGO_RATIO = 1941 / 448;
  * flowers, with what is happening across the top and the SomeDaisy name along the bottom.
  * Everything on it is drawn in the app. `cardRef` is how the picture is taken of it.
  */
-export function ShareCard({ cardRef, title, listName, look, words }: { cardRef: CardRef; title: string; listName: string | null; look: ListLook; words: ShareWords }) {
+export function ShareCard(props: ShareCardProps) {
+  // The picture goes to people outside the app, so it looks the same whatever mode this phone is in.
+  return (
+    <AlwaysLight>
+      <Drawn {...props} />
+    </AlwaysLight>
+  );
+}
+
+type ShareCardProps = { cardRef: CardRef; title: string; listName: string | null; look: ListLook; words: ShareWords };
+
+function Drawn({ cardRef, title, listName, look, words }: ShareCardProps) {
   const { colors } = useTheme();
   const pill = words.kind === 'done' ? { bg: colors.mint, fg: colors.mintText } : words.kind === 'plan' ? { bg: colors.selected, fg: colors.accent } : { bg: colors.voteOn, fg: colors.link };
   return (

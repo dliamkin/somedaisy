@@ -131,7 +131,7 @@ export default function ThingsWeDid() {
         return (
           <Card key={idea.id}>
             <View style={{ gap: 2 }}>
-              <T size={13} weight="extra" color={colors.mintText}>
+              <T size={13} weight="extra" color={colors.good}>
                 Done {when === 'Today' || when === 'Yesterday' ? when.toLowerCase() : when}
               </T>
               <T size={17} weight="extra">

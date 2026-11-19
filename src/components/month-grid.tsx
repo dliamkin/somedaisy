@@ -99,7 +99,7 @@ export function MonthGrid({
                   </T>
                   <View style={{ flexDirection: 'row', gap: 3, height: 6 }}>
                     {plans ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.button }} /> : null}
-                    {done ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.mintText }} /> : null}
+                    {done ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.good }} /> : null}
                   </View>
                 </View>
               </Pressable>
