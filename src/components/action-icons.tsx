@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { G, Path } from 'react-native-svg';
 
@@ -55,6 +55,8 @@ export function ActionIcon({ name, size = 22, color }: { name: ActionIconName; s
  * over it. `text` is for the few words that do belong beside the icon, such as a count or a date.
  * `on` is for an icon that is a choice, such as a thumbs up: true once this person has chosen it,
  * which fills in behind the icon, and false while they have not.
+ * `picture` is something to show in place of the drawn icon, such as an emoji. With `noTip` the
+ * words do not appear over it on a computer, for when the picture already says it all.
  * `tip` says which way the words over the icon spread. Centred over an icon at the edge of a
  * card, half of them would run off the side of the page and be cut off. So an icon near the
  * left edge takes "start" (the words begin at the icon and run right) and one near the right
@@ -68,6 +70,8 @@ export function IconAction({
   strong,
   on,
   tip = 'center',
+  picture,
+  noTip,
 }: {
   icon: ActionIconName;
   label: string;
@@ -76,6 +80,8 @@ export function IconAction({
   strong?: boolean;
   on?: boolean;
   tip?: 'start' | 'center' | 'end';
+  picture?: ReactNode;
+  noTip?: boolean;
 }) {
   const { colors } = useTheme();
   const [hovered, setHovered] = useState(false);
@@ -105,13 +111,13 @@ export function IconAction({
         borderColor: on ? colors.button : 'transparent',
         backgroundColor: on ? colors.voteOn : 'transparent',
       })}>
-      <ActionIcon name={icon} color={color} />
+      {picture ?? <ActionIcon name={icon} color={color} />}
       {text ? (
         <T size={14} weight="extra" color={color} lines={1} style={{ flexShrink: 1 }}>
           {text}
         </T>
       ) : null}
-      {hovered ? (
+      {hovered && !noTip ? (
         // A wide layer of its own, so the words are not squeezed to the icon's width.
         <View
           pointerEvents="none"

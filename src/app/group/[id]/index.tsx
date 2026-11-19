@@ -5,6 +5,7 @@ import { AppState, Pressable, View } from 'react-native';
 import { ActionIcon, IconAction } from '@/components/action-icons';
 import { ComingUpCard } from '@/components/coming-up';
 import { Daisy } from '@/components/daisy';
+import { Emoji } from '@/components/emoji';
 import { AgainChoice, EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
 import { SlideIn } from '@/components/celebrate';
 import { ListStrip } from '@/components/list-strip';
@@ -473,21 +474,16 @@ export default function GroupScreen() {
                   </T>
                 </Pressable>
               ) : null}
-              {/* The votes are small, so the card stays about the idea. On a list that is only for
-                  keeping things this row is just the emoji people have used, and is not there at all
-                  until someone uses one. */}
-              {toDo || extras.length > 0 ? (
+              {/* The votes are small, so the card stays about the idea. A list that is only for keeping
+                  things has no row of votes: its thumbs and emoji sit with the icons further down. */}
+              {toDo ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                  {toDo ? (
-                    <>
-                      <Chip soft small label={ups ? `I'm in · ${ups}` : "I'm in"} accessibilityLabel={`I'm in, ${ups}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
-                      <Chip soft small label={downs ? `Eh · ${downs}` : 'Eh'} accessibilityLabel={`Eh, ${downs}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
-                    </>
-                  ) : null}
+                  <Chip soft small label={ups ? `I'm in · ${ups}` : "I'm in"} accessibilityLabel={`I'm in, ${ups}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
+                  <Chip soft small label={downs ? `Eh · ${downs}` : 'Eh'} accessibilityLabel={`Eh, ${downs}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
                   {extras.map((e) => (
-                    <Chip soft small key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
+                    <Chip soft small key={e} before={<Emoji char={e} size={18} />} label={String(count(e))} accessibilityLabel={`${e}, ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
                   ))}
-                  {toDo ? <Chip soft small label="+ emoji" accessibilityLabel="Add a reaction" onPress={pickEmoji} /> : null}
+                  <Chip soft small label="+ emoji" accessibilityLabel="Add a reaction" onPress={pickEmoji} />
                 </View>
               ) : null}
               {pickerFor === idea.id ? (
@@ -509,7 +505,7 @@ export default function GroupScreen() {
                         borderColor: mine(e) ? colors.button : 'transparent',
                         backgroundColor: mine(e) ? colors.voteOn : colors.background,
                       }}>
-                      <T size={22}>{e}</T>
+                      <Emoji char={e} size={26} />
                     </Pressable>
                   ))}
                 </View>
@@ -517,11 +513,25 @@ export default function GroupScreen() {
               {/* What you can do with the idea, kept apart from the votes above. The three icons each
                   say what they do to a screen reader, and on a computer when the pointer is over them.
                   Giving the idea a date is the main thing to do with it, so it alone has its name on show. */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: toDo ? 8 : 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: toDo ? 'center' : 'flex-start', justifyContent: 'space-between', gap: toDo ? 8 : 4 }}>
                 {toDo ? null : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  // The thumbs, then each emoji people have used, then the way to add one: all on the one
+                  // line with the other icons. Only when there are more than fit do they run on to a second.
+                  <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
                     <IconAction tip="start" icon="up" label={ups === 0 ? 'Thumbs up' : ups === 1 ? 'Thumbs up, 1 person' : `Thumbs up, ${ups} people`} text={ups ? String(ups) : null} on={mine('👍')} onPress={() => react(idea, '👍')} />
                     <IconAction tip="start" icon="down" label={downs === 0 ? 'Thumbs down' : downs === 1 ? 'Thumbs down, 1 person' : `Thumbs down, ${downs} people`} text={downs ? String(downs) : null} on={mine('👎')} onPress={() => react(idea, '👎')} />
+                    {extras.map((e) => (
+                      <IconAction
+                        key={e}
+                        noTip
+                        icon="emoji"
+                        picture={<Emoji char={e} size={22} />}
+                        label={count(e) === 1 ? `${e}, 1 person` : `${e}, ${count(e)} people`}
+                        text={String(count(e))}
+                        on={mine(e)}
+                        onPress={() => react(idea, e)}
+                      />
+                    ))}
                     <IconAction tip="start" icon="emoji" label="Add a reaction" onPress={pickEmoji} />
                   </View>
                 )}

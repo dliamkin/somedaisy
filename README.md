@@ -303,6 +303,21 @@ comes back into view. No form opens the keyboard by itself, so the whole form is
 row of chips for up to six lists. With more, the form shows only the chosen list, and tapping it
 opens every list in order of name, with the same box to find one by name.
 
+### Reaction emoji
+
+The emoji under "+ emoji" are drawn from pictures kept in the app (`assets/emoji`, one 72 by 72
+PNG for each), so a reaction looks the same on every phone and in every browser. Left to the
+device, Apple, Google, Samsung and Windows each draw their own. The pictures are Google's Noto
+Emoji, used under the Apache licence, which is kept beside them in `assets/emoji/LICENSE`.
+`src/lib/emoji-pictures.ts` maps each emoji to its picture and `src/components/emoji.tsx` shows
+one. The emoji itself is still what is stored and what a notification says. To offer a new one,
+add it to `MORE_REACTIONS` in `src/lib/theme.ts` and add its picture: a test fails if one is
+missing.
+
+On a list that is just a list, the thumbs, the emoji people have used and the icon that adds one
+all sit on the one line with the comment, share and edit icons. They run on to a second line only
+when there are more than fit.
+
 ### Live updates
 
 When someone changes something in a group, the others looking at that group see it without

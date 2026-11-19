@@ -228,6 +228,7 @@ export function Chip({
   outlined,
   soft,
   small,
+  before,
   accessibilityLabel,
 }: {
   label: string;
@@ -244,6 +245,8 @@ export function Chip({
   soft?: boolean;
   /** Shorter and with smaller words, for a row of votes on a card. It can still be tapped a little outside its edge. */
   small?: boolean;
+  /** A small picture before the words, such as an emoji. */
+  before?: ReactNode;
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
@@ -260,6 +263,8 @@ export function Chip({
         minHeight: small ? 34 : 44,
         paddingHorizontal: small ? 12 : 14,
         borderRadius: 22,
+        flexDirection: 'row',
+        gap: 5,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
@@ -267,6 +272,7 @@ export function Chip({
         borderColor: dashed ? colors.outline : hairline ? colors.line : active && soft ? colors.button : active && !dark ? colors.accent : outlined ? colors.outline : 'transparent',
         backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.tabOn : soft ? colors.voteOn : colors.selected) : colors.card,
       }}>
+      {before}
       <T size={small ? 13 : 15} weight="extra" color={active && dark ? colors.onTabOn : colors.text}>
         {label}
       </T>
