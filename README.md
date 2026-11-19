@@ -189,7 +189,10 @@ things, and without either the app simply shows no pictures:
    (the dashboard keeps no history; this repository is the record).
 
 The helper only answers signed-in people, only reads ordinary web addresses (never addresses
-inside Supabase's own network), and returns nothing but a picture's address. Its rules are
+inside Supabase's own network), and returns nothing but a picture's address and the page's title.
+The title is what fills in the name when an idea is started from a pasted link ("Paste a link" on
+the New idea screen). A helper deployed before it learned to read titles still works: the picture
+shows and the name is left for the person to type. To get titles, deploy the current file again. Its rules are
 tested in `src/lib/__tests__/link-preview-test.ts`. The picture is looked up in the background
 While a link is being typed on the form for an idea, the picture is looked up once the typing
 pauses and shown under the link box, so the person knows what the card will get. On saving, a
@@ -311,25 +314,27 @@ private browser window or on another device.
 | `src/app/` | Screens. Each file is a page (Expo Router). |
 | `src/app/index.tsx` | Welcome (name entry) and Home (your groups) |
 | `src/app/new-group.tsx` | Create a group |
-| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out, delete the account |
+| `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out, delete the account, and choose light or dark mode |
 | `src/app/privacy.tsx` | The privacy policy, at `/privacy`. Its words are in `src/lib/privacy.ts` |
 | `src/app/notifications.tsx` | Choose which notifications to get |
 | `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
-| `src/app/group/[id]/add.tsx` | Add an idea |
+| `src/app/group/[id]/add.tsx` | Add an idea, by typing it or from a pasted link |
 | `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
 | `src/app/group/[id]/comments.tsx` | The conversation about an idea |
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
-| `src/app/group/[id]/stamps.tsx` | The group's title, points and stamps |
+| `src/app/group/[id]/stamps.tsx` | The group's rank, the ladder of ranks, points and stamps |
 | `src/app/group/[id]/pick.tsx` | Pick for us |
 | `src/app/group/[id]/share.tsx` | Share an idea as a picture |
-| `src/app/group/[id]/invite.tsx` | Invite link and members |
+| `src/app/group/[id]/invite.tsx` | Invite link, a QR code of it, and members |
 | `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
 | `src/components/` | Shared interface pieces (buttons, cards, logo) |
 | `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |
+| `src/lib/theme.ts` | Every colour in the app, for light and dark mode. Screens read them with `useTheme()` |
+| `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews) |
 
@@ -340,10 +345,25 @@ npx tsc --noEmit         # type-check
 npx expo export -p web   # production web build into dist/
 ```
 
+## Colours, and light and dark mode
+
+No screen or component has a colour value of its own. They are all in `src/lib/theme.ts`, as two
+sets with the same names (`light` and `dark`) plus the colours that never change (the pastels, the
+daisy, the logo tile). A screen gets the right set from `useTheme()`. The names and values come from
+`docs/POLISH-AND-DARK-MODE.md`, and `src/lib/__tests__/theme-test.ts` checks that both sets have the
+same names and that text can be read on what it sits on.
+
+The mode is chosen under **Appearance** on the account screen: Auto (follow the phone or browser),
+Light or Dark. The choice is kept on the device, not the account, so guests have it too. Two things
+are always light: the picture made for sharing, and the QR code on the invite screen.
+
+`app.json` allows both modes (`userInterfaceStyle`), and the `expo-navigation-bar` entry there stops
+Android drawing its own see-through strip behind the bottom buttons. Both are native settings, so
+they need a new build to take effect on a phone.
+
 ## Not built yet
 
-Apple and Facebook sign-in,
-dark mode, and the app store listings.
+Apple and Facebook sign-in, and the app store listings.
 
 ## Splash screen, icons and link previews
 
