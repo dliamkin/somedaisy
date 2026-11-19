@@ -281,6 +281,21 @@ describe('group settings', () => {
     ]);
   });
 
+  it('says whether what the list asks for was kept', async () => {
+    const nameOnly = { dates: false, links: false, notes: false };
+    fakeClient();
+    expect(await addList('g1', 'Band names', 3, undefined, nameOnly)).toBe(true);
+    // Nothing was turned off, so there was nothing to lose.
+    expect(await addList('g1', 'Films', 4)).toBe(true);
+
+    const { calls } = fakeClient({ lists: [{ error: { message: 'no dates column', code: 'PGRST204' } as never }] });
+    expect(await addList('g1', 'Band names', 3, undefined, nameOnly)).toBe(false);
+    expect(stepsFor(calls, 'lists').map((steps) => argsOf(steps, 'insert'))).toEqual([
+      [{ group_id: 'g1', name: 'Band names', position: 3, ...nameOnly }],
+      [{ group_id: 'g1', name: 'Band names', position: 3 }],
+    ]);
+  });
+
   it('fails to add a list for any other reason', async () => {
     fakeClient({ lists: [{ error: { message: 'not a member' } }] });
     await expect(addList('g1', 'Beach', 5, { icon: 'wave', color: null })).rejects.toThrow('not a member');

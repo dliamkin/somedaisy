@@ -49,6 +49,9 @@ export function T({
   );
 }
 
+/** The space between the side of the screen and what is on it. A little less than the space between two cards. */
+const GUTTER = 16;
+
 /**
  * Page wrapper: pastel background, phone-width column, optional pinned footer.
  * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
@@ -64,11 +67,11 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
         <ScrollView
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 24, paddingBottom: footer ? 12 : 16, gap: 18, flexGrow: 1 }}>
+          contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: 24, paddingBottom: footer ? 12 : 16, gap: 18, flexGrow: 1 }}>
           {children}
         </ScrollView>
         {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
-        {footer && !band ? <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
+        {footer && !band ? <View style={{ paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
         {footer && band ? (
           // The band is white like the cards and lifts off the page with a shadow cast upward, which
           // is what sets it apart from the list scrolling behind it. The shadow is on the outer box
@@ -76,7 +79,7 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
           <View style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.card, boxShadow: `0 -6px 18px ${colors.shadowStrong}` }}>
             <View
               style={{
-                paddingHorizontal: 24,
+                paddingHorizontal: GUTTER,
                 paddingTop: 14,
                 paddingBottom: insets.bottom + (insets.bottom > 0 ? 6 : 14),
                 gap: 8,
@@ -224,6 +227,7 @@ export function Chip({
   dashed,
   outlined,
   soft,
+  small,
   accessibilityLabel,
 }: {
   label: string;
@@ -238,6 +242,8 @@ export function Chip({
    * colour rather than pink once chosen.
    */
   soft?: boolean;
+  /** Shorter and with smaller words, for a row of votes on a card. It can still be tapped a little outside its edge. */
+  small?: boolean;
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
@@ -249,9 +255,10 @@ export function Chip({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
+      hitSlop={small ? { top: 5, bottom: 5 } : undefined}
       style={{
-        minHeight: 44,
-        paddingHorizontal: 14,
+        minHeight: small ? 34 : 44,
+        paddingHorizontal: small ? 12 : 14,
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
@@ -260,7 +267,7 @@ export function Chip({
         borderColor: dashed ? colors.outline : hairline ? colors.line : active && soft ? colors.button : active && !dark ? colors.accent : outlined ? colors.outline : 'transparent',
         backgroundColor: dashed ? 'transparent' : active ? (dark ? colors.tabOn : soft ? colors.voteOn : colors.selected) : colors.card,
       }}>
-      <T size={15} weight="extra" color={active && dark ? colors.onTabOn : colors.text}>
+      <T size={small ? 13 : 15} weight="extra" color={active && dark ? colors.onTabOn : colors.text}>
         {label}
       </T>
     </Pressable>

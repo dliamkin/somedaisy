@@ -16,7 +16,7 @@ import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, se
 import { openLink } from '@/lib/links';
 import { formatPlan, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
-import { ALL_ON, optionsOf, type ListOptions } from '@/lib/list-options';
+import { ALL_ON, isToDo, optionsOf, type ListOptions } from '@/lib/list-options';
 import { gather } from '@/lib/live';
 import { lookFor } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
@@ -70,8 +70,10 @@ export default function GroupScreen() {
         // Whoever gives the last thumbs up, every member with the group open sees the celebration.
         // Nothing is celebrated on the first load, and nothing for an idea that arrives already
         // agreed on (one brought back to be done again): those got there before this visit.
+        // Only for things to go and do. A thumbs up from everyone on a list that is just for keeping
+        // things, such as names for a band, is not a plan coming together.
         const before = allInRef.current;
-        const next = newlyAllIn(g, before);
+        const next = newlyAllIn({ ...g, ideas: g.ideas.filter((i) => isToDo(g.lists.find((l) => l.id === i.list_id), i.planned_for)) }, before);
         allInRef.current = new Set(g.ideas.filter((i) => !everyoneIn(i.id, g.members, g.reactions)).map((i) => i.id));
         if (before && next) setCelebrate(next);
         // The same for points: notice when they carry the group past a new title.
@@ -211,12 +213,14 @@ export default function GroupScreen() {
     if (!name || savingList) return;
     setSavingList(true);
     try {
-      await addList(group.id, name, group.lists.length + 1, newLook, newOptions);
+      const kept = await addList(group.id, name, group.lists.length + 1, newLook, newOptions);
       closeNewList();
       const fresh = await load();
       notifyRef.current();
       const created = fresh?.lists.find((l) => l.name === name);
       if (created) setListId(created.id);
+      // Said after the load, which clears any earlier message.
+      if (!kept) setError('The list was added, but what it asks for could not be saved yet. It has dates, links and notes for now.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add the list.');
     } finally {
@@ -453,6 +457,12 @@ export default function GroupScreen() {
           // The clock stops once the idea has a date.
           const clock = idea.planned_for ? null : somedayLabel(idea.created_at, now);
           const dated = canDate(idea);
+          // Something to go and do is answered with "I'm in" and can be planned. Something that is only
+          // kept on a list, such as a name for a band, gets a thumbs up or down beside the other icons.
+          const toDo = isToDo(ideaList, idea.planned_for);
+          const ups = count('👍');
+          const downs = count('👎');
+          const pickEmoji = () => setPickerFor(pickerFor === idea.id ? null : idea.id);
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
@@ -469,7 +479,7 @@ export default function GroupScreen() {
                     {clock ? ` · ${clock}` : ''}
                   </T>
                 </View>
-                {allIn ? (
+                {allIn && toDo ? (
                   <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: colors.mint }}>
                     <T size={12} weight="extra" color={colors.mintText}>
                       {group.members.length === 2 ? 'Both in' : "Everyone's in"}
@@ -491,14 +501,23 @@ export default function GroupScreen() {
                   </T>
                 </Pressable>
               ) : null}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                <Chip soft label={count('👍') ? `I'm in · ${count('👍')}` : "I'm in"} accessibilityLabel={`I'm in, ${count('👍')}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
-                <Chip soft label={count('👎') ? `Eh · ${count('👎')}` : 'Eh'} accessibilityLabel={`Eh, ${count('👎')}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
-                {extras.map((e) => (
-                  <Chip soft key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
-                ))}
-                <Chip soft label="+ emoji" accessibilityLabel="Add a reaction" onPress={() => setPickerFor(pickerFor === idea.id ? null : idea.id)} />
-              </View>
+              {/* The votes are small, so the card stays about the idea. On a list that is only for
+                  keeping things this row is just the emoji people have used, and is not there at all
+                  until someone uses one. */}
+              {toDo || extras.length > 0 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                  {toDo ? (
+                    <>
+                      <Chip soft small label={ups ? `I'm in · ${ups}` : "I'm in"} accessibilityLabel={`I'm in, ${ups}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
+                      <Chip soft small label={downs ? `Eh · ${downs}` : 'Eh'} accessibilityLabel={`Eh, ${downs}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
+                    </>
+                  ) : null}
+                  {extras.map((e) => (
+                    <Chip soft small key={e} label={`${e} ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
+                  ))}
+                  {toDo ? <Chip soft small label="+ emoji" accessibilityLabel="Add a reaction" onPress={pickEmoji} /> : null}
+                </View>
+              ) : null}
               {pickerFor === idea.id ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                   {MORE_REACTIONS.map((e) => (
@@ -526,8 +545,15 @@ export default function GroupScreen() {
               {/* What you can do with the idea, kept apart from the votes above. The three icons each
                   say what they do to a screen reader, and on a computer when the pointer is over them.
                   Giving the idea a date is the main thing to do with it, so it alone has its name on show. */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: toDo ? 8 : 4 }}>
+                {toDo ? null : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                    <IconAction icon="up" label={ups === 1 ? 'Thumbs up, 1 person' : `Thumbs up, ${ups} people`} text={ups ? String(ups) : null} on={mine('👍')} onPress={() => react(idea, '👍')} />
+                    <IconAction icon="down" label={downs === 1 ? 'Thumbs down, 1 person' : `Thumbs down, ${downs} people`} text={downs ? String(downs) : null} on={mine('👎')} onPress={() => react(idea, '👎')} />
+                    <IconAction icon="emoji" label="Add a reaction" onPress={pickEmoji} />
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: toDo ? 6 : 2 }}>
                   <IconAction
                     icon="comment"
                     label={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
@@ -578,7 +604,7 @@ export default function GroupScreen() {
                   })}
                 </Pressable>
               ) : null}
-              {!allIn && waiting.length > 0 && group.members.length > 1 ? (
+              {toDo && !allIn && waiting.length > 0 && group.members.length > 1 ? (
                 <T size={13} color={colors.textMuted}>
                   Waiting on {waiting.map((m) => (m.user_id === userId ? 'you' : m.name)).join(', ')}
                 </T>

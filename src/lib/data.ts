@@ -252,7 +252,12 @@ const noSuchColumn = (error: unknown) => ['PGRST204', '42703'].includes((error a
 /** What someone chose for a list's icon and colour. Null leaves the choice to the app. */
 export type ListLookChoice = { icon: string | null; color: string | null };
 
-export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice, options?: ListOptions): Promise<void> {
+/**
+ * Add a list. Answers false when the list was made but what it asks for could not be kept,
+ * because the database does not have update 015 yet. The person should be told, or the list
+ * quietly asks for everything after they chose otherwise.
+ */
+export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice, options?: ListOptions): Promise<boolean> {
   const row = { group_id: groupId, name, position };
   const chosen = look && (look.icon || look.color) ? { icon: look.icon, color: look.color } : null;
   // Only said when something is turned off: a list starts with everything on anyway.
@@ -264,8 +269,10 @@ export async function addList(groupId: string, name: string, position: number, l
     const { error } = await db().from('lists').insert(attempt);
     if (noSuchColumn(error) && i < tries.length - 1) continue;
     fail(error);
-    return;
+    // The first try is the only one that carries what the list asks for.
+    return !asked || i === 0;
   }
+  return true;
 }
 
 /** Change what a list asks for (update 015). */

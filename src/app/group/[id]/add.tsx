@@ -129,7 +129,8 @@ export default function AddIdea() {
         // The note and the tags belong to the typed form. They are not sent from the other one.
         note: !pasting && shows.note ? note.trim() : '',
         userId,
-        thumbsUp,
+        // Only a thing to go and do can be counted in on.
+        thumbsUp: shows.countMeIn && thumbsUp,
         tags: !pasting && shows.tags ? tags : undefined,
       });
       // The link's picture is saved in the background and appears on the card shortly after. If
@@ -261,6 +262,8 @@ export default function AddIdea() {
         </>
       )}
 
+      {/* For a list of things to go and do. A list that is only for keeping things has nothing to be in on. */}
+      {shows.countMeIn ? (
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           <T size={16} weight="extra">
@@ -272,6 +275,7 @@ export default function AddIdea() {
         </View>
         <Switch accessibilityLabel="Add my I'm in" value={thumbsUp} onValueChange={setThumbsUp} trackColor={{ true: colors.button, false: colors.textDisabled }} thumbColor={colors.white} />
       </View>
+      ) : null}
       <ErrorNote message={error} />
     </Screen>
   );

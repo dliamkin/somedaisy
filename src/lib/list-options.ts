@@ -28,13 +28,26 @@ export function sameOptions(a: ListOptions, b: ListOptions): boolean {
 }
 
 /**
+ * Whether an idea is something to go and do, or only something kept on a list. It is something to
+ * do when its list gives dates, or when it already has a date from before the list stopped giving
+ * them. Things to do are answered with "I'm in" and can be planned. Things that are only kept,
+ * such as names for a band, get a thumbs up or down and nothing to plan.
+ */
+export function isToDo(list: Stored | null | undefined, plannedFor?: string | null): boolean {
+  return optionsOf(list).dates || Boolean(plannedFor);
+}
+
+/**
  * Which boxes the form for an idea shows. A box the list has turned off still shows while it
  * has something in it, so an idea moved from another list can have its link or note changed or
- * taken off. The "good for" tags go with dates: they describe things to go and do.
+ * taken off. The "good for" tags and "Count me in" go with dates: they are about things to go and do.
  */
-export function formShows(list: Stored | null | undefined, has: { link: boolean; note: boolean }): { link: boolean; note: boolean; tags: boolean } {
+export function formShows(
+  list: Stored | null | undefined,
+  has: { link: boolean; note: boolean },
+): { link: boolean; note: boolean; tags: boolean; countMeIn: boolean } {
   const options = optionsOf(list);
-  return { link: options.links || has.link, note: options.notes || has.note, tags: options.dates };
+  return { link: options.links || has.link, note: options.notes || has.note, tags: options.dates, countMeIn: options.dates };
 }
 
 /** A few words for what a list asks for, such as "Name only" or "Dates, links". */

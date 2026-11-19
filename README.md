@@ -259,6 +259,13 @@ before. Turning something off only changes what the app offers: an idea that alr
 date, a link or a note keeps it, and can still have it changed or taken off. The rules are in
 `src/lib/list-options.ts`.
 
+A list without dates is for keeping things, not for making plans, and its ideas are shown that
+way. Instead of the "I'm in" and "Eh" votes there is a thumbs up and a thumbs down beside the
+comment, share and edit icons. There is no "Plan it" button, nobody is said to be waited on, a
+thumbs up from everyone is not celebrated, and the form for a new idea has no "Count me in". The
+votes are stored the same either way, so turning dates on or off loses nothing. If a list is added
+with something turned off before update 015 has been run, the app says the choice was not saved.
+
 ### Live updates
 
 When someone changes something in a group, the others looking at that group see it without
