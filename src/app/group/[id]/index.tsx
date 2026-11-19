@@ -1,22 +1,21 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
 
 import { ActionIcon, IconAction } from '@/components/action-icons';
 import { ComingUpCard } from '@/components/coming-up';
 import { Daisy } from '@/components/daisy';
 import { AgainChoice, EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
-import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { SlideIn } from '@/components/celebrate';
+import { ListStrip } from '@/components/list-strip';
 import { ListIcon, ListTile } from '@/components/list-tile';
-import { ListOptionsPicker } from '@/components/list-options-picker';
 import { PreviewPicture } from '@/components/preview-picture';
-import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { addList, everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, type GroupData, type Idea } from '@/lib/data';
+import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
+import { everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, takeListToOpen, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
 import { formatPlan, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
-import { ALL_ON, isToDo, optionsOf, type ListOptions } from '@/lib/list-options';
+import { isToDo, optionsOf } from '@/lib/list-options';
 import { gather } from '@/lib/live';
 import { lookFor } from '@/lib/looks';
 import { levelUp, type Completion, type Level } from '@/lib/points';
@@ -34,10 +33,6 @@ export default function GroupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [listId, setListId] = useState<string | null>(null);
   const [pickerFor, setPickerFor] = useState<string | null>(null);
-  const [newList, setNewList] = useState<string | null>(null);
-  const [newLook, setNewLook] = useState<LookChoice>({ icon: null, color: null });
-  const [newOptions, setNewOptions] = useState<ListOptions>(ALL_ON);
-  const [savingList, setSavingList] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [slideFrom, setSlideFrom] = useState<1 | -1>(1);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
@@ -129,8 +124,24 @@ export default function GroupScreen() {
   // Reload when the screen comes back into view, and every 20 seconds as a safety net.
   useFocusEffect(
     useCallback(() => {
-      void load().then(() => {
+      // The page of every list, or the page that makes one, may have left word of which list to show.
+      const open = id ? takeListToOpen(id) : null;
+      if (open && 'id' in open) {
+        setSlideFrom(1);
+        setListId(open.id);
+      }
+      void load().then((g) => {
         if (id && takeChanged(id)) notifyRef.current();
+        if (open && 'name' in open) {
+          // A list that was just made is known by its name. The last of that name, should there be two.
+          const made = [...(g?.lists ?? [])].reverse().find((l) => l.name === open.name);
+          if (made) {
+            setSlideFrom(1);
+            setListId(made.id);
+          }
+        }
+        // Said after the load, which clears any earlier message.
+        if (open?.note) setError(open.note);
       });
       const timer = setInterval(() => void load(), 20000);
       // The countdown on a plan that is coming up moves on once a minute, whether or not a load gets through.
@@ -200,31 +211,6 @@ export default function GroupScreen() {
       notifyRef.current();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your reaction.');
-    }
-  };
-
-  const closeNewList = () => {
-    setNewList(null);
-    setNewLook({ icon: null, color: null });
-    setNewOptions(ALL_ON);
-  };
-  const saveList = async () => {
-    const name = (newList ?? '').trim();
-    if (!name || savingList) return;
-    setSavingList(true);
-    try {
-      const kept = await addList(group.id, name, group.lists.length + 1, newLook, newOptions);
-      closeNewList();
-      const fresh = await load();
-      notifyRef.current();
-      const created = fresh?.lists.find((l) => l.name === name);
-      if (created) setListId(created.id);
-      // Said after the load, which clears any earlier message.
-      if (!kept) setError('The list was added, but what it asks for could not be saved yet. It has dates, links and notes for now.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not add the list.');
-    } finally {
-      setSavingList(false);
     }
   };
 
@@ -298,6 +284,8 @@ export default function GroupScreen() {
   const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
   const openComments = (idea: Idea) => router.push(`/group/${group.id}/comments?idea=${idea.id}` as never);
   const openEdit = (idea: Idea) => router.push(`/group/${group.id}/edit?idea=${idea.id}` as never);
+  // A list is made on a page of its own, so its form is never mixed up with the ideas under it.
+  const openNewList = () => router.push(`/group/${group.id}/new-list` as never);
 
   const plans = plannedIdeas(group.ideas);
   const newestFirst = [...group.ideas].sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -311,14 +299,7 @@ export default function GroupScreen() {
       <Screen
         flowers
         footer={
-          // While a list is being made, the pinned buttons belong to that form. "Add an idea" there
-          // looked like the way to finish it, and the real button sat below every icon.
-          newList !== null ? (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button label="Cancel" kind="soft" onPress={closeNewList} style={{ flex: 1 }} />
-              <Button label="Add list" onPress={() => void saveList()} disabled={!newList.trim()} busy={savingList} style={{ flex: 2 }} />
-            </View>
-          ) : group.lists.length > 0 ? (
+          group.lists.length > 0 ? (
             // "Pick for us" appears once there is something to choose between.
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {group.ideas.length > 1 ? <Button label="Pick for us" kind="soft" onPress={() => router.push(`/group/${group.id}/pick` as never)} style={{ flex: 1 }} /> : null}
@@ -398,32 +379,25 @@ export default function GroupScreen() {
           />
         ))}
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flexGrow: 0 }}>
-          {group.lists.length > 0 ? <Chip label="Newest" dark selected={!activeList} onPress={() => pickList(null)} /> : null}
-          {group.lists.map((l) => (
-            <Chip key={l.id} label={l.name} dark selected={l.id === activeList?.id} onPress={() => pickList(l.id)} />
-          ))}
-          <Chip label="+ List" dashed accessibilityLabel="Add a list" onPress={() => (newList === null ? setNewList('') : closeNewList())} />
-        </ScrollView>
-
-        {newList !== null ? (
-          <Card>
-            {/* The keyboard does not open by itself, so the whole form shows first. Its Done key only
-                puts the keyboard away: the list is added with the button pinned at the bottom. */}
-            <Field label="New list name" value={newList} onChangeText={setNewList} placeholder="Shows, Games, Trips..." maxLength={40} />
-            <ListOptionsPicker value={newOptions} onChange={setNewOptions} />
-            <ListLookPicker name={newList} place={group.lists.length} value={newLook} onChange={setNewLook} />
-          </Card>
-        ) : null}
+        <ListStrip
+          lists={group.lists}
+          activeId={activeList?.id ?? null}
+          onPick={pickList}
+          onAll={() => router.push(`/group/${group.id}/lists${activeList ? `?list=${activeList.id}` : ''}` as never)}
+          onNew={openNewList}
+        />
 
         {group.lists.length === 0 ? (
-          <Card style={{ padding: 18 }}>
-            <T size={18} weight="extra">
-              Add your first list
-            </T>
-            <T weight="medium" color={colors.textMuted}>
-              Lists are categories like Movies or Places.
-            </T>
+          <Card style={{ flexDirection: 'row', alignItems: 'center', padding: 18 }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <T size={18} weight="extra">
+                Add your first list
+              </T>
+              <T weight="medium" color={colors.textMuted}>
+                Lists are categories like Movies or Places.
+              </T>
+            </View>
+            <Button label="Add a list" small onPress={openNewList} />
           </Card>
         ) : null}
 

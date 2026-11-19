@@ -214,7 +214,8 @@ Marking a plan as done opens one "You did it" screen: the points it earned, the 
 title if the group reached one, and the question "Would you do it again?". Each group has one
 shared bar and rises through eight titles, from Homebodies to Legends (shown in the app as the
 group's rank). The bar sits under the
-group's name, the title shows on the home screen, and the stamps page lists everything done.
+group's name with "Grow your group's petals!" above it (each rank is a petal on the group's
+daisy), the title shows on the home screen, and the stamps page lists everything done.
 A stamp has the icon and colour its list has today (`stampLook` in `src/lib/looks.ts`); if the
 list has been removed, both are worked out from the name the list had.
 
@@ -252,7 +253,11 @@ and is saved as a download otherwise.
 
 Every idea needs a name, and nothing else. Each list says whether its ideas can be given a date,
 and whether the form for a new idea shows the link box and the note box. Movies, Places and Food
-want all of that; a list such as "Song titles" can be a list of names only. The choices are made
+want all of that; a list such as "Song titles" can be a list of names only. The choice is put as
+two kinds of list. "Things to do" can be given dates, and starts with the link and the note on.
+"Just a list" cannot, and starts with only the name. The link and the note each have a switch
+under the kind, so either can be changed. The kind is not stored by itself: it is whether the
+list gives dates (`kindOf` and `withKind`). The choices are made
 when adding a list and changed under Group settings, by any member. They need
 `supabase/updates/015-list-options.sql`; without it every list has everything turned on, as
 before. Turning something off only changes what the app offers: an idea that already has a
@@ -265,6 +270,21 @@ comment, share and edit icons. There is no "Plan it" button, nobody is said to b
 thumbs up from everyone is not celebrated, and the form for a new idea has no "Count me in". The
 votes are stored the same either way, so turning dates on or off loses nothing. If a list is added
 with something turned off before update 015 has been run, the app says the choice was not saved.
+
+### Finding and making lists
+
+The group's page shows its lists as one row of tabs that slides sideways
+(`src/components/list-strip.tsx`), so the row stays one line tall however many lists there are.
+From four lists up, a button at the start of the row opens a page of every list
+(`src/app/group/[id]/lists.tsx`): one under the other, each with its icon and how many ideas it
+holds, and from eight lists up a box to type part of a name in. Tapping a list there shuts the
+page and shows that list, and the row of tabs moves to bring its tab into view. On a computer the
+mouse wheel slides the row, since a wheel only turns up and down.
+
+"+ List" opens a page of its own (`src/app/group/[id]/new-list.tsx`) with the name, the kind and
+the look, an X to shut it and "Add list" pinned at the bottom. Both pages tell the group page which
+list to show by leaving word in `openList` (`src/lib/data.ts`), which the group page reads when it
+comes back into view. No form opens the keyboard by itself, so the whole form is seen first.
 
 ### Live updates
 

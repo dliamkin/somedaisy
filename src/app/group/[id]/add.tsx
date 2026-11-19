@@ -241,7 +241,8 @@ export default function AddIdea() {
         </>
       ) : (
         <>
-          <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="A beach walk, a movie, tacos..." maxLength={TITLE_MAX} autoFocus />
+          {/* The keyboard does not open by itself, so the whole form shows first. */}
+          <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="A beach walk, a movie, tacos..." maxLength={TITLE_MAX} />
           {canPaste && looksLikeLink(title) ? (
             <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
               <T size={14} weight="medium" color={colors.textMuted} style={{ flex: 1 }}>

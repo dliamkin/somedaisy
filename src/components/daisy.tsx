@@ -56,6 +56,16 @@ export function BackIcon({ color }: { color?: string }) {
   );
 }
 
+/** An X, for closing a page that was opened to do one thing. */
+export function CloseIcon({ color }: { color?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Path d="M5 5l10 10M15 5L5 15" fill="none" stroke={color ?? colors.text} strokeWidth={2.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function PlusIcon({ color, size = 20 }: { color?: string; size?: number }) {
   const { colors } = useTheme();
   return (

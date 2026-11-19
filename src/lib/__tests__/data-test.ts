@@ -7,6 +7,8 @@ import {
   fetchGroups,
   leaveGroup,
   markChanged,
+  openList,
+  takeListToOpen,
   markDone,
   newlyAllIn,
   ownerOf,
@@ -111,6 +113,28 @@ describe('onLateChange / lateChange', () => {
     lateChange('late3');
     expect(heard).not.toHaveBeenCalled();
     expect(takeChanged('late3')).toBe(true);
+  });
+});
+
+describe('openList / takeListToOpen', () => {
+  it('hands over the list to show once, to the group it was left for', () => {
+    openList('open1', { id: 'l7' });
+    expect(takeListToOpen('open2')).toBeNull();
+    expect(takeListToOpen('open1')).toEqual({ id: 'l7' });
+    expect(takeListToOpen('open1')).toBeNull();
+  });
+
+  it('can ask for "Newest", and for a list that was just made by its name', () => {
+    openList('open3', { id: null });
+    expect(takeListToOpen('open3')).toEqual({ id: null });
+    openList('open3', { name: 'Band names', note: 'Could not be saved yet.' });
+    expect(takeListToOpen('open3')).toEqual({ name: 'Band names', note: 'Could not be saved yet.' });
+  });
+
+  it('keeps only the last word left', () => {
+    openList('open4', { id: 'l1' });
+    openList('open4', { id: 'l2' });
+    expect(takeListToOpen('open4')).toEqual({ id: 'l2' });
   });
 });
 

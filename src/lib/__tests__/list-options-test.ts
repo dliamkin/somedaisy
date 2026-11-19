@@ -1,4 +1,4 @@
-import { ALL_ON, formShows, isToDo, optionsLine, optionsOf, sameOptions } from '../list-options';
+import { ALL_ON, formShows, isToDo, kindOf, NAME_ONLY, optionsLine, optionsOf, sameOptions, withKind } from '../list-options';
 
 describe('optionsOf', () => {
   it('turns everything on for a list that says nothing', () => {
@@ -66,6 +66,37 @@ describe('isToDo', () => {
 
   it('stays true for an idea that already has a date, even after its list stopped giving them', () => {
     expect(isToDo({ dates: false }, '2026-11-20T21:30:00Z')).toBe(true);
+  });
+});
+
+describe('kindOf', () => {
+  it('is things to do when the list gives dates, and just a list when it does not', () => {
+    expect(kindOf(ALL_ON)).toBe('todo');
+    expect(kindOf({ dates: true, links: false, notes: false })).toBe('todo');
+    expect(kindOf(NAME_ONLY)).toBe('keep');
+    expect(kindOf({ dates: false, links: true, notes: true })).toBe('keep');
+  });
+});
+
+describe('withKind', () => {
+  it('sets all three for a list that is being made', () => {
+    expect(withKind(ALL_ON, 'keep', true)).toEqual(NAME_ONLY);
+    expect(withKind(NAME_ONLY, 'todo', true)).toEqual(ALL_ON);
+    // Whatever was switched by hand before goes back to what the kind usually wants.
+    expect(withKind({ dates: false, links: true, notes: false }, 'todo', true)).toEqual(ALL_ON);
+  });
+
+  it('changes only the dates for a list that already exists', () => {
+    expect(withKind(ALL_ON, 'keep', false)).toEqual({ dates: false, links: true, notes: true });
+    expect(withKind({ dates: false, links: true, notes: false }, 'todo', false)).toEqual({ dates: true, links: true, notes: false });
+  });
+
+  it('changes nothing when the kind is the one it already is', () => {
+    const keptLink = { dates: false, links: true, notes: false };
+    expect(withKind(keptLink, 'keep', true)).toBe(keptLink);
+    expect(withKind(keptLink, 'keep', false)).toBe(keptLink);
+    const noNote = { dates: true, links: true, notes: false };
+    expect(withKind(noNote, 'todo', true)).toBe(noNote);
   });
 });
 

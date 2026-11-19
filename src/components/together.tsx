@@ -94,9 +94,10 @@ export function ThinBar({ progress }: { progress: number }) {
 }
 
 /**
- * The group's rank on one line, for the top of its page: the rank's name, how far it is to the
- * next one, and a thin bar under both. The next rank is not named here, only the points to go.
- * The name never wraps; if it cannot fit it is cut short.
+ * The group's rank, for the top of its page: a few words on what the bar is for, then the rank's
+ * name, how far it is to the next one, and a thin bar under both. The next rank is not named
+ * here, only the points to go. Each rank reached is a petal on the group's daisy, which is what
+ * the words at the top are about. Nothing here wraps; what cannot fit is cut short.
  */
 export function RankLine({ points, onPress }: { points: number; onPress: () => void }) {
   const { colors } = useTheme();
@@ -106,7 +107,10 @@ export function RankLine({ points, onPress }: { points: number; onPress: () => v
       accessibilityRole="button"
       accessibilityLabel={`${barSays(level)}. See your stamps`}
       onPress={onPress}
-      style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: 6 }}>
+      style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: 5 }}>
+      <T size={12} weight="extra" color={colors.link} lines={1}>
+        {level.next ? "Grow your group's petals!" : 'Every petal has grown!'}
+      </T>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <T size={15} weight="black" lines={1} style={{ flex: 1 }}>
           {level.title}

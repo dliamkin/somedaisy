@@ -200,7 +200,7 @@ export default function GroupSettings() {
           Lists
         </T>
         <T size={14} weight="medium" color={colors.textMuted}>
-          Tap a list to rename it, choose what it asks for, or change its icon and colour. A list with nothing on it can be removed.
+          Tap a list to rename it, choose what kind of list it is, or change its icon and colour. A list with nothing on it can be removed.
         </T>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {group.lists.map((l) => (

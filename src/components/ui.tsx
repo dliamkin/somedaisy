@@ -17,7 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { fonts, useTheme } from '@/lib/theme';
 
-import { BackIcon } from './daisy';
+import { BackIcon, CloseIcon } from './daisy';
 import { FlowerField } from './flower-outlines';
 
 type Weight = 'medium' | 'bold' | 'extra' | 'black';
@@ -408,7 +408,20 @@ export function CircleButton({ children, onPress, label, flat }: { children: Rea
   );
 }
 
-export function TopBar({ title, subtitle, backTo, right }: { title: string; subtitle?: string; backTo?: string; right?: ReactNode }) {
+export function TopBar({
+  title,
+  subtitle,
+  backTo,
+  right,
+  close,
+}: {
+  title: string;
+  subtitle?: string;
+  backTo?: string;
+  right?: ReactNode;
+  /** An X in place of the back arrow, in the same spot, for a page opened to do one thing and then shut. */
+  close?: boolean;
+}) {
   const { colors } = useTheme();
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -417,8 +430,8 @@ export function TopBar({ title, subtitle, backTo, right }: { title: string; subt
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       {backTo !== undefined ? (
-        <CircleButton onPress={goBack} label="Back">
-          <BackIcon />
+        <CircleButton onPress={goBack} label={close ? 'Close' : 'Back'}>
+          {close ? <CloseIcon /> : <BackIcon />}
         </CircleButton>
       ) : (
         <View style={{ width: 44, height: 44 }} />

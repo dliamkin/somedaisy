@@ -25,6 +25,8 @@ const DRAWINGS = {
   // A thumbs up, and the same hand turned over.
   up: ['M3 10.5h3.5v10H3z', 'M6.5 10.5l4-7a2.2 2.2 0 0 1 3 2.6l-.7 3.4h5.7a2 2 0 0 1 1.95 2.45l-1.6 7a2 2 0 0 1-1.95 1.55H6.5'],
   down: ['M3 3.5h3.5v10H3z', 'M6.5 13.5l4 7a2.2 2.2 0 0 0 3-2.6l-.7-3.4h5.7a2 2 0 0 0 1.95-2.45l-1.6-7a2 2 0 0 0-1.95-1.55H6.5'],
+  // Three lines with a dot before each: every list, one under the other.
+  lists: [dot(4.5, 6.5, 0.6), dot(4.5, 12, 0.6), dot(4.5, 17.5, 0.6), 'M9 6.5h11.5M9 12h11.5M9 17.5h11.5'],
   // A smiling face with a plus beside it.
   emoji: [dot(10.5, 13.5, 7.5), dot(8, 12, 0.4), dot(13, 12, 0.4), 'M7.5 15.5a3.6 3.6 0 0 0 6 0', 'M20 2.5v5M17.5 5h5'],
 } as const;

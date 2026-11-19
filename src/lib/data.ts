@@ -445,6 +445,20 @@ export function takeChanged(groupId: string): boolean {
   return dirty.delete(groupId);
 }
 
+// A page that picks a list, or makes one, leaves word here of which list the group page should
+// show when it comes back into view. A list that was just made is known by its name, since the
+// group page has not loaded it yet. `note` is something to tell the person once they are back.
+export type ListToOpen = ({ id: string | null } | { name: string }) & { note?: string };
+const toOpen = new Map<string, ListToOpen>();
+export function openList(groupId: string, list: ListToOpen): void {
+  toOpen.set(groupId, list);
+}
+export function takeListToOpen(groupId: string): ListToOpen | null {
+  const list = toOpen.get(groupId) ?? null;
+  toOpen.delete(groupId);
+  return list;
+}
+
 // For a change that lands a moment after its screen has closed (a preview picture being found):
 // the group page listens here while it is open, and shows the change at once instead of waiting
 // for its next routine reload.

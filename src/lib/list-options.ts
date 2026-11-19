@@ -15,6 +15,30 @@ export type ListOptions = {
 };
 
 export const ALL_ON: ListOptions = { dates: true, links: true, notes: true };
+export const NAME_ONLY: ListOptions = { dates: false, links: false, notes: false };
+
+/**
+ * The two kinds of list, which is how the choice is put to people. "todo" is things to go and do:
+ * its ideas can be given a date. "keep" is just a list, such as names for a band. The kind is not
+ * stored by itself: it is whether the list gives dates.
+ */
+export type ListKind = 'todo' | 'keep';
+
+export function kindOf(options: ListOptions): ListKind {
+  return options.dates ? 'todo' : 'keep';
+}
+
+/**
+ * The choices after a kind is picked. For a list that is being made (`fresh`), the kind sets all
+ * three: things to do ask for a link and a note as well, and just a list asks for the name alone.
+ * Either can then be changed. For a list that already exists only the dates change, so its link
+ * and note boxes stay as its people left them.
+ */
+export function withKind(options: ListOptions, kind: ListKind, fresh: boolean): ListOptions {
+  if (kindOf(options) === kind) return options;
+  if (fresh) return kind === 'todo' ? ALL_ON : NAME_ONLY;
+  return { ...options, dates: kind === 'todo' };
+}
 
 type Stored = { dates?: boolean | null; links?: boolean | null; notes?: boolean | null };
 
