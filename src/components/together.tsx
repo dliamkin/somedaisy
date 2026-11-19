@@ -59,7 +59,7 @@ function BarFrame({ level, points, fill, tip }: { level: Level; points: number; 
 const percent = (progress: number) => `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` as const;
 
 /** What a screen reader says for the bar. */
-function barSays(level: Level): string {
+export function barSays(level: Level): string {
   const place = `${level.title}, rank ${level.index + 1} of ${TITLES.length}, ${level.points} points`;
   return level.next ? `${place}. ${level.toNext} to go to ${level.next.title}` : `${place}. The top rank`;
 }
@@ -80,6 +80,16 @@ export function PointsBar({ points, onPress }: { points: number; onPress?: () =>
     <Pressable accessibilityRole="button" accessibilityLabel={`${barSays(level)}. See your stamps`} onPress={onPress}>
       {bar}
     </Pressable>
+  );
+}
+
+/** A thin progress bar: how far along something is, from 0 to 1. */
+export function ThinBar({ progress }: { progress: number }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.today, overflow: 'hidden' }}>
+      <View style={{ width: percent(progress), height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+    </View>
   );
 }
 
@@ -105,9 +115,7 @@ export function RankLine({ points, onPress }: { points: number; onPress: () => v
           {level.next ? `${level.toNext} to go` : 'Top rank'}
         </T>
       </View>
-      <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.today, overflow: 'hidden' }}>
-        <View style={{ width: percent(level.progress), height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
-      </View>
+      <ThinBar progress={level.progress} />
     </Pressable>
   );
 }

@@ -72,8 +72,6 @@ export const light = {
   // Not in the design's table, but the app needs them.
   /** The shadow cast upward by the band behind the pinned buttons. */
   shadowStrong: 'rgba(90, 40, 140, 0.22)',
-  /** A grey hairline around a quiet button on a card. */
-  edge: '#CFC6DC',
   /** The faint flower outlines behind buttons and bands. */
   bloom: '#A582E8',
   /** Removing and deleting, and the words of an error. */

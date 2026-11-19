@@ -37,6 +37,16 @@ export function RankDaisy({ earned, size = 56 }: { /** How many petals are fille
   );
 }
 
+/** A tick, for something reached or done. */
+export function CheckIcon({ color, size = 14 }: { color?: string; size?: number }) {
+  const { colors } = useTheme();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20">
+      <Path d="M4 10.5l4 4 8-9" fill="none" stroke={color ?? colors.onButton} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function BackIcon({ color }: { color?: string }) {
   const { colors } = useTheme();
   return (

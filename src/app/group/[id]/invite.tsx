@@ -2,6 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Platform, Share, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { fetchGroup, type GroupData } from '@/lib/data';
@@ -81,22 +82,14 @@ export default function Invite() {
     }
   };
 
-  // The one thing to do here is send the link, so that is the big button. Once it has gone, the
-  // big button becomes the way on. On a brand new group the way on is still offered from the
-  // start, in small print, for someone who wants to look around first.
-  const footer = !group ? (
-    <Button label="Go to the group" onPress={toGroup} />
-  ) : sent ? (
-    <>
+  // Sending the link happens on its card. What is pinned at the bottom is the way on: quiet until
+  // the link has gone out from a brand new group, and the big button once it has.
+  const footer =
+    !group || (isNew && sent) ? (
       <Button label="Go to the group" onPress={toGroup} />
-      <Button label={CAN_SHARE ? 'Send it to someone else' : 'Copy it again'} kind="ghost" small onPress={() => void send()} />
-    </>
-  ) : (
-    <>
-      <Button label={CAN_SHARE ? 'Send invite link' : 'Copy invite link'} onPress={() => void send()} />
+    ) : (
       <Button label={isNew ? 'Skip for now' : 'Back to the group'} kind="ghost" small onPress={toGroup} />
-    </>
-  );
+    );
 
   return (
     <Screen footer={footer}>
@@ -112,7 +105,7 @@ export default function Invite() {
               <T size={15} weight="medium" color={colors.textMuted}>
                 {isNew
                   ? 'Your group is ready. It comes to life when someone else is in it, so send the link below to the people it is for.'
-                  : 'Send the link below to the people this group is for. Nobody can join from a picture or a screenshot, only from the link.'}
+                  : 'Send the link below to the people this group is for, or let them scan the code on this screen.'}
               </T>
             </View>
           ) : null}
@@ -128,17 +121,33 @@ export default function Invite() {
                 {link}
               </T>
             </View>
-            {/* Where the big button shares, copying stays on offer here for pasting somewhere by hand. */}
-            {CAN_SHARE ? (
-              <View style={{ flexDirection: 'row' }}>
-                <Button label={sent === 'copied' ? 'Copied' : 'Copy link'} kind="outline" small onPress={() => void copy()} />
-              </View>
-            ) : null}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button label={sent === 'copied' ? 'Copied' : 'Copy link'} kind="outline" small onPress={() => void copy()} style={{ flex: 1 }} />
+              {/* The phone's own share sheet. A browser without one can only copy. */}
+              {CAN_SHARE ? <Button label="Send link" small onPress={() => void send()} style={{ flex: 1 }} /> : null}
+            </View>
             {sent ? (
               <T size={14} weight="extra" color={colors.mintText}>
                 {sent === 'copied' ? 'Link copied. Paste it into a chat with your people.' : 'When they tap the link they will show up below.'}
               </T>
             ) : null}
+          </Card>
+          <Card style={{ padding: 18, gap: 12 }}>
+            <T size={16} weight="extra">
+              Or scan it in person
+            </T>
+            {/* The code is the link itself, drawn on this device. Nothing is uploaded or kept. It is
+                always dark squares on a white tile, in every mode: a camera reads that best. */}
+            <View
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel="A code to scan. It opens the invite link."
+              style={{ alignSelf: 'center', padding: 12, borderRadius: 20, backgroundColor: colors.white, borderWidth: 2, borderColor: colors.line }}>
+              <QRCode value={link} size={168} color={colors.ink} backgroundColor={colors.white} />
+            </View>
+            <T size={14} color={colors.textMuted} center>
+              Point a phone camera at this. It opens the same link.
+            </T>
           </Card>
           <Card style={{ padding: 18, gap: 10 }}>
             <T size={16} weight="extra">
