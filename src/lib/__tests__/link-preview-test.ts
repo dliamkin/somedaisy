@@ -7,11 +7,12 @@ jest.mock('npm:@supabase/server@^1', () => ({ withSupabase: (_options: unknown, 
 type Helper = {
   safeTarget: (input: unknown) => URL | null;
   pictureFrom: (html: string, pageUrl: string) => string | null;
+  titleFrom: (html: string) => string | null;
   previewPicture: (input: unknown, fetcher: (url: string, init?: unknown) => Promise<Response>) => Promise<string | null>;
   default: { fetch: (req: Request) => Promise<Response> };
 };
 const helper = jest.requireActual<Helper>('../../../supabase/functions/link-preview/index');
-const { safeTarget, pictureFrom, previewPicture } = helper;
+const { safeTarget, pictureFrom, previewPicture, titleFrom } = helper;
 
 const page = (head: string) => `<!doctype html><html><head>${head}</head><body>hi</body></html>`;
 
@@ -218,15 +219,31 @@ describe('the helper itself', () => {
   it('answers with no picture, not an error, for an address it will not fetch', async () => {
     const response = await call({ url: 'http://localhost/' });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ image: null });
+    expect(await response.json()).toEqual({ image: null, title: null });
   });
 
   it('answers with no picture when given nothing sensible', async () => {
-    expect(await (await call({})).json()).toEqual({ image: null });
-    expect(await (await call('nonsense')).json()).toEqual({ image: null });
+    expect(await (await call({})).json()).toEqual({ image: null, title: null });
+    expect(await (await call('nonsense')).json()).toEqual({ image: null, title: null });
   });
 
   it('only takes POST', async () => {
     expect((await call(null, 'GET')).status).toBe(405);
+  });
+});
+
+describe('titleFrom', () => {
+  it('prefers the title a page gives for previews', () => {
+    expect(titleFrom(page('<title>Home</title><meta property="og:title" content="Sunrise Mini Golf: 18 holes">'))).toBe('Sunrise Mini Golf: 18 holes');
+    expect(titleFrom(page('<meta name="twitter:title" content="Taco Spot">'))).toBe('Taco Spot');
+  });
+
+  it('falls back to the page title, as one tidy line', () => {
+    expect(titleFrom(page('<title>\n  Dune &amp; friends \n</title>'))).toBe('Dune & friends');
+  });
+
+  it('is nothing when the page does not say', () => {
+    expect(titleFrom(page(''))).toBeNull();
+    expect(titleFrom(page('<title>   </title>'))).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { tidyLink } from '@/lib/links';
-import { fetchPreviewPicture, previewState, type LinkPreview, type Looked } from '@/lib/preview';
+import { fetchPreview, previewState, type LinkPreview, type Looked } from '@/lib/preview';
 import { useTheme } from '@/lib/theme';
 
 import { PreviewPicture } from './preview-picture';
@@ -27,9 +27,9 @@ export function useLinkPreview(typed: string, known?: Looked | null): LinkPrevie
     if (!link || !waiting) return;
     let alive = true;
     const timer = setTimeout(() => {
-      void fetchPreviewPicture(link).then((picture) => {
+      void fetchPreview(link).then(({ picture, title }) => {
         // An answer for a link that has since been changed is dropped.
-        if (alive) setLooked({ link, picture });
+        if (alive) setLooked({ link, picture, title });
       });
     }, WAIT);
     return () => {

@@ -1,4 +1,4 @@
-import { attachPreview, fetchPreviewPicture, usablePicture, previewState } from '../preview';
+import { attachPreview, fetchPreview, fetchPreviewPicture, nameFromTitle, usablePicture, usableTitle, previewState } from '../preview';
 import { db } from '../supabase';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
@@ -107,11 +107,65 @@ describe('previewState', () => {
   });
 
   it('shows the picture found for this link', () => {
-    expect(previewState(link, { link, picture })).toEqual({ state: 'found', link, picture });
+    expect(previewState(link, { link, picture })).toEqual({ state: 'found', link, picture, title: null });
+    expect(previewState(link, { link, picture, title: '  Dune:  Part Two ' })).toEqual({ state: 'found', link, picture, title: 'Dune: Part Two' });
   });
 
   it('says there is none when the page has no usable picture', () => {
-    expect(previewState(link, { link, picture: null })).toEqual({ state: 'missing', link });
-    expect(previewState(link, { link, picture: 'http://example.com/not-secure.jpg' })).toEqual({ state: 'missing', link });
+    expect(previewState(link, { link, picture: null })).toEqual({ state: 'missing', link, title: null });
+    expect(previewState(link, { link, picture: 'http://example.com/not-secure.jpg' })).toEqual({ state: 'missing', link, title: null });
+    expect(previewState(link, { link, picture: null, title: 'Dune' })).toEqual({ state: 'missing', link, title: 'Dune' });
+  });
+});
+
+describe('fetchPreview', () => {
+  it('returns the picture and the page title', async () => {
+    fakeClient(async () => ({ data: { image: PIC, title: ' Sunrise Mini Golf: 18 holes by the water ' }, error: null }));
+    expect(await fetchPreview('https://example.org/page')).toEqual({ picture: PIC, title: 'Sunrise Mini Golf: 18 holes by the water' });
+  });
+
+  it('has no title from a helper that does not read titles yet', async () => {
+    fakeClient(async () => ({ data: { image: PIC }, error: null }));
+    expect(await fetchPreview('https://example.org/page')).toEqual({ picture: PIC, title: null });
+  });
+
+  it('is nothing, not a failure, when the helper cannot be reached', async () => {
+    fakeClient(async () => {
+      throw new Error('offline');
+    });
+    expect(await fetchPreview('https://example.org/page')).toEqual({ picture: null, title: null });
+  });
+});
+
+describe('usableTitle', () => {
+  it('makes one tidy line of it', () => {
+    expect(usableTitle('  Dune:\n  Part Two ')).toBe('Dune: Part Two');
+    expect(usableTitle('a'.repeat(300))).toHaveLength(200);
+  });
+
+  it('refuses anything that is not words', () => {
+    for (const bad of [null, undefined, 42, '', '   ']) expect(usableTitle(bad)).toBeNull();
+  });
+});
+
+describe('nameFromTitle', () => {
+  it('keeps the part before the site name or strapline', () => {
+    expect(nameFromTitle('Sunrise Mini Golf | Book a tee time')).toBe('Sunrise Mini Golf');
+    expect(nameFromTitle('Dune | Official Trailer - YouTube')).toBe('Dune');
+    expect(nameFromTitle('Taco Spot - Menu')).toBe('Taco Spot');
+  });
+
+  it('leaves a plain title alone, hyphens, colons and all', () => {
+    expect(nameFromTitle('Spider-Man: Homecoming')).toBe('Spider-Man: Homecoming');
+    expect(nameFromTitle('Dune: Part Two - YouTube')).toBe('Dune: Part Two');
+    expect(nameFromTitle('Drive-in movie night')).toBe('Drive-in movie night');
+  });
+
+  it('keeps the whole title when the first part is too short to be a name', () => {
+    expect(nameFromTitle('Up | Pixar')).toBe('Up | Pixar');
+  });
+
+  it('never runs past the longest name an idea can have', () => {
+    expect(nameFromTitle('a'.repeat(300))).toHaveLength(120);
   });
 });

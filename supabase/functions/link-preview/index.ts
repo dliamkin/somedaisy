@@ -98,6 +98,31 @@ export function picturesFrom(html: string, pageUrl: string): string[] {
   return pictures;
 }
 
+// Where pages say what they are called, best first.
+const TITLE_TAGS = ['og:title', 'twitter:title'];
+/** The longest page title passed on. The app shortens it further for an idea's name. */
+const TITLE_MAX = 200;
+
+/**
+ * What a page calls itself, as one line of plain text: the title it gives for previews, or
+ * failing that its own <title>. Null if it has neither.
+ */
+export function titleFrom(html: string): string | null {
+  const found = new Map<string, string>();
+  for (const [tag] of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const key = (attribute(tag, 'property') ?? attribute(tag, 'name') ?? '').toLowerCase();
+    const value = attribute(tag, 'content');
+    if (key && value && TITLE_TAGS.includes(key) && !found.has(key)) found.set(key, value);
+  }
+  const own = /<title\b[^>]*>([^<]*)<\/title>/i.exec(html)?.[1];
+  const title = (TITLE_TAGS.map((key) => found.get(key)).find(Boolean) ?? (own ? decode(own) : ''))
+    // Tags and control characters have no place in a name.
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return title ? title.slice(0, TITLE_MAX).trim() : null;
+}
+
 /** The first preview picture a page names for itself, or null if it names none we can use. */
 export function pictureFrom(html: string, pageUrl: string): string | null {
   return picturesFrom(html, pageUrl)[0] ?? null;
@@ -230,11 +255,17 @@ async function isPicture(address: string, fetcher: typeof fetch, signal: AbortSi
 const PHOTOS_TRIED = 3;
 
 /** What a look-up found, and in a few words why, for the helper's log. */
-type Found = { image: string | null; why: string };
+type Found = { image: string | null; title?: string | null; why: string };
 
 /** Find the preview picture for a web address, or null if there is none to show. */
 export async function previewPicture(input: unknown, fetcher: typeof fetch = fetch): Promise<string | null> {
   return (await lookUp(input, fetcher)).image;
+}
+
+/** The preview picture and the page's title for a web address. Either can be null. */
+export async function preview(input: unknown, fetcher: typeof fetch = fetch): Promise<{ image: string | null; title: string | null }> {
+  const found = await lookUp(input, fetcher);
+  return { image: found.image, title: found.title ?? null };
 }
 
 async function lookUp(input: unknown, fetcher: typeof fetch): Promise<Found> {
@@ -260,16 +291,18 @@ async function lookUp(input: unknown, fetcher: typeof fetch): Promise<Found> {
   const page = reading(response, MAX_BYTES);
   try {
     // First the picture the page names for itself, as long as it is not plainly broken.
-    const named = picturesFrom(await page.upTo(HEAD_END), at.toString());
+    const head = await page.upTo(HEAD_END);
+    const title = titleFrom(head);
+    const named = picturesFrom(head, at.toString());
     for (const picture of named) {
-      if ((await isPicture(picture, fetcher, signal)) !== 'no') return { image: picture, why: 'named by the page' };
+      if ((await isPicture(picture, fetcher, signal)) !== 'no') return { image: picture, title, why: 'named by the page' };
     }
     // Otherwise the first real photo on the page, and only one that certainly loads.
     const photos = photosFrom(await page.upTo(null), at.toString());
     for (const photo of photos.slice(0, PHOTOS_TRIED)) {
-      if ((await isPicture(photo, fetcher, signal)) === 'yes') return { image: photo, why: 'first photo on the page' };
+      if ((await isPicture(photo, fetcher, signal)) === 'yes') return { image: photo, title, why: 'first photo on the page' };
     }
-    return { image: null, why: `${named.length ? 'the picture the page names does not load' : 'the page names no picture'}, and it shows no usable photo` };
+    return { image: null, title, why: `${named.length ? 'the picture the page names does not load' : 'the page names no picture'}, and it shows no usable photo` };
   } finally {
     await page.close();
   }
@@ -292,7 +325,7 @@ export default {
     try {
       const found = await lookUp(url, fetch);
       console.log(`${siteOf(url)}: ${found.image ? 'picture found' : 'no picture'}, ${found.why}`);
-      return Response.json({ image: found.image });
+      return Response.json({ image: found.image, title: found.title ?? null });
     } catch (e) {
       // The page was slow, unreachable or odd. A missing picture is never an error for the app.
       console.log(`${siteOf(url)}: no picture, ${e instanceof Error ? e.name : 'failed'}`);

@@ -277,6 +277,7 @@ export function Field({
   maxLength,
   onSubmit,
   kind,
+  after,
 }: {
   label: string;
   value: string;
@@ -288,6 +289,8 @@ export function Field({
   onSubmit?: () => void;
   /** Picks the right keyboard and autofill for an email address, an emailed code or a web address. */
   kind?: 'email' | 'code' | 'link';
+  /** Something to sit beside the box, such as a button that fills it in. */
+  after?: ReactNode;
 }) {
   const { colors } = useTheme();
   // The box being typed in gets an edge in the button colour, in place of the browser's own focus ring.
@@ -297,6 +300,7 @@ export function Field({
       <T size={14} weight="extra">
         {label}
       </T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <TextInput
         accessibilityLabel={label}
         value={value}
@@ -316,6 +320,8 @@ export function Field({
         textContentType={kind === 'email' ? 'emailAddress' : kind === 'code' ? 'oneTimeCode' : undefined}
         returnKeyType={multiline ? 'default' : 'done'}
         style={{
+          flex: 1,
+          minWidth: 0,
           minHeight: multiline ? 88 : 52,
           borderRadius: 18,
           borderWidth: 2,
@@ -330,6 +336,36 @@ export function Field({
           textAlignVertical: multiline ? 'top' : 'center',
         }}
       />
+        {after}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * A switch between a few choices that are always all on show, such as two ways of doing the
+ * same thing. One is always chosen.
+ */
+export function Segmented<K extends string>({ label, options, value, onChange }: { /** What is being chosen, for a screen reader. */ label: string; options: { key: K; label: string }[]; value: K; onChange: (key: K) => void }) {
+  const { colors, shadow } = useTheme();
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[{ flexDirection: 'row', gap: 4, padding: 4, borderRadius: 26, backgroundColor: colors.card }, shadow]}>
+      {options.map((option) => {
+        const on = option.key === value;
+        return (
+          <Pressable
+            key={option.key}
+            accessibilityRole="radio"
+            accessibilityLabel={option.label}
+            accessibilityState={{ checked: on }}
+            onPress={() => onChange(option.key)}
+            style={{ flex: 1, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: on ? colors.button : 'transparent' }}>
+            <T size={15} weight="extra" color={on ? colors.onButton : colors.text} lines={1}>
+              {option.label}
+            </T>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

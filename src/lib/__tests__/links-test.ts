@@ -1,6 +1,6 @@
 import { Linking, Platform } from 'react-native';
 
-import { inviteLink, inviteMessage, LINK_MAX, openLink, tidyLink } from '../links';
+import { inviteLink, inviteMessage, LINK_MAX, openLink, tidyLink, looksLikeLink, siteName } from '../links';
 
 jest.mock('react-native', () => ({ Platform: { OS: 'android' }, Linking: { openURL: jest.fn(() => Promise.resolve()) } }));
 jest.mock('expo-linking', () => ({ createURL: (path: string) => `http://localhost:8081${path}` }));
@@ -109,5 +109,24 @@ describe('openLink', () => {
     opened.mockRejectedValueOnce(new Error('no browser'));
     expect(() => openLink('https://example.com')).not.toThrow();
     await Promise.resolve();
+  });
+});
+
+describe('looksLikeLink', () => {
+  it('spots a web address typed on its own', () => {
+    expect(looksLikeLink('https://example.com/menu')).toBe(true);
+    expect(looksLikeLink('  www.example.com ')).toBe(true);
+  });
+
+  it('leaves ordinary names alone', () => {
+    for (const name of ['Mini golf', 'Dune: Part Two', 'example.com is fun', 'tacos', 'https://', '']) expect(looksLikeLink(name)).toBe(false);
+  });
+});
+
+describe('siteName', () => {
+  it('is the site as people say it', () => {
+    expect(siteName('https://www.Example.com/menu?x=1')).toBe('example.com');
+    expect(siteName('http://maps.example.org:8080/pin')).toBe('maps.example.org');
+    expect(siteName('not a link')).toBe('');
   });
 });

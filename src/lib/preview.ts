@@ -18,11 +18,33 @@ export function usablePicture(value: unknown): string | null {
 export type LinkPreview =
   | { state: 'none' } // no link, or not a web address yet
   | { state: 'looking' }
-  | { state: 'found'; link: string; picture: string }
-  | { state: 'missing'; link: string }; // the page has no picture, or could not be read
+  | { state: 'found'; link: string; picture: string; title: string | null }
+  | { state: 'missing'; link: string; title: string | null }; // the page has no picture, or could not be read
 
-/** A link and the picture found for it. Null picture: looked, and there is none. */
-export type Looked = { link: string; picture: string | null };
+/** A link, and the picture and page title found for it. Null picture: looked, and there is none. */
+export type Looked = { link: string; picture: string | null; title?: string | null };
+
+/** A page's title as one line of plain text, or null if there is nothing usable. */
+export function usableTitle(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const title = value.replace(/\s+/g, ' ').trim();
+  return title ? title.slice(0, 200).trim() : null;
+}
+
+/** The longest name an idea can have. */
+export const TITLE_MAX = 120;
+
+/**
+ * A name for an idea, from the title of the page it links to. Pages add their site's name after
+ * a bar or a dash ("Dune | Official Trailer - YouTube", "Taco Spot - Menu"), so only the part
+ * before the first such break is kept. A colon is left alone: it is as often part of the name
+ * ("Dune: Part Two") as not. The person can change the name either way.
+ */
+export function nameFromTitle(title: string): string {
+  const whole = title.replace(/\s+/g, ' ').trim();
+  const first = whole.split(/\s[|–—·-]\s/)[0].trim();
+  return (first.length >= 3 ? first : whole).slice(0, TITLE_MAX).trim();
+}
 
 /**
  * Where the form stands for the link now in its box, given the latest lookup that came back.
@@ -32,18 +54,29 @@ export function previewState(link: string | null, looked: Looked | null): LinkPr
   if (!link) return { state: 'none' };
   if (!looked || looked.link !== link) return { state: 'looking' };
   const picture = usablePicture(looked.picture);
-  return picture ? { state: 'found', link, picture } : { state: 'missing', link };
+  const title = usableTitle(looked.title);
+  return picture ? { state: 'found', link, picture, title } : { state: 'missing', link, title };
+}
+
+/**
+ * Ask the helper for a page's preview picture and its title. Either is null when the page has
+ * none, could not be read, or the helper is not there. A helper from before it learned to read
+ * titles simply gives none.
+ */
+export async function fetchPreview(link: string): Promise<{ picture: string | null; title: string | null }> {
+  try {
+    const { data, error } = await db().functions.invoke('link-preview', { body: { url: link } });
+    if (error) return { picture: null, title: null };
+    const found = data as { image?: unknown; title?: unknown } | null;
+    return { picture: usablePicture(found?.image), title: usableTitle(found?.title) };
+  } catch {
+    return { picture: null, title: null };
+  }
 }
 
 /** Ask the helper for a page's preview picture. Null when there is none, or the helper is not there. */
 export async function fetchPreviewPicture(link: string): Promise<string | null> {
-  try {
-    const { data, error } = await db().functions.invoke('link-preview', { body: { url: link } });
-    if (error) return null;
-    return usablePicture((data as { image?: unknown } | null)?.image);
-  } catch {
-    return null;
-  }
+  return (await fetchPreview(link)).picture;
 }
 
 /**
