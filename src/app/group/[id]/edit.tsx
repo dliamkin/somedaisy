@@ -4,7 +4,8 @@ import { View } from 'react-native';
 
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
-import { Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
+import { AddBoxes, ListChooser } from '@/components/list-chooser';
+import { Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { formShows } from '@/lib/list-options';
@@ -22,6 +23,8 @@ export default function EditIdea() {
   const [link, setLink] = useState('');
   const [note, setNote] = useState('');
   const [tags, setTags] = useState<IdeaTags>({ takes: null, setting: null });
+  // Boxes the list leaves off the form that the person has asked for, for this idea only.
+  const [added, setAdded] = useState({ link: false, note: false });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +54,7 @@ export default function EditIdea() {
 
   // Each list says which boxes it wants. A box with something already in it always shows, so a
   // link or note the idea came with can be changed or taken off.
-  const shows = formShows(lists.find((l) => l.id === listId), { link: Boolean(idea?.link) || link.trim() !== '', note: Boolean(idea?.note) || note.trim() !== '' });
+  const shows = formShows(lists.find((l) => l.id === listId), { link: added.link || Boolean(idea?.link) || link.trim() !== '', note: added.note || Boolean(idea?.note) || note.trim() !== '' });
   // The picture the idea will have. The one it has now needs no looking up.
   const preview = useLinkPreview(link, idea?.link ? { link: idea.link, picture: idea.image_url ?? null } : null);
 
@@ -112,16 +115,7 @@ export default function EditIdea() {
     <Screen footer={<Button label="Save changes" onPress={save} disabled={!title.trim() || !listId} busy={busy && !confirming} />}>
       <TopBar title="Edit idea" backTo={`/group/${id}`} />
       <Field label="What's the idea?" value={title} onChangeText={setTitle} maxLength={120} />
-      <View style={{ gap: 8 }}>
-        <T size={16} weight="extra">
-          Which list?
-        </T>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {lists.map((l) => (
-            <Chip key={l.id} label={l.name} selected={l.id === listId} onPress={() => setListId(l.id)} />
-          ))}
-        </View>
-      </View>
+      <ListChooser all={lists} lists={lists} chosenId={listId} onChoose={setListId} />
       {shows.link ? (
         <View style={{ gap: 8 }}>
           <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="A trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
@@ -130,6 +124,7 @@ export default function EditIdea() {
       ) : null}
       {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
       {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
+      <AddBoxes link={!shows.link} note={!shows.note} onLink={() => setAdded({ ...added, link: true })} onNote={() => setAdded({ ...added, note: true })} />
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18, gap: 10 }}>

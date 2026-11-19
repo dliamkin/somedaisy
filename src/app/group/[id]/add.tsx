@@ -6,7 +6,8 @@ import { ActivityIndicator, Switch, View } from 'react-native';
 
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
-import { Button, Card, Chip, ErrorNote, Field, Loading, Screen, Segmented, T, TopBar } from '@/components/ui';
+import { AddBoxes, ListChooser } from '@/components/list-chooser';
+import { Button, Card, ErrorNote, Field, Loading, Screen, Segmented, T, TopBar } from '@/components/ui';
 import { addIdea, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, looksLikeLink, NOTE_MAX, siteName, tidyLink } from '@/lib/links';
 import { formShows, optionsOf } from '@/lib/list-options';
@@ -36,6 +37,8 @@ export default function AddIdea() {
   const [note, setNote] = useState('');
   const [tags, setTags] = useState<IdeaTags>({ takes: null, setting: null });
   const [thumbsUp, setThumbsUp] = useState(true);
+  // Boxes the list leaves off the form that the person has asked for, for this idea only.
+  const [added, setAdded] = useState({ link: false, note: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // What the "Paste" button could not do, said under the link box.
@@ -68,7 +71,7 @@ export default function AddIdea() {
   const chosenId = offeredLists.some((l) => l.id === listId) ? listId : (offeredLists[0]?.id ?? null);
 
   // Each list says which boxes it wants. What was typed in a box that is then hidden is not sent.
-  const shows = formShows((lists ?? []).find((l) => l.id === chosenId), { link: false, note: false });
+  const shows = formShows((lists ?? []).find((l) => l.id === chosenId), added);
   const usesLink = pasting || shows.link;
   // The picture and the page's name, looked up while the link is being typed.
   const preview = useLinkPreview(usesLink ? link : '');
@@ -151,18 +154,7 @@ export default function AddIdea() {
   // Nothing at all came back for the link: no picture and no name.
   const unread = preview.state === 'missing' && !preview.title;
 
-  const listPicker = (
-    <View style={{ gap: 8 }}>
-      <T size={16} weight="extra">
-        Which list?
-      </T>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {offeredLists.map((l) => (
-          <Chip key={l.id} label={l.name} selected={l.id === chosenId} onPress={() => setListId(l.id)} />
-        ))}
-      </View>
-    </View>
-  );
+  const listPicker = <ListChooser all={lists ?? []} lists={offeredLists} chosenId={chosenId} onChoose={setListId} />;
 
   return (
     <Screen footer={<Button label="Add to list" onPress={submit} disabled={!ready} busy={busy} />}>
@@ -260,6 +252,8 @@ export default function AddIdea() {
           ) : null}
           {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
           {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
+          {/* What the list leaves off can still be added to this one idea. */}
+          <AddBoxes link={!shows.link} note={!shows.note} onLink={() => setAdded({ ...added, link: true })} onNote={() => setAdded({ ...added, note: true })} />
         </>
       )}
 

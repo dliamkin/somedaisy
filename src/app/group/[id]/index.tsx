@@ -140,8 +140,6 @@ export default function GroupScreen() {
             setListId(made.id);
           }
         }
-        // Said after the load, which clears any earlier message.
-        if (open?.note) setError(open.note);
       });
       const timer = setInterval(() => void load(), 20000);
       // The countdown on a plan that is coming up moves on once a minute, whether or not a load gets through.

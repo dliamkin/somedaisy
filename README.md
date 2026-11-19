@@ -268,16 +268,29 @@ A list without dates is for keeping things, not for making plans, and its ideas 
 way. Instead of the "I'm in" and "Eh" votes there is a thumbs up and a thumbs down beside the
 comment, share and edit icons. There is no "Plan it" button, nobody is said to be waited on, a
 thumbs up from everyone is not celebrated, and the form for a new idea has no "Count me in". The
-votes are stored the same either way, so turning dates on or off loses nothing. If a list is added
-with something turned off before update 015 has been run, the app says the choice was not saved.
+votes are stored the same either way, so turning dates on or off loses nothing.
+
+A list's kind is never dropped quietly. If update 015 has not been run, a list with anything
+turned off is not made at all, and the "New list" page says the database is missing the update
+(`NO_LIST_OPTIONS` in `src/lib/data.ts`). To check the database, run this in the SQL editor. It
+should list `dates`, `links` and `notes`:
+
+```sql
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'lists' order by 1;
+```
+
+A box the list leaves off can still be added to one idea: the forms for a new idea and for
+editing one show "+ Add a link" and "+ Add a note" for whatever is not on show. That changes the
+idea only, not the list.
 
 ### Finding and making lists
 
 The group's page shows its lists as one row of tabs that slides sideways
 (`src/components/list-strip.tsx`), so the row stays one line tall however many lists there are.
 From four lists up, a button at the start of the row opens a page of every list
-(`src/app/group/[id]/lists.tsx`): one under the other, each with its icon and how many ideas it
-holds, and from eight lists up a box to type part of a name in. Tapping a list there shuts the
+(`src/app/group/[id]/lists.tsx`): one under the other in order of name, each with its icon and how
+many ideas it holds, and from eight lists up a box to type part of a name in. Tapping a list there shuts the
 page and shows that list, and the row of tabs moves to bring its tab into view. On a computer the
 mouse wheel slides the row, since a wheel only turns up and down.
 
@@ -285,6 +298,10 @@ mouse wheel slides the row, since a wheel only turns up and down.
 the look, an X to shut it and "Add list" pinned at the bottom. Both pages tell the group page which
 list to show by leaving word in `openList` (`src/lib/data.ts`), which the group page reads when it
 comes back into view. No form opens the keyboard by itself, so the whole form is seen first.
+
+"Which list?" on the forms for an idea (`ListChooser` in `src/components/list-chooser.tsx`) is a
+row of chips for up to six lists. With more, the form shows only the chosen list, and tapping it
+opens every list in order of name, with the same box to find one by name.
 
 ### Live updates
 

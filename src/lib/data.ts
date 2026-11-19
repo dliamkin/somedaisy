@@ -249,36 +249,53 @@ export async function resetInviteCode(groupId: string): Promise<string> {
 /** The database saying it has no such column: the update that adds it has not been run. */
 const noSuchColumn = (error: unknown) => ['PGRST204', '42703'].includes((error as { code?: string } | null)?.code ?? '');
 
+/**
+ * Said when a list's kind or boxes cannot be saved because the database does not have update 015.
+ * It names the update on purpose: only whoever looks after the database can put this right.
+ */
+export const NO_LIST_OPTIONS = 'This kind of list cannot be saved yet. The database is missing update 015 (list options).';
+
+/** Whether the database keeps what each list asks for (update 015). Null when there is no list to tell from. */
+export function keepsListOptions(lists: List[]): boolean | null {
+  if (lists.length === 0) return null;
+  return lists.some((l) => typeof l.dates === 'boolean');
+}
+
+/** Lists in order of name, as people look for them: capitals and small letters together, and "List 2" before "List 10". */
+export function listsByName<T extends { name: string }>(lists: T[]): T[] {
+  return [...lists].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+}
+
 /** What someone chose for a list's icon and colour. Null leaves the choice to the app. */
 export type ListLookChoice = { icon: string | null; color: string | null };
 
 /**
- * Add a list. Answers false when the list was made but what it asks for could not be kept,
- * because the database does not have update 015 yet. The person should be told, or the list
- * quietly asks for everything after they chose otherwise.
+ * Add a list. Before update 012 a list cannot keep an icon or colour, and then it is made without
+ * them. What the list asks for (update 015) is never dropped like that: a list made as "just a
+ * list" that quietly became a list of things to do would be the wrong list. Without that update
+ * the list is not made at all, and the person is told why.
  */
-export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice, options?: ListOptions): Promise<boolean> {
+export async function addList(groupId: string, name: string, position: number, look?: ListLookChoice, options?: ListOptions): Promise<void> {
   const row = { group_id: groupId, name, position };
   const chosen = look && (look.icon || look.color) ? { icon: look.icon, color: look.color } : null;
   // Only said when something is turned off: a list starts with everything on anyway.
   const asked = options && !sameOptions(options, ALL_ON) ? options : null;
-  // Before update 012 a list cannot keep an icon or colour, and before 015 it cannot keep what
-  // it asks for. The list itself still gets made, with as much as the database can hold.
-  const tries = [{ ...row, ...chosen, ...asked }, ...(asked ? [{ ...row, ...chosen }] : []), ...(chosen ? [row] : [])];
+  const tries = [{ ...row, ...chosen, ...asked }, ...(chosen ? [{ ...row, ...asked }] : [])];
   for (const [i, attempt] of tries.entries()) {
     const { error } = await db().from('lists').insert(attempt);
-    if (noSuchColumn(error) && i < tries.length - 1) continue;
+    if (noSuchColumn(error)) {
+      if (i < tries.length - 1) continue;
+      if (asked) throw new Error(NO_LIST_OPTIONS);
+    }
     fail(error);
-    // The first try is the only one that carries what the list asks for.
-    return !asked || i === 0;
+    return;
   }
-  return true;
 }
 
 /** Change what a list asks for (update 015). */
 export async function setListOptions(listId: string, options: ListOptions): Promise<void> {
   const { error } = await db().from('lists').update({ dates: options.dates, links: options.links, notes: options.notes }).eq('id', listId);
-  if (noSuchColumn(error)) throw new Error('This is not available yet. Try again later.');
+  if (noSuchColumn(error)) throw new Error(NO_LIST_OPTIONS);
   fail(error);
 }
 
@@ -447,8 +464,8 @@ export function takeChanged(groupId: string): boolean {
 
 // A page that picks a list, or makes one, leaves word here of which list the group page should
 // show when it comes back into view. A list that was just made is known by its name, since the
-// group page has not loaded it yet. `note` is something to tell the person once they are back.
-export type ListToOpen = ({ id: string | null } | { name: string }) & { note?: string };
+// group page has not loaded it yet.
+export type ListToOpen = { id: string | null } | { name: string };
 const toOpen = new Map<string, ListToOpen>();
 export function openList(groupId: string, list: ListToOpen): void {
   toOpen.set(groupId, list);

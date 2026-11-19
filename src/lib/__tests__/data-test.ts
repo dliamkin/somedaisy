@@ -9,6 +9,9 @@ import {
   markChanged,
   openList,
   takeListToOpen,
+  keepsListOptions,
+  listsByName,
+  NO_LIST_OPTIONS,
   markDone,
   newlyAllIn,
   ownerOf,
@@ -127,8 +130,8 @@ describe('openList / takeListToOpen', () => {
   it('can ask for "Newest", and for a list that was just made by its name', () => {
     openList('open3', { id: null });
     expect(takeListToOpen('open3')).toEqual({ id: null });
-    openList('open3', { name: 'Band names', note: 'Could not be saved yet.' });
-    expect(takeListToOpen('open3')).toEqual({ name: 'Band names', note: 'Could not be saved yet.' });
+    openList('open3', { name: 'Band names' });
+    expect(takeListToOpen('open3')).toEqual({ name: 'Band names' });
   });
 
   it('keeps only the last word left', () => {
@@ -305,19 +308,47 @@ describe('group settings', () => {
     ]);
   });
 
-  it('says whether what the list asks for was kept', async () => {
+  it('never drops what the list asks for: without update 015 the list is not made', async () => {
     const nameOnly = { dates: false, links: false, notes: false };
-    fakeClient();
-    expect(await addList('g1', 'Band names', 3, undefined, nameOnly)).toBe(true);
-    // Nothing was turned off, so there was nothing to lose.
-    expect(await addList('g1', 'Films', 4)).toBe(true);
+    const first = fakeClient();
+    await addList('g1', 'Band names', 3, undefined, nameOnly);
+    expect(stepsFor(first.calls, 'lists').map((steps) => argsOf(steps, 'insert'))).toEqual([[{ group_id: 'g1', name: 'Band names', position: 3, ...nameOnly }]]);
 
-    const { calls } = fakeClient({ lists: [{ error: { message: 'no dates column', code: 'PGRST204' } as never }] });
-    expect(await addList('g1', 'Band names', 3, undefined, nameOnly)).toBe(false);
-    expect(stepsFor(calls, 'lists').map((steps) => argsOf(steps, 'insert'))).toEqual([
+    const missing = { error: { message: 'no dates column', code: 'PGRST204' } as never };
+    const { calls } = fakeClient({ lists: [missing] });
+    await expect(addList('g1', 'Band names', 3, undefined, nameOnly)).rejects.toThrow(NO_LIST_OPTIONS);
+    // One try, and no second one without the choices.
+    expect(stepsFor(calls, 'lists')).toHaveLength(1);
+  });
+
+  it('tries once more without the icon and colour, still with what the list asks for', async () => {
+    const nameOnly = { dates: false, links: false, notes: false };
+    const missing = { error: { message: 'no such column', code: 'PGRST204' } as never };
+    // Update 015 is there and 012 is not: the list is made, without its look.
+    const some = fakeClient({ lists: [missing] });
+    await addList('g1', 'Band names', 3, { icon: 'mic', color: null }, nameOnly);
+    expect(stepsFor(some.calls, 'lists').map((steps) => argsOf(steps, 'insert'))).toEqual([
+      [{ group_id: 'g1', name: 'Band names', position: 3, icon: 'mic', color: null, ...nameOnly }],
       [{ group_id: 'g1', name: 'Band names', position: 3, ...nameOnly }],
-      [{ group_id: 'g1', name: 'Band names', position: 3 }],
     ]);
+    // Neither is there: nothing is made.
+    fakeClient({ lists: [missing, missing] });
+    await expect(addList('g1', 'Band names', 3, { icon: 'mic', color: null }, nameOnly)).rejects.toThrow(NO_LIST_OPTIONS);
+  });
+
+  it('tells whether the database keeps what lists ask for', () => {
+    expect(keepsListOptions([])).toBeNull();
+    expect(keepsListOptions([{ id: 'l1', name: 'Films', position: 1 }])).toBe(false);
+    expect(keepsListOptions([{ id: 'l1', name: 'Films', position: 1, dates: true, links: true, notes: true }])).toBe(true);
+    expect(keepsListOptions([{ id: 'l1', name: 'Band names', position: 1, dates: false, links: false, notes: false }])).toBe(true);
+  });
+
+  it('puts lists in order of name', () => {
+    const names = (list: { name: string }[]) => list.map((l) => l.name);
+    const lists = [{ name: 'Places' }, { name: 'food' }, { name: 'Movies' }, { name: 'List 10' }, { name: 'List 2' }];
+    expect(names(listsByName(lists))).toEqual(['food', 'List 2', 'List 10', 'Movies', 'Places']);
+    // The lists handed in are left in their own order.
+    expect(names(lists)[0]).toBe('Places');
   });
 
   it('fails to add a list for any other reason', async () => {

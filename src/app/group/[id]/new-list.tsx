@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { ListOptionsPicker } from '@/components/list-options-picker';
 import { Button, Card, ErrorNote, Field, Loading, Screen, TopBar } from '@/components/ui';
-import { addList, fetchLists, markChanged, openList, type List } from '@/lib/data';
+import { addList, fetchLists, keepsListOptions, markChanged, NO_LIST_OPTIONS, openList, type List } from '@/lib/data';
 import { ALL_ON, type ListOptions } from '@/lib/list-options';
 
 /**
@@ -37,13 +37,10 @@ export default function NewList() {
     setBusy(true);
     setError(null);
     try {
-      const kept = await addList(id, clean, lists.length + 1, look, options);
+      await addList(id, clean, lists.length + 1, look, options);
       markChanged(id);
-      // The group page opens the new list, and says so if its choices could not be kept.
-      openList(id, {
-        name: clean,
-        note: kept ? undefined : 'The list was added, but its kind and boxes could not be saved yet. For now it is a list of things to do, with a link and a note.',
-      });
+      // The group page opens the new list.
+      openList(id, { name: clean });
       back();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add the list.');
@@ -59,6 +56,8 @@ export default function NewList() {
       {/* The keyboard does not open by itself, so the whole form shows first. Its Done key only
           puts the keyboard away: the list is added with the button pinned at the bottom. */}
       <Field label="List name" value={name} onChangeText={setName} placeholder="Shows, Games, Band names..." maxLength={40} />
+      {/* Said before anything is chosen, where it can be told: the lists there are carry no kind. */}
+      {keepsListOptions(lists) === false ? <ErrorNote message={`${NO_LIST_OPTIONS} Until it is run, every list is a list of things to do.`} /> : null}
       <Card>
         <ListOptionsPicker fresh value={options} onChange={setOptions} />
       </Card>
