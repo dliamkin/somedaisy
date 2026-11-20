@@ -37,6 +37,16 @@ begin
   return new_id;
 end; $$;
 grant usage on schema net to anon, authenticated;
+
+-- Stand-in for Supabase Storage: the two tables its rules are written against. As on Supabase,
+-- nothing can be done to a file until a rule allows it. No files are kept, only their names.
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean default false, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text, owner_id text, unique (bucket_id, name));
+alter table storage.objects enable row level security;
+insert into storage.buckets (id, name) values ('something-else', 'something-else');
+grant usage on schema storage to anon, authenticated;
+grant all on storage.objects to anon, authenticated;
 `;
 
 // Supabase grants table access to these roles by default and leaves the gatekeeping to row level security.

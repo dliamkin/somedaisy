@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
+import { IdeaPicture, type PictureChoice } from '@/components/idea-picture';
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
 import { AddBoxes, ListChooser } from '@/components/list-chooser';
@@ -9,6 +10,8 @@ import { Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/co
 import { deleteIdea, fetchGroup, lateChange, markChanged, updateIdea, type Idea, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, NOTE_MAX, tidyLink } from '@/lib/links';
 import { formShows } from '@/lib/list-options';
+import { removePicture, uploadPicture } from '@/lib/picture-files';
+import { ownPicture } from '@/lib/pictures';
 import { attachPreview } from '@/lib/preview';
 import { useTheme } from '@/lib/theme';
 
@@ -25,6 +28,8 @@ export default function EditIdea() {
   const [tags, setTags] = useState<IdeaTags>({ takes: null, setting: null });
   // Boxes the list leaves off the form that the person has asked for, for this idea only.
   const [added, setAdded] = useState({ link: false, note: false });
+  // The idea's own picture: the one it has, a new one chosen here, or none.
+  const [picture, setPicture] = useState<PictureChoice>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +47,8 @@ export default function EditIdea() {
           setLink(found.link ?? '');
           setNote(found.note ?? '');
           setTags({ takes: found.takes ?? null, setting: found.setting ?? null });
+          const has = ownPicture(found.picture);
+          setPicture(has ? { kind: 'kept', path: has } : null);
         }
       })
       .catch((e: Error) => {
@@ -67,10 +74,17 @@ export default function EditIdea() {
     }
     setBusy(true);
     setError(null);
+    // The picture is only sent when it was changed: a new one is kept first, and one taken off is
+    // saved as none. Either way the file it had before is removed once the change is saved.
+    const had = ownPicture(idea.picture);
+    let fresh: string | null = null;
     try {
+      if (picture?.kind === 'new') fresh = await uploadPicture(id, picture.chosen);
+      const repictured = fresh ? fresh : !picture && had ? null : undefined;
       // The tags are only sent when they were changed, so saving anything else leaves them alone.
       const retagged = tags.takes !== (idea.takes ?? null) || tags.setting !== (idea.setting ?? null);
-      await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId, tags: retagged ? tags : undefined });
+      await updateIdea(idea.id, { title: title.trim(), link: tidy.link, note: note.trim() || null, listId, tags: retagged ? tags : undefined, picture: repictured });
+      if (repictured !== undefined && had) void removePicture(had);
       // The link's preview picture is looked up afresh in the background on every save, so a
       // picture that has stopped loading is replaced, and a link that had none gets another try.
       // A picture found while typing a new link is used as it is.
@@ -79,6 +93,7 @@ export default function EditIdea() {
       markChanged(id);
       back();
     } catch (e) {
+      if (fresh) void removePicture(fresh);
       setError(e instanceof Error ? e.message : 'Could not save the idea.');
       setBusy(false);
     }
@@ -90,6 +105,8 @@ export default function EditIdea() {
     setError(null);
     try {
       await deleteIdea(idea.id);
+      // Its picture goes with it.
+      void removePicture(idea.picture);
       markChanged(id);
       back();
     } catch (e) {
@@ -119,12 +136,14 @@ export default function EditIdea() {
       {shows.link ? (
         <View style={{ gap: 8 }}>
           <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="A trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
-          <LinkPreviewNote preview={preview} label={title.trim()} />
+          {/* The idea's own picture is the one its card shows, so the link's is not promised then. */}
+          {picture ? null : <LinkPreviewNote preview={preview} label={title.trim()} />}
         </View>
       ) : null}
       {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
       {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
       <AddBoxes link={!shows.link} note={!shows.note} onLink={() => setAdded({ ...added, link: true })} onNote={() => setAdded({ ...added, note: true })} />
+      <IdeaPicture value={picture} onChange={setPicture} name={title} />
       <ErrorNote message={error} />
       {confirming ? (
         <Card style={{ padding: 18, gap: 10 }}>

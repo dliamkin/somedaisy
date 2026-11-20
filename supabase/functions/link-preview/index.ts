@@ -15,7 +15,8 @@
 //     heading section, where the picture is named, and never more than the first 2 MB.
 //   * It checks that the picture really is one, by asking for it under the same rules. If the
 //     page names none that works, it offers the first real photo shown on the page instead.
-//   * It returns one thing: the address of a picture, or nothing. Never the page itself.
+//   * It returns two things: the address of a picture and the page's name, or nothing. Never the
+//     page itself. For a page of search results the name is what was searched for.
 
 import { withSupabase } from 'npm:@supabase/server@^1';
 
@@ -121,6 +122,30 @@ export function titleFrom(html: string): string | null {
     .replace(/\s+/g, ' ')
     .trim();
   return title ? title.slice(0, TITLE_MAX).trim() : null;
+}
+
+/** Whether an address is one of Google's own pages, in any country. */
+function isGoogle(at: URL): boolean {
+  return /(^|\.)google\.(com|[a-z]{2,3})(\.[a-z]{2})?$/.test(at.hostname.toLowerCase());
+}
+
+/**
+ * What was searched for, when an address is a page of Google's search results, which is where a
+ * result shared from Google ends up (share.google and the like). Such a page names no picture and
+ * calls itself only "Google Search", so the words searched for are the best name there is.
+ */
+export function searchedFor(at: URL): string | null {
+  if (!isGoogle(at) || at.pathname !== '/search') return null;
+  const words = (at.searchParams.get('q') ?? '').replace(/\s+/g, ' ').trim();
+  return words ? words.slice(0, TITLE_MAX).trim() : null;
+}
+
+/**
+ * The name to give for a page. Google's own pages are named for what they are ("Google Search",
+ * "Place Viewer"), never for what they show, so their titles are not passed on.
+ */
+function nameFor(at: URL, html: string): string | null {
+  return isGoogle(at) ? searchedFor(at) : titleFrom(html);
 }
 
 /** The first preview picture a page names for itself, or null if it names none we can use. */
@@ -286,13 +311,14 @@ async function lookUp(input: unknown, fetcher: typeof fetch): Promise<Found> {
   }
   if (!response.ok || !/html/i.test(kind)) {
     await response.body?.cancel().catch(() => {});
-    return { image: null, why: response.ok ? `not a web page (${kind.slice(0, 40)})` : `the site answered ${response.status}` };
+    // What was searched for is in the address itself, so it is known even when the page is refused.
+    return { image: null, title: searchedFor(at), why: response.ok ? `not a web page (${kind.slice(0, 40)})` : `the site answered ${response.status}` };
   }
   const page = reading(response, MAX_BYTES);
   try {
     // First the picture the page names for itself, as long as it is not plainly broken.
     const head = await page.upTo(HEAD_END);
-    const title = titleFrom(head);
+    const title = nameFor(at, head);
     const named = picturesFrom(head, at.toString());
     for (const picture of named) {
       if ((await isPicture(picture, fetcher, signal)) !== 'no') return { image: picture, title, why: 'named by the page' };

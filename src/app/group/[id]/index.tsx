@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, View } from 'react-native';
 
 import { ActionIcon, IconAction } from '@/components/action-icons';
-import { ComingUpCard } from '@/components/coming-up';
+import { ComingUpCard, DoneButtons } from '@/components/coming-up';
 import { Daisy } from '@/components/daisy';
 import { Emoji } from '@/components/emoji';
 import { AgainChoice, EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
@@ -14,11 +14,12 @@ import { PreviewPicture } from '@/components/preview-picture';
 import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
 import { everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, takeListToOpen, type GroupData, type Idea } from '@/lib/data';
 import { openLink } from '@/lib/links';
-import { formatPlan, plannedIdeas } from '@/lib/plans';
+import { countdown, formatPlan, plannedIdeas } from '@/lib/plans';
 import { timeAgo } from '@/lib/comments';
 import { isToDo, optionsOf } from '@/lib/list-options';
 import { gather } from '@/lib/live';
 import { lookFor } from '@/lib/looks';
+import { cardPicture } from '@/lib/pictures';
 import { levelUp, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
 import { somedayLabel } from '@/lib/someday';
@@ -37,6 +38,8 @@ export default function GroupScreen() {
   const [undoing, setUndoing] = useState(false);
   const [slideFrom, setSlideFrom] = useState<1 | -1>(1);
   const [celebrate, setCelebrate] = useState<Idea | null>(null);
+  // Which "mark as done" is asking to be sure: a plan's id for its card at the top, or "card:" and
+  // the id for the idea's own card, so only the one that was tapped changes.
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
   // The "you did it" screen for the person who tapped "We did it", with their do-again answer.
   const [didIt, setDidIt] = useState<{ completion: Completion; total: number; reached: Level | null; again: boolean | null } | null>(null);
@@ -436,6 +439,8 @@ export default function GroupScreen() {
           const ups = count('👍');
           const downs = count('👎');
           const pickEmoji = () => setPickerFor(pickerFor === idea.id ? null : idea.id);
+          // The idea's own picture if it has one, otherwise the picture of the page it links to.
+          const shown = cardPicture(idea);
           return (
             <Card key={idea.id}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
@@ -461,7 +466,7 @@ export default function GroupScreen() {
                 ) : null}
               </View>
               {/* The picture runs from one edge of the card to the other, so it does not read as a card inside a card. */}
-              {idea.link ? <PreviewPicture uri={idea.image_url} label={idea.title} bleed={14} onPress={() => openLink(idea.link as string)} /> : null}
+              {shown ? <PreviewPicture uri={shown} label={idea.title} bleed={14} onPress={idea.link ? () => openLink(idea.link as string) : undefined} /> : null}
               {idea.note ? (
                 <T size={14} weight="medium">
                   {idea.note}
@@ -554,6 +559,17 @@ export default function GroupScreen() {
                   <Button label="Plan it" small onPress={() => openPlan(idea)} />
                 ) : null}
               </View>
+              {/* A plan can be finished from here as well as from its card at the top of the page. Whoever
+                  just gave the idea a date comes back to this card, often with that one scrolled out of sight. */}
+              {idea.planned_for ? (
+                <DoneButtons
+                  started={countdown(idea.planned_for, now) === null}
+                  confirming={confirmDone === `card:${idea.id}`}
+                  onAskDone={() => setConfirmDone(`card:${idea.id}`)}
+                  onDone={() => void finish(idea)}
+                  onNotYet={() => setConfirmDone(null)}
+                />
+              ) : null}
               {/* The newest two comments, right on the card. Tapping them opens the whole conversation. */}
               {latest.length > 0 ? (
                 <Pressable

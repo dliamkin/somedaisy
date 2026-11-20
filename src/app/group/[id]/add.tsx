@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Switch, View } from 'react-native';
 
+import { IdeaPicture, type PictureChoice } from '@/components/idea-picture';
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
 import { AddBoxes, ListChooser } from '@/components/list-chooser';
@@ -11,6 +12,7 @@ import { Button, Card, ErrorNote, Field, Loading, Screen, Segmented, T, TopBar }
 import { addIdea, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, looksLikeLink, NOTE_MAX, siteName, tidyLink } from '@/lib/links';
 import { formShows, optionsOf } from '@/lib/list-options';
+import { removePicture, uploadPicture } from '@/lib/picture-files';
 import { attachPreview, nameFromTitle, TITLE_MAX } from '@/lib/preview';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
@@ -39,6 +41,8 @@ export default function AddIdea() {
   const [thumbsUp, setThumbsUp] = useState(true);
   // Boxes the list leaves off the form that the person has asked for, for this idea only.
   const [added, setAdded] = useState({ link: false, note: false });
+  // A picture of the person's own, chosen for this idea. It is sent when the idea is added.
+  const [own, setOwn] = useState<PictureChoice>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // What the "Paste" button could not do, said under the link box.
@@ -123,7 +127,10 @@ export default function AddIdea() {
     if (pasting && !tidy.link) return;
     setBusy(true);
     setError(null);
+    // Where the picture was kept, so it can be taken away again if the idea is not added after all.
+    let kept: string | null = null;
     try {
+      if (own?.kind === 'new') kept = await uploadPicture(id, own.chosen);
       const ideaId = await addIdea({
         groupId: id,
         listId: chosenId,
@@ -135,6 +142,7 @@ export default function AddIdea() {
         // Only a thing to go and do can be counted in on.
         thumbsUp: shows.countMeIn && thumbsUp,
         tags: !pasting && shows.tags ? tags : undefined,
+        picture: kept,
       });
       // The link's picture is saved in the background and appears on the card shortly after. If
       // it was already found while typing, that one is used and it is not looked up again.
@@ -143,6 +151,7 @@ export default function AddIdea() {
       markChanged(id);
       back();
     } catch (e) {
+      if (kept) void removePicture(kept);
       setError(e instanceof Error ? e.message : 'Could not add the idea.');
       setBusy(false);
     }
@@ -155,6 +164,8 @@ export default function AddIdea() {
   const unread = preview.state === 'missing' && !preview.title;
 
   const listPicker = <ListChooser all={lists ?? []} lists={offeredLists} chosenId={chosenId} onChoose={setListId} />;
+  // Any idea can have a picture of its own, whatever its list asks for and whichever way it is added.
+  const ownPicture = <IdeaPicture value={own} onChange={setOwn} name={title} />;
 
   return (
     <Screen footer={<Button label="Add to list" onPress={submit} disabled={!ready} busy={busy} />}>
@@ -230,6 +241,7 @@ export default function AddIdea() {
           ) : null}
 
           {listPicker}
+          {ownPicture}
         </>
       ) : (
         <>
@@ -247,13 +259,15 @@ export default function AddIdea() {
           {shows.link ? (
             <View style={{ gap: 8 }}>
               <Field label="Link (optional)" value={link} onChangeText={setLink} placeholder="A trailer, a map pin, a menu..." kind="link" maxLength={LINK_MAX} />
-              <LinkPreviewNote preview={preview} label={title.trim()} />
+              {/* The idea's own picture is the one its card shows, so the link's is not promised then. */}
+              {own ? null : <LinkPreviewNote preview={preview} label={title.trim()} />}
             </View>
           ) : null}
           {shows.note ? <Field label="Note (optional)" value={note} onChangeText={setNote} placeholder="Why it'd be fun" multiline maxLength={NOTE_MAX} /> : null}
           {shows.tags ? <IdeaTagsPicker value={tags} onChange={setTags} /> : null}
           {/* What the list leaves off can still be added to this one idea. */}
           <AddBoxes link={!shows.link} note={!shows.note} onLink={() => setAdded({ ...added, link: true })} onNote={() => setAdded({ ...added, note: true })} />
+          {ownPicture}
         </>
       )}
 
