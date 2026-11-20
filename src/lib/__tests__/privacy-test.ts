@@ -15,6 +15,22 @@ describe('the privacy policy', () => {
     }
   });
 
+  it('says that the website counts its visits, who does the counting, and that the apps do not', () => {
+    expect(words).toContain('The website counts its visits');
+    expect(words).toContain('Cloudflare delivers the website and counts its visits');
+    expect(words).toContain('uses no cookies');
+    expect(words).toContain('The phone apps do no counting of this kind');
+    expect(words).not.toContain('no advertising or analytics tools');
+  });
+
+  it('says that pictures added to ideas are kept, who keeps them and who can open them', () => {
+    expect(words).toContain('A picture you add to an idea yourself');
+    expect(words).toContain('The only photos we keep are the ones you add to an idea');
+    expect(words).toContain('anyone who is given that address can open the picture');
+    expect(words).toContain('the pictures added to ideas included');
+    expect(words).not.toContain('We do not collect your contacts or your photos');
+  });
+
   it('says how to have an account deleted, and gives a way to write in', () => {
     expect(words).toContain('delete your account');
     expect(words).toContain(CONTACT);

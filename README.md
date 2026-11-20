@@ -145,6 +145,21 @@ information to a new company, update them in the same change and move the date f
 It promises one thing that needs doing by hand: mail sent to `hello@somedaisy.com` has to reach
 someone (Cloudflare > Email > Email Routing can forward it).
 
+### Counting visits to the website
+
+The website's visits are counted by Cloudflare Web Analytics. Nothing in this project turns it
+on: it is a switch in Cloudflare (Workers & Pages > somedaisy > Metrics > Web Analytics), and
+Cloudflare adds its small script to the page each time the website is published. The numbers are
+on Cloudflare's Web Analytics page for the account. It uses no cookies, and the phone apps have
+none of it.
+
+Those are not the numbers under the domain's own Analytics page. That page counts every request
+that reaches the website, crawlers included, so it runs far higher.
+
+The count lists the page that was opened, so the addresses of groups and of invite links show up
+in it. Only someone signed in to the Cloudflare account can see them. The privacy policy says
+what is counted; change it there before adding any other way of counting.
+
 ### Deleting an account
 
 The account screen has **Delete my account** (for a guest, **Delete my data**), with a second
@@ -200,6 +215,76 @@ picture found that way is used as it is; otherwise it is looked up in the backgr
 appears on the card a few seconds later. A page with no picture, or a picture that will not
 load, leaves the card as it was.
 
+Some pages give less than others, and the helper says why in its log:
+
+- **A result shared from Google** (a `share.google` link, or a `google.com/search` address).
+  Google's pages name no picture and call themselves only "Google Search". The helper takes the
+  words that were searched for as the name (`searchedFor`), and gives no picture. A Google page
+  that does not say what it shows, such as `google.com/searchviewer`, gives nothing at all.
+- **Facebook.** The name is read. The picture Facebook names is one it hands only to its own
+  link reader, so it is passed over. The photos inside the page have addresses that stop working
+  within a week, so they are not used either. A picture of the person's own can be added instead.
+- **A site that only lets browsers in** gives nothing.
+
+### A picture of your own on an idea
+
+Any idea can have a picture that someone in the group adds, whatever its list asks for and
+whether or not it has a link. The forms for a new idea and for editing one show two dashed chips,
+beside the ones that add a link or a note:
+
+- **"+ Add a picture"** opens the phone's or computer's own photo chooser. The app never sees
+  any photo but the one chosen.
+- **"Find one on the web"** opens a picture search for the idea's name in the person's browser
+  (`pictureSearch` in `src/lib/pictures.ts`). They save a picture they like, come back, and add
+  it. There is no search inside the app: that needs a paid search service, and none is set up.
+
+The chosen picture is made small on the device before it is sent: no more than 1280 dots along
+its longer side, as a JPEG, which comes to a few hundred kilobytes
+(`choosePicture` in `src/lib/picture-files.ts`). It is kept in Supabase Storage, in a place
+called `idea-pictures`, under `<group id>/<a new random id>.jpg`, and the idea remembers where
+in its `picture` column. An idea's own picture is the one its card shows. Without one, the card
+shows the preview picture of the page the idea links to, as before (`cardPicture`).
+
+It needs three things:
+
+1. **Database.** Run `supabase/updates/017-idea-pictures.sql`. It adds the column, makes the
+   place in Storage, and sets its rules: only members of a group can add to, list or remove from
+   the group's folder, a file is a JPEG of at most 1 MB, and nothing is replaced in place.
+   Without it the app says pictures cannot be saved yet, and the idea is not saved without its
+   picture (`NO_PICTURES`).
+2. **Two packages**, both from Expo: `expo-image-picker` (the photo chooser) and
+   `expo-image-manipulator` (makes the picture small). They are native code, so the phone app
+   needs a build made after they were added. The website needs only a deploy.
+3. **Nothing else.** No keys, and no setting in the dashboard.
+
+Who can open a picture: the place is "public" in Supabase's sense. Anyone who has a picture's
+full web address can open it, signed in or not, which is what lets it show on a card like any
+picture on the web. The address holds two long random ids, the app gives it only to the group,
+and nobody outside the group can list the folder. The privacy policy says so.
+
+A picture's file is removed when the picture is taken off or replaced, or its idea is removed.
+Two cases leave a file behind, wasting a little room and nothing else: a group that is deleted
+when its last member leaves, and an idea removed by a copy of the app from before pictures. Clear
+those from the Storage page of the Supabase dashboard, never by deleting rows from
+`storage.objects`, which leaves the files in place. Supabase's free plan has 1 GB of Storage,
+room for several thousand pictures of this size.
+
+### Typing on a phone
+
+Every text box in the app is one component (`Field` in `src/components/ui.tsx`), and two things
+about it are deliberate:
+
+- **Password managers are kept away from it.** A phone offers to save what was typed as a sign-in
+  ("Save sign-in info to Samsung Pass?") whenever it takes a form for one. Only the email box and
+  the code box on the sign-in screen are for signing in. Every other box says so
+  (`autoComplete="off"`, and `importantForAutofill="no"` on Android), so the name of an idea, a
+  link, a note or a comment is never offered for saving.
+- **The box being typed in stays in view.** In the app, the page (`Screen`) scrolls it back above
+  the keyboard whenever the room for the page changes. On the website the page is told to get
+  shorter for the keyboard (`interactive-widget=resizes-content`), so the buttons pinned to the
+  bottom ride above it, and the box is scrolled into view when it is not
+  (`steadyWebPage` in `src/lib/web-page.ts`). A box that can already be seen is not moved.
+
 ### Guests
 
 Nobody is signed in just for opening the app or the website. A person becomes a guest when
@@ -228,6 +313,12 @@ in `supabase/updates/008-you-did-it.sql`, and the titles in `src/lib/points.ts`.
 When everyone in a group says they would do something again, it goes on the do-again shelf in
 Things we did. "Do it again" there puts it back on its list, to be planned and done once more.
 That is the only way a done idea goes back, apart from undo.
+
+A plan is marked as done from its card at the top of the group's page, or from the idea's own
+card on its list, which shows the same button once the idea has a date. Whoever has just given
+an idea a date comes back to that card, often with the top of the page out of sight. Before the
+plan's time the button is a quiet "Did it early"; from then on it is "We did it!". Both ask to be
+sure first (`DoneButtons` in `src/components/coming-up.tsx`).
 
 A "We did it" tapped by mistake can be undone for 10 minutes, from the celebration screen or from
 Things we did, by anyone in the group. The idea returns to its list and the points and stamp it
@@ -379,7 +470,7 @@ private browser window or on another device.
 | `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |
-| `src/app/group/[id]/add.tsx` | Add an idea, by typing it or from a pasted link |
+| `src/app/group/[id]/add.tsx` | Add an idea, by typing it or from a pasted link, with a picture of your own if you like |
 | `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
@@ -394,6 +485,7 @@ private browser window or on another device.
 | `src/lib/` | Theme colors, Supabase client, session, data access, plan dates |
 | `src/lib/theme.ts` | Every colour in the app, for light and dark mode. Screens read them with `useTheme()` |
 | `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
+| `src/lib/pictures.ts`, `src/lib/picture-files.ts` | An idea's own picture: the rules, and choosing, shrinking and keeping it |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews) |
 

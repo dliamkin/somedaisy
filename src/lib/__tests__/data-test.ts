@@ -236,6 +236,23 @@ describe('addIdea', () => {
     await expect(addIdea({ ...input, thumbsUp: true })).rejects.toThrow('title too long');
     expect(stepsFor(calls, 'reactions')).toHaveLength(0);
   });
+
+  it('saves where its own picture is kept, and says nothing of a picture when there is none', async () => {
+    const { calls } = fakeClient({ ideas: [{ data: { id: 'i1' } }, { data: { id: 'i2' } }] });
+    await addIdea({ ...input, thumbsUp: false, picture: 'g1/p1.jpg' });
+    await addIdea({ ...input, thumbsUp: false, picture: null });
+    const [withPicture, without] = stepsFor(calls, 'ideas');
+    expect(argsOf(withPicture, 'insert')?.[0]).toMatchObject({ title: 'Picnic', picture: 'g1/p1.jpg' });
+    expect(argsOf(without, 'insert')?.[0]).not.toHaveProperty('picture');
+  });
+
+  it('never drops a picture quietly: without update 017 the idea is not added, and the person is told why', async () => {
+    const missing = { error: { message: 'no picture column', code: 'PGRST204' } as never };
+    const { calls } = fakeClient({ ideas: [missing] });
+    await expect(addIdea({ ...input, thumbsUp: true, picture: 'g1/p1.jpg' })).rejects.toThrow('update 017');
+    expect(stepsFor(calls, 'ideas')).toHaveLength(1);
+    expect(stepsFor(calls, 'reactions')).toHaveLength(0);
+  });
 });
 
 describe('planIdea', () => {
@@ -456,6 +473,23 @@ describe('updateIdea', () => {
     const { calls } = fakeClient();
     await updateIdea('i1', { title: 'Tacos', link: '', note: null, listId: 'l2' });
     expect(argsOf(stepsFor(calls, 'ideas')[0], 'update')).toEqual([{ title: 'Tacos', link: null, note: null, list_id: 'l2' }]);
+  });
+
+  it('changes the picture only when told to: a new place, or none', async () => {
+    const { calls } = fakeClient();
+    const change = { title: 'Tacos', link: null, note: null, listId: 'l2' };
+    await updateIdea('i1', { ...change, picture: 'g1/p2.jpg' });
+    await updateIdea('i1', { ...change, picture: null });
+    await updateIdea('i1', change);
+    const [fresh, off, untouched] = stepsFor(calls, 'ideas').map((steps) => argsOf(steps, 'update')?.[0]);
+    expect(fresh).toMatchObject({ picture: 'g1/p2.jpg' });
+    expect(off).toMatchObject({ picture: null });
+    expect(untouched).not.toHaveProperty('picture');
+  });
+
+  it('says why when a picture cannot be saved because update 017 is missing', async () => {
+    fakeClient({ ideas: [{ error: { message: 'no picture column', code: '42703' } as never }] });
+    await expect(updateIdea('i1', { title: 'Tacos', link: null, note: null, listId: 'l2', picture: 'g1/p2.jpg' })).rejects.toThrow('update 017');
   });
 
   it('throws the database error', async () => {

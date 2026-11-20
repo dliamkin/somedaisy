@@ -8,11 +8,13 @@ type Helper = {
   safeTarget: (input: unknown) => URL | null;
   pictureFrom: (html: string, pageUrl: string) => string | null;
   titleFrom: (html: string) => string | null;
+  searchedFor: (at: URL) => string | null;
+  preview: (input: unknown, fetcher: (url: string, init?: unknown) => Promise<Response>) => Promise<{ image: string | null; title: string | null }>;
   previewPicture: (input: unknown, fetcher: (url: string, init?: unknown) => Promise<Response>) => Promise<string | null>;
   default: { fetch: (req: Request) => Promise<Response> };
 };
 const helper = jest.requireActual<Helper>('../../../supabase/functions/link-preview/index');
-const { safeTarget, pictureFrom, previewPicture, titleFrom } = helper;
+const { safeTarget, pictureFrom, previewPicture, titleFrom, searchedFor, preview } = helper;
 
 const page = (head: string) => `<!doctype html><html><head>${head}</head><body>hi</body></html>`;
 
@@ -245,5 +247,57 @@ describe('titleFrom', () => {
   it('is nothing when the page does not say', () => {
     expect(titleFrom(page(''))).toBeNull();
     expect(titleFrom(page('<title>   </title>'))).toBeNull();
+  });
+});
+
+describe('searchedFor', () => {
+  it('gives the words searched for on a page of Google results, in any country', () => {
+    expect(searchedFor(new URL('https://www.google.com/search?sa=X&kgmid=/g/11ghq_r34j&q=Native+Rhythms+Festival&shem=dlvs1,epsd1'))).toBe('Native Rhythms Festival');
+    expect(searchedFor(new URL('https://www.google.co.uk/search?q=fish%20and%20chips'))).toBe('fish and chips');
+    expect(searchedFor(new URL('https://google.de/search?q=%20%20Kino%20%20heute%20'))).toBe('Kino heute');
+  });
+
+  it('is nothing for a Google page that was not a search, or a search for nothing', () => {
+    expect(searchedFor(new URL('https://www.google.com/searchviewer/10?svid=abc'))).toBeNull();
+    expect(searchedFor(new URL('https://www.google.com/search?q='))).toBeNull();
+    expect(searchedFor(new URL('https://www.google.com/maps/place/Taco+Spot'))).toBeNull();
+  });
+
+  it('is nothing for any other site, whatever its address says', () => {
+    expect(searchedFor(new URL('https://example.org/search?q=tacos'))).toBeNull();
+    expect(searchedFor(new URL('https://notgoogle.com/search?q=tacos'))).toBeNull();
+    expect(searchedFor(new URL('https://google.example.org/search?q=tacos'))).toBeNull();
+  });
+});
+
+describe('preview, for a result shared from Google', () => {
+  const html = (body: string, status = 200) => new Response(body, { status, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+  const redirect = (to: string) => new Response(null, { status: 302, headers: { location: to } });
+  const results = 'https://www.google.com/search?sa=X&q=Native+Rhythms+Festival';
+  const shared = (answer: () => Response) =>
+    jest.fn(async (url: string) => {
+      if (url === 'https://share.google/5FWY') return redirect('https://www.google.com/share.google?q=5FWY');
+      if (url === 'https://www.google.com/share.google?q=5FWY') return redirect(results);
+      return answer();
+    });
+
+  it('names the idea for what was searched, not "Google Search"', async () => {
+    const fetcher = shared(() => html(page('<title>Google Search</title>')));
+    expect(await preview('https://share.google/5FWY', fetcher)).toEqual({ image: null, title: 'Native Rhythms Festival' });
+  });
+
+  it('still gives the name when Google turns the helper away', async () => {
+    const fetcher = shared(() => html('Too many requests', 429));
+    expect(await preview('https://share.google/5FWY', fetcher)).toEqual({ image: null, title: 'Native Rhythms Festival' });
+  });
+
+  it('gives no name for a Google page that does not say what it shows', async () => {
+    const fetcher = jest.fn(async () => html(page('<title>Place Viewer</title>')));
+    expect(await preview('https://www.google.com/searchviewer/10?svid=abc', fetcher)).toEqual({ image: null, title: null });
+  });
+
+  it('leaves every other site named by its own page', async () => {
+    const fetcher = jest.fn(async () => html(page('<title>Taco Spot</title>')));
+    expect(await preview('https://example.org/search?q=tacos', fetcher)).toEqual({ image: null, title: 'Taco Spot' });
   });
 });

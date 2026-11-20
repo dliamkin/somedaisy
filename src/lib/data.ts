@@ -1,5 +1,6 @@
 import { countByIdea, latestByIdea, type Comment } from './comments';
 import { ALL_ON, sameOptions, type ListOptions } from './list-options';
+import { NO_PICTURES } from './pictures';
 import { db } from './supabase';
 import { DEFAULT_AVATAR } from './theme';
 
@@ -34,6 +35,8 @@ export type Idea = {
   created_at: string;
   /** The preview picture of the page the link goes to. Absent until update 011 has been run. */
   image_url?: string | null;
+  /** Where the idea's own picture is kept (see `src/lib/pictures.ts`). Absent until update 017 has been run. */
+  picture?: string | null;
   /** How long it takes: "short", "medium" or "long". Absent until update 014 has been run. */
   takes?: string | null;
   /** "in" for staying in, "out" for going out. Absent until update 014 has been run. */
@@ -315,6 +318,8 @@ export async function addIdea(input: {
   userId: string;
   thumbsUp: boolean;
   tags?: IdeaTags;
+  /** Where the idea's own picture has been kept, if it has one. */
+  picture?: string | null;
 }): Promise<string> {
   const client = db();
   const row = {
@@ -324,11 +329,14 @@ export async function addIdea(input: {
     link: input.link || null,
     note: input.note || null,
     added_by: input.userId,
+    ...(input.picture ? { picture: input.picture } : {}),
   };
   const tags = input.tags && (input.tags.takes || input.tags.setting) ? input.tags : null;
   let { data, error } = await client.from('ideas').insert(tags ? { ...row, ...tags } : row).select('id').single();
   // Before update 014 an idea cannot keep tags. The idea itself still gets added.
   if (tags && noSuchColumn(error)) ({ data, error } = await client.from('ideas').insert(row).select('id').single());
+  // A picture is never dropped like that: the person chose it, and would not see it was gone.
+  if (input.picture && noSuchColumn(error)) throw new Error(NO_PICTURES);
   fail(error);
   if (input.thumbsUp && data) {
     const res = await client
@@ -372,15 +380,25 @@ export async function setReaction(
   fail(error);
 }
 
-/** Change an idea's words or move it to another list. Its reactions, comments and date stay. */
+/**
+ * Change an idea's words or move it to another list. Its reactions, comments and date stay.
+ * `picture` is only given when the idea's own picture changes: a new place, or null to take it off.
+ */
 export async function updateIdea(
   ideaId: string,
-  change: { title: string; link: string | null; note: string | null; listId: string; tags?: IdeaTags },
+  change: { title: string; link: string | null; note: string | null; listId: string; tags?: IdeaTags; picture?: string | null },
 ): Promise<void> {
-  const row = { title: change.title, link: change.link || null, note: change.note || null, list_id: change.listId };
+  const row = {
+    title: change.title,
+    link: change.link || null,
+    note: change.note || null,
+    list_id: change.listId,
+    ...(change.picture !== undefined ? { picture: change.picture } : {}),
+  };
   let { error } = await db().from('ideas').update(change.tags ? { ...row, ...change.tags } : row).eq('id', ideaId);
   // Before update 014 an idea cannot keep tags. The rest of the change is still saved.
   if (change.tags && noSuchColumn(error)) ({ error } = await db().from('ideas').update(row).eq('id', ideaId));
+  if (change.picture !== undefined && noSuchColumn(error)) throw new Error(NO_PICTURES);
   fail(error);
 }
 

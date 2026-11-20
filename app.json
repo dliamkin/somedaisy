@@ -58,6 +58,14 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "SomeDaisy opens your photos so you can choose a picture for an idea.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-navigation-bar",
         {
           "enforceContrast": false

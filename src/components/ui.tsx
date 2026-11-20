@@ -1,9 +1,10 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -52,6 +53,17 @@ export function T({
 /** The space between the side of the screen and what is on it. A little less than the space between two cards. */
 const GUTTER = 16;
 
+type Box = ComponentRef<typeof TextInput>;
+/**
+ * How a text box tells the page it is on that it is being typed in, or no longer is, so the page
+ * can keep it in view above the keyboard.
+ */
+const TypingContext = createContext<(box: Box | null, on: boolean) => void>(() => {});
+
+/** How far from the top and bottom of the part that scrolls a box being typed in is kept. Room for its label above. */
+const ABOVE = 40;
+const BELOW = 16;
+
 /**
  * Page wrapper: pastel background, phone-width column, optional pinned footer.
  * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
@@ -60,16 +72,62 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const band = Boolean(footer && flowers);
+  // On a phone the keyboard makes the part that scrolls shorter, and the box being typed in can
+  // end up under it. Each time that part changes height, and when a box is first tapped, the box
+  // is scrolled back into view. The website does the same for itself (see src/lib/web-page.ts).
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+  const typingIn = useRef<Box | null>(null);
+  const scrolledTo = useRef(0);
+  const reveal = useCallback(() => {
+    const box = typingIn.current;
+    const page = scroller.current;
+    if (Platform.OS === 'web' || !box || !page) return;
+    try {
+      page.measureInWindow((_x, top, _w, height) => {
+        box.measureInWindow((_bx, boxTop, _bw, boxHeight) => {
+          if (typingIn.current !== box || !height) return;
+          const over = boxTop + boxHeight + BELOW - (top + height);
+          const under = top + ABOVE - boxTop;
+          // Below the bottom edge: move up just enough. Above the top edge: move down just enough.
+          if (over > 0) page.scrollTo({ y: scrolledTo.current + over, animated: true });
+          else if (under > 0) page.scrollTo({ y: Math.max(0, scrolledTo.current - under), animated: true });
+        });
+      });
+    } catch {
+      // Not being able to measure is no reason to stop someone typing.
+    }
+  }, []);
+  const typing = useCallback(
+    (box: Box | null, on: boolean) => {
+      if (on) {
+        typingIn.current = box;
+        // A moment later, for when the keyboard is already up and only the box has changed.
+        setTimeout(reveal, 80);
+      } else if (typingIn.current === box) {
+        // Only the box that was being typed in can say it no longer is.
+        typingIn.current = null;
+      }
+    },
+    [reveal],
+  );
   return (
     // With the band, the bottom edge is left to the band itself, so its colour runs under the phone's own bar.
     <SafeAreaView edges={band ? ['top', 'left', 'right'] : undefined} style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Makes room for the keyboard: the page gets shorter, so the box being typed in and the pinned buttons stay in view. */}
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
+        <TypingContext.Provider value={typing}>
         <ScrollView
+          ref={scroller}
           keyboardShouldPersistTaps="handled"
+          onLayout={reveal}
+          onScroll={(e) => {
+            scrolledTo.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={32}
           contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: 24, paddingBottom: footer ? 12 : 16, gap: 18, flexGrow: 1 }}>
           {children}
         </ScrollView>
+        </TypingContext.Provider>
         {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
         {footer && !band ? <View style={{ paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
         {footer && band ? (
@@ -300,7 +358,11 @@ export function Field({
   autoFocus?: boolean;
   maxLength?: number;
   onSubmit?: () => void;
-  /** Picks the right keyboard and autofill for an email address, an emailed code or a web address. */
+  /**
+   * Picks the right keyboard for an email address, an emailed code or a web address. Only the
+   * first two are for signing in. Every other box is kept away from the phone's password manager,
+   * which would otherwise offer to save what was typed as a sign-in.
+   */
   kind?: 'email' | 'code' | 'link';
   /** Something to sit beside the box, such as a button that fills it in. */
   after?: ReactNode;
@@ -308,6 +370,14 @@ export function Field({
   const { colors, dark } = useTheme();
   // The box being typed in gets an edge in the button colour, in place of the browser's own focus ring.
   const [focused, setFocused] = useState(false);
+  const box = useRef<Box>(null);
+  const typing = useContext(TypingContext);
+  // A box that goes away while it is being typed in is no longer the one to keep in view.
+  useEffect(() => {
+    const mine = box.current;
+    return () => typing(mine, false);
+  }, [typing]);
+  const signIn = kind === 'email' || kind === 'code';
   return (
     <View style={{ gap: 6 }}>
       <T size={14} weight="extra">
@@ -315,6 +385,7 @@ export function Field({
       </T>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <TextInput
+        ref={box}
         accessibilityLabel={label}
         value={value}
         onChangeText={onChangeText}
@@ -325,12 +396,19 @@ export function Field({
         autoFocus={autoFocus}
         maxLength={maxLength}
         onSubmitEditing={onSubmit}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={() => {
+          setFocused(true);
+          typing(box.current, true);
+        }}
+        onBlur={() => {
+          setFocused(false);
+          typing(box.current, false);
+        }}
         keyboardType={kind === 'email' ? 'email-address' : kind === 'code' ? 'number-pad' : kind === 'link' ? 'url' : 'default'}
         autoCapitalize={kind ? 'none' : undefined}
         autoCorrect={kind ? false : undefined}
-        autoComplete={kind === 'email' ? 'email' : kind === 'code' ? 'one-time-code' : undefined}
+        autoComplete={kind === 'email' ? 'email' : kind === 'code' ? 'one-time-code' : 'off'}
+        importantForAutofill={signIn ? 'auto' : 'no'}
         textContentType={kind === 'email' ? 'emailAddress' : kind === 'code' ? 'oneTimeCode' : undefined}
         returnKeyType={multiline ? 'default' : 'done'}
         style={{
