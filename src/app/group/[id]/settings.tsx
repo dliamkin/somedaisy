@@ -26,7 +26,10 @@ import {
 import { optionsOf, type ListOptions } from '@/lib/list-options';
 import { cleanHex, isIcon } from '@/lib/looks';
 import { useSession } from '@/lib/session';
+import { useCoverPhotos } from '@/lib/cover-addresses';
+import { uploadedPhoto } from '@/lib/cover-photos';
 import { coverOf, NAME_MAX } from '@/lib/covers';
+import { removeCover } from '@/lib/picture-files';
 import { levelFor, TITLES } from '@/lib/points';
 import { useTheme } from '@/lib/theme';
 
@@ -110,6 +113,9 @@ export default function GroupSettings() {
     }
   };
 
+  // Where the cover's photo loads from, when the group has one.
+  const photoOf = useCoverPhotos(group ? [coverOf(group)] : []);
+
   if (group === undefined) return <Loading />;
   if (!group || !id || !userId) {
     return (
@@ -143,6 +149,9 @@ export default function GroupSettings() {
     setBusy(true);
     setError(null);
     try {
+      // The last one out takes the group with them, and the database cannot remove a stored file.
+      // So the cover photo goes first, while this person is still allowed to remove it.
+      if (alone && uploadedPhoto(coverOf(group))) await removeCover(id);
       await leaveGroup(id);
       router.replace('/');
     } catch (e) {
@@ -183,6 +192,7 @@ export default function GroupSettings() {
           place="card"
           name={group.name}
           earned={group.points !== null ? levelFor(group.points).index + 1 : TITLES.length}
+          photo={photoOf(coverOf(group))}
           style={{ borderRadius: 20 }}
         />
         <Button label="Change cover" kind="outline" small onPress={() => router.push(`/group/${id}/cover` as never)} disabled={busy} />

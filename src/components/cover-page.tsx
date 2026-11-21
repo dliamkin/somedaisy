@@ -31,7 +31,7 @@ export function CoverPage({
   cover,
   name,
   earned,
-  photoUri,
+  photo,
   onBack,
   actions,
   under,
@@ -41,7 +41,7 @@ export function CoverPage({
   cover: CoverData;
   name: string;
   earned: number;
-  photoUri?: string | null;
+  photo?: { uri: string; key?: string } | null;
   onBack: () => void;
   actions: CoverAction[];
   under?: ReactNode | ((ink: string) => ReactNode);
@@ -62,7 +62,7 @@ export function CoverPage({
     }, []),
   );
   const leaves = COVER.page.height - OVERLAP - 8;
-  const coverDark = isDark(cover, cover.kind === 'photo' && Boolean(photoUri));
+  const coverDark = isDark(cover, cover.kind === 'photo' && Boolean(photo));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -81,7 +81,7 @@ export function CoverPage({
             place="page"
             name={name}
             earned={earned}
-            photoUri={photoUri}
+            photo={photo}
             inset={insets.top}
             above={
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

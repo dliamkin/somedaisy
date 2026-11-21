@@ -15,6 +15,7 @@ import { ListIcon } from '@/components/list-tile';
 import { Sheet, SheetRow } from '@/components/sheet';
 import { Button, Card, CircleButton, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, takeListToOpen, type GroupData, type Idea } from '@/lib/data';
+import { useCoverPhotos } from '@/lib/cover-addresses';
 import { coverOf } from '@/lib/covers';
 import { openLink } from '@/lib/links';
 import { plannedIdeas } from '@/lib/plans';
@@ -171,6 +172,9 @@ export default function GroupScreen() {
     return group.lists.find((l) => l.id === listId) ?? null;
   }, [group, listId]);
 
+  // Where the cover's photo loads from, when the group has one.
+  const photoOf = useCoverPhotos(group ? [coverOf(group)] : []);
+
   if (group === undefined && !error) return <Loading />;
   if (group === undefined) {
     // The group may well exist: it just could not be fetched, for example with no connection.
@@ -319,6 +323,7 @@ export default function GroupScreen() {
         cover={cover}
         name={group.name}
         earned={petals}
+        photo={photoOf(cover)}
         onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
         actions={[
           { label: 'Invite people', icon: (color) => <ActionIcon name="invite" color={color} />, onPress: () => go('invite') },

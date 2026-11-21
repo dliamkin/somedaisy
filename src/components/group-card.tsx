@@ -23,6 +23,7 @@ export function GroupCard({
   rank,
   petals,
   next,
+  photo,
   onPress,
 }: {
   group: GroupSummary;
@@ -31,6 +32,8 @@ export function GroupCard({
   /** How many of the daisy's eight petals are filled in. */
   petals: number;
   next?: string | null;
+  /** Where the cover's photo loads from, when it has one (see `useCoverPhotos`). */
+  photo?: { uri: string; key?: string } | null;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
@@ -41,7 +44,7 @@ export function GroupCard({
       {/* The card carries the shadow. The box inside it cuts the cover to the card's rounded corners. */}
       <Card style={{ padding: 0, gap: 0, borderRadius: RADIUS }}>
         <View style={{ borderRadius: RADIUS, overflow: 'hidden' }}>
-          <Cover cover={coverOf(group)} place="card" name={group.name} earned={petals} />
+          <Cover cover={coverOf(group)} place="card" name={group.name} earned={petals} photo={photo} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, paddingRight: 14, paddingBottom: 12, paddingLeft: 16, minHeight: 48 }}>
             {/* One line only: the rank, then what is next. Whatever does not fit is cut off. */}
             <T size={13} color={colors.textMuted} lines={1} style={{ flex: 1, minWidth: 0 }}>

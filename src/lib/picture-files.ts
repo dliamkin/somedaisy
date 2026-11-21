@@ -1,45 +1,76 @@
-// Choosing a picture for an idea, making it small, and keeping it. The rules are in
-// src/lib/pictures.ts. This file is the part that needs the phone: its photo chooser
-// (expo-image-picker) and its picture tools (expo-image-manipulator).
+// Choosing a picture, making it small, and keeping it: for a picture on an idea, and for a photo
+// as a group's cover. The rules are in src/lib/pictures.ts and src/lib/cover-photos.ts. This file
+// is the part that needs the phone: its photo chooser (expo-image-picker) and its picture tools
+// (expo-image-manipulator).
 
 import * as Crypto from 'expo-crypto';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
+import { COVER_BUCKET, COVER_ENOUGH, COVER_MAX_BYTES, COVER_TRIES, fitWidth, NO_COVER_PHOTOS, PHOTO_NOT_SAVED } from './cover-photos';
+import { coverPath } from './covers';
 import { base64Size, bytesFromBase64, fitWithin, NO_PICTURES, ownPicture, PICTURE_BUCKET, PICTURE_MAX_BYTES, picturePath, TOO_BIG } from './pictures';
 import { db } from './supabase';
 
 /** A picture someone has chosen, already made small. `uri` is for showing it before it is kept. */
 export type ChosenPicture = { uri: string; base64: string };
 
-// First as a good-looking JPEG. If that is still too big for the place it is kept, once more, squeezed harder.
-const TRIES = [0.72, 0.5];
+/** How a chosen picture is made small. */
+type Shrink = {
+  /** The size to make it, or null to leave its size alone. */
+  fit: (width: number, height: number) => { width: number; height: number } | null;
+  /** How strongly it is squeezed as a JPEG, one try after another, gentlest first. */
+  tries: number[];
+  /** A try no bigger than this is kept, without going on to the next. */
+  enough: number;
+  /** The last try has to be no bigger than this, or the picture is refused. */
+  most: number;
+};
 
-/**
- * Let the person choose a photo, and make it small: no more than 1280 dots along its longer side,
- * as a JPEG. Null when they back out without choosing. Only photos are offered, and the phone's
- * own chooser is used, so the app never sees any photo but the one chosen.
- */
-export async function choosePicture(): Promise<ChosenPicture | null> {
+// A picture on an idea: first as a good-looking JPEG. If that is still too big for the place it is kept, once more, squeezed harder.
+const FOR_IDEA: Shrink = { fit: (width, height) => fitWithin(width, height), tries: [0.72, 0.5], enough: PICTURE_MAX_BYTES, most: PICTURE_MAX_BYTES };
+// A cover photo is kept smaller, since every member loads it on Home.
+const FOR_COVER: Shrink = { fit: (width, height) => fitWidth(width, height), tries: COVER_TRIES, enough: COVER_ENOUGH, most: COVER_MAX_BYTES };
+
+async function choose(how: Shrink): Promise<ChosenPicture | null> {
   const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
   const asset = picked.canceled ? null : picked.assets?.[0];
   if (!asset) return null;
   let image = null;
   // The chooser usually says how big the photo is. When it does not, the photo is opened to find out.
-  let size = fitWithin(asset.width, asset.height);
+  let size = how.fit(asset.width, asset.height);
   if (!(asset.width > 0 && asset.height > 0)) {
     image = await ImageManipulator.manipulate(asset.uri).renderAsync();
-    size = fitWithin(image.width, image.height);
+    size = how.fit(image.width, image.height);
   }
   if (!image || size) {
     const work = ImageManipulator.manipulate(asset.uri);
     image = await (size ? work.resize(size) : work).renderAsync();
   }
-  for (const compress of TRIES) {
+  for (const [i, compress] of how.tries.entries()) {
+    // Saving it afresh as a JPEG also leaves out where and with what the photo was taken.
     const saved = await image.saveAsync({ compress, format: SaveFormat.JPEG, base64: true });
-    if (saved.base64 && base64Size(saved.base64) <= PICTURE_MAX_BYTES) return { uri: saved.uri, base64: saved.base64 };
+    const limit = i === how.tries.length - 1 ? how.most : how.enough;
+    if (saved.base64 && base64Size(saved.base64) <= limit) return { uri: saved.uri, base64: saved.base64 };
   }
   throw new Error(TOO_BIG);
+}
+
+/**
+ * Let the person choose a photo for an idea, and make it small: no more than 1280 dots along its
+ * longer side, as a JPEG. Null when they back out without choosing. Only photos are offered, and
+ * the phone's own chooser is used, so the app never sees any photo but the one chosen.
+ */
+export function choosePicture(): Promise<ChosenPicture | null> {
+  return choose(FOR_IDEA);
+}
+
+/**
+ * The same, for a group's cover: no more than 1200 dots wide, as a JPEG of a few hundred
+ * kilobytes at most. Null when they back out without choosing.
+ */
+export function chooseCoverPhoto(): Promise<ChosenPicture | null> {
+  return choose(FOR_COVER);
 }
 
 /**
@@ -65,6 +96,33 @@ export async function removePicture(path: unknown): Promise<void> {
   if (!place) return;
   try {
     await db().storage.from(PICTURE_BUCKET).remove([place]);
+  } catch {
+    // Left behind.
+  }
+}
+
+/**
+ * Keep a chosen photo as the group's cover photo. A group has the one file, so a new photo takes
+ * the place of the old one. The cover on the group's row is saved separately, with a new version,
+ * which is what tells every phone that the photo has changed.
+ */
+export async function uploadCover(groupId: string, photo: ChosenPicture): Promise<void> {
+  const bytes = bytesFromBase64(photo.base64);
+  if (bytes.length === 0 || bytes.length > COVER_MAX_BYTES) throw new Error(TOO_BIG);
+  const { error } = await db()
+    .storage.from(COVER_BUCKET)
+    // The name is used again for the next photo, so nothing is told to keep its copy for long.
+    .upload(coverPath(groupId), bytes.buffer as ArrayBuffer, { contentType: 'image/jpeg', upsert: true, cacheControl: '3600' });
+  if (error) throw new Error(/bucket not found/i.test(error.message) ? NO_COVER_PHOTOS : PHOTO_NOT_SAVED);
+}
+
+/**
+ * Remove a group's cover photo, once the group no longer uses it or is about to be deleted. Like
+ * `removePicture`, it never fails out loud.
+ */
+export async function removeCover(groupId: string): Promise<void> {
+  try {
+    await db().storage.from(COVER_BUCKET).remove([coverPath(groupId)]);
   } catch {
     // Left behind.
   }

@@ -281,7 +281,7 @@ A cover is one of three kinds:
 - **Classic:** one of the four colours the app has always had, with the flower pattern.
 - **Look:** three colours (background and two shapes). Eight are ready-made (`LOOKS`), and
   `surpriseLook` makes a new one each time from one random hue, so the three never clash.
-- **Photo:** a photo with a dark fade under the name. (Not on offer yet.)
+- **Photo:** a photo of the group's own, with a dark fade under the name (see "Cover photos").
 
 Two things are worked out and never chosen, so any cover stays readable. The name is dark ink or
 white, whichever stands out more against the background by the standard contrast sum (`textOn`).
@@ -303,6 +303,36 @@ cannot say (`coverOf` reads the two together, `coverChange` writes them). That n
 it always did, and says the update is missing if anything else is saved (`NO_COVERS`). Copies
 of the app from before the update only know the word: when one of them changes a group's colour,
 the database empties `cover_style`, so every copy shows the colour that was just chosen.
+
+### Cover photos
+
+A group can use one photo of its own as its cover. It is chosen on the Photo half of the cover
+picker, shown in the preview straight from the device, and only sent when "Save cover" is tapped
+(`chooseCoverPhoto` and `uploadCover` in `src/lib/picture-files.ts`). The rules are in
+`src/lib/cover-photos.ts`.
+
+- **Small.** The photo is made no wider than 1200 dots and saved as a JPEG at about 70%. If that
+  is over 400 KB it is squeezed once more. Saving it afresh also leaves out where and with what it
+  was taken. The place it is kept refuses anything over 512 KB.
+- **One per group.** It is always the file `<group id>/cover.jpg` in the storage place
+  `group-covers`, so a new photo takes the place of the old one. The cover on the group's row
+  carries a version taken from the clock, which is what tells each phone its kept copy is out of
+  date (`nextVersion`).
+- **Private.** Unlike pictures on ideas, the place is not public, because a cover can be a photo
+  of people. Only members can add, see, replace or remove a group's photo. To show one, the app
+  asks storage, as the signed-in member, for an address that works for a day
+  (`useCoverPhotos` in `src/lib/cover-addresses.ts`): one request for every group on Home, and
+  each address is used again for the rest of the session. The photo is kept on the device under
+  its place and version, not its address, so a new address does not fetch it again.
+- **Tidied up.** The file is removed when the group goes back to colours. The database cannot
+  remove a stored file, so when the last member leaves, or deletes their account, the app removes
+  the photo first. A copy of the app from before this would leave the file behind.
+- **While it loads, or if it will not,** the cover shows the colour and pattern it had, with the
+  name in a colour that can be read on them.
+
+It needs `supabase/updates/019-cover-photos.sql` (the place and its rules) as well as update
+018. Without 019 the app says cover photos cannot be saved yet (`NO_COVER_PHOTOS`). It uses the
+two packages that pictures on ideas already brought in, so nothing new is installed.
 
 ### Typing on a phone
 

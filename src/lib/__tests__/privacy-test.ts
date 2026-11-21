@@ -25,10 +25,17 @@ describe('the privacy policy', () => {
 
   it('says that pictures added to ideas are kept, who keeps them and who can open them', () => {
     expect(words).toContain('A picture you add to an idea yourself');
-    expect(words).toContain('The only photos we keep are the ones you add to an idea');
+    expect(words).toContain('The only photos we keep are the ones you add to an idea or as a group');
     expect(words).toContain('anyone who is given that address can open the picture');
-    expect(words).toContain('the pictures added to ideas included');
+    expect(words).toContain('the pictures added to ideas and the photos used as covers included');
     expect(words).not.toContain('We do not collect your contacts or your photos');
+  });
+
+  it('says that a cover photo is kept, that only the group sees it, and what becomes of it', () => {
+    expect(words).toContain('A photo you add as a group');
+    expect(words).toContain('A group keeps one cover photo');
+    expect(words).toContain('shown only to the people in that group');
+    expect(words).toContain('its cover photo included');
   });
 
   it('says how to have an account deleted, and gives a way to write in', () => {
