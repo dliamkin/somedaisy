@@ -3,6 +3,10 @@ import { useState } from 'react';
 
 import { Button, Card, ErrorNote, T } from '@/components/ui';
 import { deleteAccount } from '@/lib/account';
+import { uploadedPhoto } from '@/lib/cover-photos';
+import { coverOf } from '@/lib/covers';
+import { fetchGroups } from '@/lib/data';
+import { removeCover } from '@/lib/picture-files';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
 
@@ -22,6 +26,10 @@ export function DeleteAccount({ guest, disabled }: { guest?: boolean; disabled?:
     setBusy(true);
     setError(null);
     try {
+      // Deleting the account deletes the groups this person is alone in. The database cannot remove
+      // a stored file, so those groups' cover photos are removed first. Failing to is no reason to stop.
+      const groups = await fetchGroups().catch(() => []);
+      await Promise.all(groups.filter((g) => g.members.length === 1 && uploadedPhoto(coverOf(g))).map((g) => removeCover(g.id)));
       await deleteAccount();
       await refresh();
       router.replace('/');

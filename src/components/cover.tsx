@@ -74,8 +74,10 @@ const FADE = [
 /**
  * A group's cover.
  *
- * `photoUri` is where a photo cover's photo loads from: the caller works that out, since an
- * uploaded photo needs an address asked for from storage. Until the photo has loaded, and if it
+ * `photo` is where a photo cover's photo loads from, and what to keep it under on the device:
+ * the caller works that out, since an uploaded photo needs an address asked for from storage (see
+ * `useCoverPhotos`). The key stays the same when only the address changes, so the photo is kept
+ * and not fetched again. Until the photo has loaded, and if it
  * will not load, the cover shows its colour and pattern instead, with the name in a colour that
  * can be read on them.
  *
@@ -89,7 +91,7 @@ export function Cover({
   place,
   name,
   earned,
-  photoUri,
+  photo: source,
   above,
   inset = 0,
   children,
@@ -100,7 +102,7 @@ export function Cover({
   name: string;
   /** How many of the daisy's eight petals are filled in: one for each rank the group has reached. */
   earned: number;
-  photoUri?: string | null;
+  photo?: { uri: string; key?: string } | null;
   above?: ReactNode;
   inset?: number;
   children?: ReactNode | ((ink: string) => ReactNode);
@@ -110,8 +112,10 @@ export function Cover({
   // The photo that has loaded, and the one that would not, so a different photo gets its own chance.
   const [loaded, setLoaded] = useState<string | null>(null);
   const [broken, setBroken] = useState<string | null>(null);
-  const photo = cover.kind === 'photo' && photoUri && broken !== photoUri ? photoUri : null;
-  const showing = photo !== null && loaded === photo;
+  // Told apart by the key, so a new address for the same photo does not start it loading again.
+  const mark = source ? (source.key ?? source.uri) : null;
+  const photo = cover.kind === 'photo' && source && broken !== mark ? source : null;
+  const showing = photo !== null && loaded === mark;
   const ink = nameColor(cover, showing);
   const size = nameSize(name, layout.name);
   const height = layout.height + inset;
@@ -134,13 +138,13 @@ export function Cover({
       {cover.pattern && !showing ? <CoverFlowers opacity={patternStrength(cover)} /> : null}
       {photo ? (
         <Image
-          source={{ uri: photo }}
+          source={{ uri: photo.uri, cacheKey: photo.key }}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: showing ? 1 : 0 }}
           contentFit="cover"
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          onLoad={() => setLoaded(photo)}
-          onError={() => setBroken(photo)}
+          onLoad={() => setLoaded(mark)}
+          onError={() => setBroken(mark)}
         />
       ) : null}
       {showing ? (

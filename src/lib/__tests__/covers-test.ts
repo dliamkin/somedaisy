@@ -130,7 +130,7 @@ describe('coverOf', () => {
   it('reads both kinds of photo', () => {
     const uploaded = { source: 'upload', path: coverPath(GROUP), version: 3 };
     expect(coverOf({ id: GROUP, cover: 'sky', cover_style: { kind: 'photo', background: '#CDEFE0', pattern: true, photo: uploaded } })).toEqual({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: uploaded });
-    const searched = { source: 'search', url: 'https://images.example.org/a?w=1200', credit: 'Photo by Ann', creditUrl: 'https://example.org/@ann' };
+    const searched = { source: 'search', url: 'https://images.unsplash.com/photo-1?ixid=abc&w=1080', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann?utm_source=somedaisy&utm_medium=referral' };
     expect(coverOf({ id: GROUP, cover: 'sky', cover_style: { kind: 'photo', background: '#CDEFE0', pattern: true, photo: searched } })).toEqual({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: searched });
   });
 
@@ -140,8 +140,15 @@ describe('coverOf', () => {
       null,
       { source: 'upload', path: 'someone-else/cover.jpg', version: 1 },
       { source: 'upload', path: coverPath(GROUP), version: 0 },
-      { source: 'search', url: 'http://images.example.org/a', credit: 'Photo by Ann', creditUrl: 'https://example.org/@ann' },
-      { source: 'search', url: 'https://images.example.org/a', credit: '', creditUrl: 'https://example.org/@ann' },
+      { source: 'search', url: 'http://images.unsplash.com/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' },
+      // A photo from anywhere but the photo service, or a credit that leads anywhere else.
+      { source: 'search', url: 'https://images.example.org/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' },
+      { source: 'search', url: 'https://images.unsplash.com/a', credit: 'Photo by Ann', creditUrl: 'https://example.org/@ann' },
+      { source: 'search', url: 'https://unsplash.com.example.org/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' },
+      { source: 'search', url: 'https://example.org\\.unsplash.com/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' },
+      { source: 'search', url: 'https://someone@images.unsplash.com/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' },
+      { source: 'search', url: 'https://images.unsplash.com:8443/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' },
+      { source: 'search', url: 'https://images.unsplash.com/a', credit: '', creditUrl: 'https://unsplash.com/@ann' },
       { source: 'somewhere' },
     ]) {
       expect(coverOf({ id: GROUP, cover: 'sky', cover_style: { kind: 'photo', background: '#CDEFE0', pattern: true, photo } })).toEqual(colour);
@@ -187,7 +194,7 @@ describe('coverChange', () => {
       { kind: 'classic', background: CLASSIC.peach, pattern: false },
       { kind: 'look', ...look('Night'), pattern: false },
       { kind: 'photo', background: '#CDEFE0', pattern: true, photo: { source: 'upload', path: coverPath(GROUP), version: 2 } },
-      { kind: 'photo', background: '#CDEFE0', pattern: false, photo: { source: 'search', url: 'https://images.example.org/a', credit: 'Photo by Ann', creditUrl: 'https://example.org/@ann' } },
+      { kind: 'photo', background: '#CDEFE0', pattern: false, photo: { source: 'search', url: 'https://images.unsplash.com/a', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann' } },
     ];
     for (const cover of all) {
       const change = coverChange(cover);

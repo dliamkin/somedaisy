@@ -8,6 +8,8 @@ import { NameForm } from '@/components/name-form';
 import { NotificationsCard } from '@/components/notifications-card';
 import { PrivacyLink } from '@/components/privacy-link';
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
+import { useCoverPhotos } from '@/lib/cover-addresses';
+import { coverOf } from '@/lib/covers';
 import { fetchGroups, fetchPlansByGroup, type GroupSummary, type PlanSummary } from '@/lib/data';
 import { nextPlan, nextPlanLine } from '@/lib/plans';
 import { levelFor, TITLES } from '@/lib/points';
@@ -83,6 +85,8 @@ function Home() {
   const [plans, setPlans] = useState<Record<string, PlanSummary[]> | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [error, setError] = useState<string | null>(null);
+  // Where each group's cover photo loads from, asked for in one go for all of them.
+  const photoOf = useCoverPhotos((groups ?? []).map(coverOf));
 
   useFocusEffect(
     useCallback(() => {
@@ -161,6 +165,7 @@ function Home() {
                 // One petal for each rank the group has reached. Until the ranks have loaded, the whole daisy.
                 petals={level ? level.index + 1 : TITLES.length}
                 next={plans ? (next ? `Next: ${nextPlanLine(next.title, next.planned_for, now)}` : null) : undefined}
+                photo={photoOf(coverOf(g))}
                 onPress={() => router.push(`/group/${g.id}` as never)}
               />
             );
