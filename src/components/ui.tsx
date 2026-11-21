@@ -15,6 +15,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { fonts, useTheme } from '@/lib/theme';
 
@@ -67,8 +68,9 @@ const BELOW = 16;
 /**
  * Page wrapper: pastel background, phone-width column, optional pinned footer.
  * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
+ * `fade` lets what scrolls fade out as it reaches a plain footer, instead of being cut off in a line.
  */
-export function Screen({ children, footer, flowers }: { children: ReactNode; footer?: ReactNode; flowers?: boolean }) {
+export function Screen({ children, footer, flowers, fade }: { children: ReactNode; footer?: ReactNode; flowers?: boolean; fade?: boolean }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const band = Boolean(footer && flowers);
@@ -129,7 +131,12 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
         </ScrollView>
         </TypingContext.Provider>
         {/* The same space above and below the pinned buttons. A phone's own bar at the bottom already leaves room there. */}
-        {footer && !band ? <View style={{ paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>{footer}</View> : null}
+        {footer && !band ? (
+          <View style={{ paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: insets.bottom > 0 ? 4 : 12, gap: 8 }}>
+            {fade ? <EdgeFade /> : null}
+            {footer}
+          </View>
+        ) : null}
         {footer && band ? (
           // The band is white like the cards and lifts off the page with a shadow cast upward, which
           // is what sets it apart from the list scrolling behind it. The shadow is on the outer box
@@ -155,6 +162,29 @@ export function Screen({ children, footer, flowers }: { children: ReactNode; foo
         ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+// How far up the page the fade above a pinned footer reaches.
+const FADE = 36;
+
+/** The page's own colour, from nothing to solid, laid over the bottom of what scrolls behind a pinned footer. */
+function EdgeFade() {
+  const { colors, dark } = useTheme();
+  // One name for each mode, since the two are different colours and a website shares names across the page.
+  const id = dark ? 'page-fade-dark' : 'page-fade';
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: -FADE, height: FADE }}>
+      <Svg width="100%" height="100%" viewBox="0 0 1 1" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+            <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+          </LinearGradient>
+        </Defs>
+        <Rect width={1} height={1} fill={`url(#${id})`} />
+      </Svg>
+    </View>
   );
 }
 

@@ -1,3 +1,4 @@
+import { NO_COVERS, type Cover } from '../covers';
 import {
   addIdea,
   deleteIdea,
@@ -5,6 +6,7 @@ import {
   fetchDone,
   fetchGroup,
   fetchGroups,
+  saveCover,
   leaveGroup,
   markChanged,
   openList,
@@ -302,6 +304,44 @@ describe('group settings', () => {
     const [update] = stepsFor(calls, 'groups');
     expect(argsOf(update, 'update')).toEqual([{ name: 'Best friends', cover: 'mint' }]);
     expect(argsOf(update, 'eq')).toEqual(['id', 'g1']);
+  });
+});
+
+describe('saveCover', () => {
+  const grape: Cover = { kind: 'look', background: '#4B2A8C', shape1: '#6D2FC4', shape2: '#B8339A', pattern: true };
+  const missing = { error: { code: 'PGRST204', message: "Could not find the 'cover_style' column" } };
+
+  it('saves a classic colour as its word, with the details emptied', async () => {
+    const { calls } = fakeClient();
+    await saveCover('g1', { kind: 'classic', background: '#CDEFE0', pattern: true });
+    const [update] = stepsFor(calls, 'groups');
+    expect(argsOf(update, 'update')).toEqual([{ cover: 'mint', cover_style: null }]);
+    expect(argsOf(update, 'eq')).toEqual(['id', 'g1']);
+  });
+
+  it('saves a look in the details, and leaves the word alone', async () => {
+    const { calls } = fakeClient();
+    await saveCover('g1', grape);
+    expect(argsOf(stepsFor(calls, 'groups')[0], 'update')).toEqual([{ cover_style: grape }]);
+  });
+
+  it('still saves a classic colour on a database without update 018', async () => {
+    const { calls } = fakeClient({ groups: [missing] });
+    await saveCover('g1', { kind: 'classic', background: '#CDEFE0', pattern: true });
+    const [, second] = stepsFor(calls, 'groups');
+    expect(argsOf(second, 'update')).toEqual([{ cover: 'mint' }]);
+  });
+
+  it('says which update is missing when anything newer cannot be saved', async () => {
+    fakeClient({ groups: [missing] });
+    await expect(saveCover('g1', grape)).rejects.toThrow(NO_COVERS);
+    fakeClient({ groups: [missing] });
+    await expect(saveCover('g1', { kind: 'classic', background: '#CDEFE0', pattern: false })).rejects.toThrow(NO_COVERS);
+  });
+
+  it('passes on any other failure', async () => {
+    fakeClient({ groups: [{ error: { message: 'not allowed' } }] });
+    await expect(saveCover('g1', grape)).rejects.toThrow('not allowed');
   });
 
   it('adds a list, with an icon and colour only when some were chosen', async () => {
@@ -685,6 +725,14 @@ describe('fetchGroups', () => {
     expect(await fetchGroups()).toEqual([
       { id: 'g1', name: 'Friends', cover: '🌼', members: [{ user_id: 'ann', name: 'Ann', color: '#111', photo: null }] },
     ]);
+  });
+
+  it('brings the details of the cover along when the database has them', async () => {
+    const grape = { kind: 'look', background: '#4B2A8C', shape1: '#6D2FC4', shape2: '#B8339A', pattern: true };
+    const { calls } = fakeClient({ groups: [{ data: [{ id: 'g1', name: 'Friends', cover: 'sky', cover_style: grape, group_members: [] }] }] });
+    expect(await fetchGroups()).toEqual([{ id: 'g1', name: 'Friends', cover: 'sky', cover_style: grape, members: [] }]);
+    // "*" asks for whatever a group has, so the same request works before update 018.
+    expect(argsOf(stepsFor(calls, 'groups')[0], 'select')).toEqual(['*, group_members(user_id, profiles(*))']);
   });
 
   it('returns an empty list when there is no data', async () => {

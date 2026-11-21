@@ -269,6 +269,33 @@ those from the Storage page of the Supabase dashboard, never by deleting rows fr
 `storage.objects`, which leaves the files in place. Supabase's free plan has 1 GB of Storage,
 room for several thousand pictures of this size.
 
+### Group covers
+
+A group's cover is drawn by the app, not kept as an image: a colour, two round shapes, the
+flower pattern, the daisy that grows with the group's rank, and the group's name. One component
+draws it everywhere it shows (`src/components/cover.tsx`), and the rules are in
+`src/lib/covers.ts`. The design is `docs/REDESIGN-HOME-AND-GROUP-2.md`, section 1.
+
+A cover is one of three kinds:
+
+- **Classic:** one of the four colours the app has always had, with the flower pattern.
+- **Look:** three colours (background and two shapes). Eight are ready-made (`LOOKS`), and
+  `surpriseLook` makes a new one each time from one random hue, so the three never clash.
+- **Photo:** a photo with a dark fade under the name. (Not on offer yet.)
+
+Two things are worked out and never chosen, so any cover stays readable. The name is dark ink or
+white, whichever stands out more against the background by the standard contrast sum (`textOn`).
+And the name is drawn smaller the longer it is: full size up to 14 letters, about 80% up to 24,
+about 68% after that, on two lines at most (`nameSize`). New and edited names stop at 50 letters.
+
+How it is kept: every group still has the word for its classic colour in `cover`, as before.
+Everything newer is in `cover_style`, which is empty until a group picks something the word
+cannot say (`coverOf` reads the two together, `coverChange` writes them). That needs
+`supabase/updates/018-group-covers.sql`. Without it the app shows and saves classic colours as
+it always did, and says the update is missing if anything else is saved (`NO_COVERS`). Copies
+of the app from before the update only know the word: when one of them changes a group's colour,
+the database empties `cover_style`, so every copy shows the colour that was just chosen.
+
 ### Typing on a phone
 
 Every text box in the app is one component (`Field` in `src/components/ui.tsx`), and two things

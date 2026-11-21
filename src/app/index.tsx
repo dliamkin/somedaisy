@@ -2,8 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { RankDaisy } from '@/components/daisy';
-import { FlowerOutlines } from '@/components/flower-outlines';
+import { GroupCard } from '@/components/group-card';
 import { Logo } from '@/components/logo';
 import { NameForm } from '@/components/name-form';
 import { NotificationsCard } from '@/components/notifications-card';
@@ -13,7 +12,7 @@ import { fetchGroups, fetchPlansByGroup, type GroupSummary, type PlanSummary } f
 import { nextPlan, nextPlanLine } from '@/lib/plans';
 import { levelFor, TITLES } from '@/lib/points';
 import { useSession } from '@/lib/session';
-import { covers, useTheme } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { fetchPointsByGroup } from '@/lib/together';
 
 function Brand() {
@@ -111,7 +110,7 @@ function Home() {
   );
 
   return (
-    <Screen footer={<Button label="Start a new group" onPress={() => router.push('/new-group')} />}>
+    <Screen fade footer={<Button label="Start a new group" onPress={() => router.push('/new-group')} />}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Brand />
         {profile ? (
@@ -123,13 +122,18 @@ function Home() {
           </Pressable>
         ) : null}
       </View>
-      <View style={{ gap: 4 }}>
-        <T size={32} weight="black" style={{ lineHeight: 36 }}>
-          Who are you making plans with?
+      {/* One short line, so the first group starts high on the screen and more of them fit. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <T size={26} weight="black" style={{ lineHeight: 30, letterSpacing: -0.5 }}>
+          Your groups
         </T>
-        <T weight="medium" color={colors.textMuted}>
-          Pick a group to see your shared lists.
-        </T>
+        {groups && groups.length > 0 ? (
+          <View style={{ paddingHorizontal: 9, paddingVertical: 2, borderRadius: 10, backgroundColor: colors.today }}>
+            <T size={13} weight="extra">
+              {groups.length}
+            </T>
+          </View>
+        ) : null}
       </View>
       <ErrorNote message={error} />
       {groups === null && !error ? <Loading /> : null}
@@ -143,47 +147,26 @@ function Home() {
           </T>
         </Card>
       ) : null}
-      {groups?.map((g) => {
-        const level = points ? levelFor(points[g.id] ?? 0) : null;
-        const next = plans ? nextPlan(plans[g.id] ?? [], now) : null;
-        return (
-          <Pressable key={g.id} accessibilityRole="button" accessibilityLabel={`Open ${g.name}`} onPress={() => router.push(`/group/${g.id}` as never)}>
-            <Card style={{ padding: 0, gap: 0, overflow: 'hidden' }}>
-              <View style={{ height: 68, backgroundColor: covers[g.cover] ?? colors.sky, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 18 }}>
-                <FlowerOutlines />
-                {/* One petal for each rank the group has reached. Until the ranks have loaded, the whole daisy. */}
-                <RankDaisy earned={level ? level.index + 1 : TITLES.length} />
-              </View>
-              <View style={{ paddingTop: 12, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <T size={20} weight="extra" lines={1}>
-                    {g.name}
-                  </T>
-                  {level || plans ? (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 8 }}>
-                      {level ? (
-                        <T size={14} weight="extra" color={colors.accentText} lines={1}>
-                          {level.title}
-                        </T>
-                      ) : null}
-                      {plans ? (
-                        <T size={13} color={colors.textMuted} lines={1} style={{ flexShrink: 1 }}>
-                          {next ? `Next: ${nextPlanLine(next.title, next.planned_for, now)}` : 'Nothing planned yet'}
-                        </T>
-                      ) : null}
-                    </View>
-                  ) : null}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 4 }}>
-                  {g.members.slice(0, 4).map((m) => (
-                    <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
-                  ))}
-                </View>
-              </View>
-            </Card>
-          </Pressable>
-        );
-      })}
+      {groups && groups.length > 0 ? (
+        // The cards sit a little closer to each other than the other things on the page.
+        <View style={{ gap: 12 }}>
+          {groups.map((g) => {
+            const level = points ? levelFor(points[g.id] ?? 0) : null;
+            const next = plans ? nextPlan(plans[g.id] ?? [], now) : null;
+            return (
+              <GroupCard
+                key={g.id}
+                group={g}
+                rank={level?.title}
+                // One petal for each rank the group has reached. Until the ranks have loaded, the whole daisy.
+                petals={level ? level.index + 1 : TITLES.length}
+                next={plans ? (next ? `Next: ${nextPlanLine(next.title, next.planned_for, now)}` : null) : undefined}
+                onPress={() => router.push(`/group/${g.id}` as never)}
+              />
+            );
+          })}
+        </View>
+      ) : null}
       {groups && groups.length > 0 ? <NotificationsCard /> : null}
       {groups && groups.length > 0 ? (
         <Button label="Notification settings" kind="ghost" small onPress={() => router.push('/notifications' as never)} />

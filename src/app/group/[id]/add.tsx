@@ -4,16 +4,18 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Switch, View } from 'react-native';
 
+import { AlreadyHere } from '@/components/already-here';
 import { IdeaPicture, type PictureChoice } from '@/components/idea-picture';
 import { IdeaTagsPicker } from '@/components/idea-tags-picker';
 import { LinkPreviewNote, useLinkPreview } from '@/components/link-preview';
 import { AddBoxes, ListChooser } from '@/components/list-chooser';
 import { Button, Card, ErrorNote, Field, Loading, Screen, Segmented, T, TopBar } from '@/components/ui';
-import { addIdea, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
+import { addIdea, fetchDone, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, looksLikeLink, NOTE_MAX, siteName, tidyLink } from '@/lib/links';
 import { formShows, optionsOf } from '@/lib/list-options';
 import { removePicture, uploadPicture } from '@/lib/picture-files';
 import { attachPreview, nameFromTitle, TITLE_MAX } from '@/lib/preview';
+import type { Known } from '@/lib/similar';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
 
@@ -31,6 +33,10 @@ export default function AddIdea() {
   const { id, list } = useLocalSearchParams<{ id: string; list?: string }>();
   const { userId } = useSession();
   const [lists, setLists] = useState<List[] | null>(null);
+  // What the group already has, to say so when the same thing is typed again: the ideas still on
+  // a list, and the things already done.
+  const [known, setKnown] = useState<Known[]>([]);
+  const [did, setDid] = useState<Known[]>([]);
   const [listId, setListId] = useState<string | null>(list ?? null);
   const [mode, setMode] = useState<Mode>('type');
   // The name and the link are shared by both ways in, so switching does not lose what was typed.
@@ -59,9 +65,12 @@ export default function AddIdea() {
     fetchGroup(id)
       .then((g) => {
         setLists(g?.lists ?? []);
+        setKnown(g?.ideas ?? []);
         setListId((cur) => cur ?? g?.lists[0]?.id ?? null);
       })
       .catch((e: Error) => setError(e.message));
+    // A look back, and no more: the form works the same without it.
+    fetchDone(id).then(setDid, () => {});
   }, [id]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
@@ -166,6 +175,8 @@ export default function AddIdea() {
   const listPicker = <ListChooser all={lists ?? []} lists={offeredLists} chosenId={chosenId} onChoose={setListId} />;
   // Any idea can have a picture of its own, whatever its list asks for and whichever way it is added.
   const ownPicture = <IdeaPicture value={own} onChange={setOwn} name={title} />;
+  // Said under the name while it is typed. It only tells: the idea can still be added.
+  const alreadyHere = <AlreadyHere name={title} open={known} done={did} lists={lists ?? []} />;
 
   return (
     <Screen footer={<Button label="Add to list" onPress={submit} disabled={!ready} busy={busy} />}>
@@ -239,6 +250,7 @@ export default function AddIdea() {
               <Field label={unread ? 'Idea name' : 'Idea name (edit if you like)'} value={title} onChangeText={setTitle} maxLength={TITLE_MAX} />
             </Card>
           ) : null}
+          {settled ? alreadyHere : null}
 
           {listPicker}
           {ownPicture}
@@ -247,6 +259,7 @@ export default function AddIdea() {
         <>
           {/* The keyboard does not open by itself, so the whole form shows first. */}
           <Field label="What's the idea?" value={title} onChangeText={setTitle} placeholder="A beach walk, a movie, tacos..." maxLength={TITLE_MAX} />
+          {alreadyHere}
           {canPaste && looksLikeLink(title) ? (
             <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
               <T size={14} weight="medium" color={colors.textMuted} style={{ flex: 1 }}>

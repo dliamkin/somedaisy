@@ -104,6 +104,21 @@ const FAINT = 0.1;
  */
 export function FlowerField({ shift = 0 }: { shift?: number }) {
   const { colors } = useTheme();
+  return <Field shift={shift} color={colors.bloom} opacity={FAINT} line={1.5} />;
+}
+
+/**
+ * The flowers on a group's cover: white outlines over the cover's colours. They are laid out for
+ * the cover's own size like the ones above, so a tall cover on the group's page and a short one
+ * on a Home card show flowers of the same size. How strongly they show is up to the cover, which
+ * draws them softer on a dark colour.
+ */
+export function CoverFlowers({ opacity, shift = 5 }: { opacity: number; shift?: number }) {
+  const { colors } = useTheme();
+  return <Field shift={shift} color={colors.white} opacity={opacity} line={1.6} />;
+}
+
+function Field({ shift, color, opacity, line }: { shift: number; color: string; opacity: number; line: number }) {
   const [box, setBox] = useState({ width: 0, height: 0 });
   return (
     <View
@@ -114,10 +129,10 @@ export function FlowerField({ shift = 0 }: { shift?: number }) {
         const { width, height } = e.nativeEvent.layout;
         if (Math.abs(width - box.width) > 0.5 || Math.abs(height - box.height) > 0.5) setBox({ width, height });
       }}
-      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: FAINT }}>
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity }}>
       {box.width > 0 && box.height > 0 ? (
         <Svg width={box.width} height={box.height} viewBox={`0 0 ${box.width} ${box.height}`}>
-          <G fill="none" stroke={colors.bloom} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+          <G fill="none" stroke={color} strokeWidth={line} strokeLinecap="round" strokeLinejoin="round">
             {flowerField(box.width, box.height, shift).map((flower, i) => (
               <Outline key={i} flower={flower} />
             ))}

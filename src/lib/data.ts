@@ -1,4 +1,5 @@
 import { countByIdea, latestByIdea, type Comment } from './comments';
+import { coverChange, NO_COVERS, type Cover } from './covers';
 import { ALL_ON, sameOptions, type ListOptions } from './list-options';
 import { NO_PICTURES } from './pictures';
 import { db } from './supabase';
@@ -8,7 +9,12 @@ import { DEFAULT_AVATAR } from './theme';
 export type Profile = { id: string; name: string; color: string; photo_url?: string | null; photo_hidden?: boolean };
 /** `photo` is the person's Google picture, when they have one and show it. */
 export type Member = { user_id: string; name: string; color: string; photo: string | null };
-export type GroupSummary = { id: string; name: string; cover: string; members: Member[] };
+/**
+ * `cover` is the word for one of the four classic colours. `cover_style` is everything newer about
+ * the cover and needs supabase/updates/018-group-covers.sql; without it, it is simply absent. Read
+ * the two together with `coverOf` in `src/lib/covers.ts`.
+ */
+export type GroupSummary = { id: string; name: string; cover: string; cover_style?: unknown; members: Member[] };
 /**
  * `icon` and `color` need supabase/updates/012-list-looks.sql, and `dates`, `links` and `notes`
  * need 015-list-options.sql; without those updates they are simply absent. See `optionsOf` in
@@ -50,6 +56,8 @@ export type GroupData = {
   id: string;
   name: string;
   cover: string;
+  /** The rest of the cover (see `GroupSummary`). Absent until update 018 has been run. */
+  cover_style?: unknown;
   invite_code: string;
   /** The member who can remove people and replace the invite link. See `ownerOf`. */
   owner: string | null;
@@ -99,13 +107,15 @@ export async function fetchPlansByGroup(): Promise<Record<string, PlanSummary[]>
 export async function fetchGroups(): Promise<GroupSummary[]> {
   const { data, error } = await db()
     .from('groups')
-    .select('id, name, cover, created_at, group_members(user_id, profiles(*))')
+    // "*" takes whatever a group has, so this works before and after update 018 (group covers).
+    .select('*, group_members(user_id, profiles(*))')
     .order('created_at', { ascending: true });
   fail(error);
   return (data ?? []).map((g) => ({
     id: g.id as string,
     name: g.name as string,
     cover: g.cover as string,
+    cover_style: g.cover_style as unknown,
     members: toMembers(g.group_members as unknown as MemberRow[]),
   }));
 }
@@ -113,7 +123,8 @@ export async function fetchGroups(): Promise<GroupSummary[]> {
 export async function fetchGroup(id: string): Promise<GroupData | null> {
   const client = db();
   const [g, m, l, i, r, c, p] = await Promise.all([
-    client.from('groups').select('id, name, cover, invite_code, created_by').eq('id', id).maybeSingle(),
+    // "*" again, for the same reason as the lists and ideas below: the cover's details came with update 018.
+    client.from('groups').select('*').eq('id', id).maybeSingle(),
     client.from('group_members').select('user_id, profiles(*)').eq('group_id', id).order('joined_at'),
     // "*" takes whatever a list has, so this works before and after update 012 (icons and colours).
     client.from('lists').select('*').eq('group_id', id).order('position'),
@@ -135,6 +146,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     id: g.data.id,
     name: g.data.name,
     cover: g.data.cover,
+    cover_style: g.data.cover_style as unknown,
     invite_code: g.data.invite_code,
     owner: ownerOf(g.data.created_by as string | null | undefined, members),
     members,
@@ -181,6 +193,21 @@ export function ownerOf(startedBy: string | null | undefined, members: Member[])
 /** Rename a group or change its cover. Any member can. */
 export async function updateGroup(groupId: string, change: { name: string; cover: string }): Promise<void> {
   const { error } = await db().from('groups').update({ name: change.name, cover: change.cover }).eq('id', groupId);
+  fail(error);
+}
+
+/**
+ * Save a group's cover. Any member can. A classic colour with the pattern on is saved as its word
+ * alone, the way it always was; anything else needs update 018, and says so when it is missing.
+ */
+export async function saveCover(groupId: string, cover: Cover): Promise<void> {
+  const change = coverChange(cover);
+  let { error } = await db().from('groups').update(change).eq('id', groupId);
+  if (noSuchColumn(error)) {
+    // Without the update, only what the word alone can say is saved.
+    if (change.cover_style !== null || !change.cover) throw new Error(NO_COVERS);
+    ({ error } = await db().from('groups').update({ cover: change.cover }).eq('id', groupId));
+  }
   fail(error);
 }
 

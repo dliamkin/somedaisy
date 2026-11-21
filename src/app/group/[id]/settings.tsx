@@ -25,6 +25,7 @@ import {
 import { optionsOf, type ListOptions } from '@/lib/list-options';
 import { cleanHex, isIcon } from '@/lib/looks';
 import { useSession } from '@/lib/session';
+import { NAME_MAX } from '@/lib/covers';
 import { covers, useTheme } from '@/lib/theme';
 
 // The one thing waiting for a "yes, really" at a time.
@@ -147,7 +148,8 @@ export default function GroupSettings() {
       ) : null}
 
       <Card style={{ padding: 18, gap: 14 }}>
-        <Field label="Group name" value={name} onChangeText={setName} maxLength={60} />
+        {/* A name from before the limit came down can be longer, and is not cut short by being edited. */}
+        <Field label="Group name" value={name} onChangeText={setName} maxLength={Math.max(NAME_MAX, group.name.length)} />
         <View style={{ gap: 8 }}>
           <T size={14} weight="extra">
             Cover
