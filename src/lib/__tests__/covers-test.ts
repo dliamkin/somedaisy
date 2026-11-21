@@ -13,12 +13,15 @@ import {
   NAME_LIGHT,
   nameColor,
   nameSize,
+  OWN_COLORS,
   patternStrength,
+  readyLook,
   sameCover,
   shapeStrength,
   SHAPE_STRENGTH,
   surpriseLook,
   textOn,
+  threeOf,
   type Cover,
 } from '../covers';
 
@@ -226,6 +229,27 @@ describe('small helpers', () => {
     expect(fromHsl(360, 100, 50)).toBe('#FF0000');
     expect(fromHsl(0, 0, 100)).toBe('#FFFFFF');
     expect(fromHsl(200, 0, 0)).toBe('#000000');
+  });
+});
+
+describe('picking your own three', () => {
+  it('offers 24 real colours, none of them twice', () => {
+    expect(OWN_COLORS).toHaveLength(24);
+    for (const colour of OWN_COLORS) expect(hexColor(colour)).toBe(colour);
+    expect(new Set(OWN_COLORS).size).toBe(24);
+  });
+
+  it('knows a ready-made look from three colours picked by hand', () => {
+    expect(readyLook({ background: '#cdefe0', shape1: '#CFE3FF', shape2: '#FFE08A' })?.name).toBe('Mint');
+    expect(readyLook({ background: '#CDEFE0', shape1: '#CFE3FF', shape2: '#2C2040' })).toBeNull();
+  });
+
+  it('starts from the cover the group has', () => {
+    expect(threeOf({ kind: 'look', ...look('Night'), pattern: true })).toEqual({ background: '#1F2A5C', shape1: '#2F9E78', shape2: '#6D2FC4' });
+    // A plain colour that a ready-made look is built on borrows that look's shapes.
+    expect(threeOf({ kind: 'classic', background: '#FFD9C7', pattern: true })).toEqual({ background: '#FFD9C7', shape1: '#F7C9EA', shape2: '#FFE08A' });
+    // Any other plain colour borrows the first look's.
+    expect(threeOf({ kind: 'classic', background: '#123456', pattern: false })).toEqual({ background: '#123456', shape1: '#CFE3FF', shape2: '#FFE08A' });
   });
 });
 
