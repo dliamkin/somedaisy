@@ -288,6 +288,14 @@ white, whichever stands out more against the background by the standard contrast
 And the name is drawn smaller the longer it is: full size up to 14 letters, about 80% up to 24,
 about 68% after that, on two lines at most (`nameSize`). New and edited names stop at 50 letters.
 
+Choosing one: "Change cover" in the group's settings opens the cover picker
+(`src/app/group/[id]/cover.tsx`). The cover at its top is a preview with the group's real name
+and daisy, and changes with every tap. Under it are the four classic colours, the eight looks with
+"Surprise me" beside them, three colours of the group's own (each picked from a grid of 24,
+`OWN_COLORS`), and a switch for the flower pattern (`src/components/cover-colors.tsx`). Nothing
+changes for anyone else until "Save cover" is tapped, and any member can change it. The form that
+makes a group shows the same preview and choices, without the three colours of its own.
+
 How it is kept: every group still has the word for its classic colour in `cover`, as before.
 Everything newer is in `cover_style`, which is empty until a group picks something the word
 cannot say (`coverOf` reads the two together, `coverChange` writes them). That needs

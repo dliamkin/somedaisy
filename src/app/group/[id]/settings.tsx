@@ -1,7 +1,8 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, Switch, View } from 'react-native';
+import { Switch, View } from 'react-native';
 
+import { Cover } from '@/components/cover';
 import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { ListOptionsPicker } from '@/components/list-options-picker';
 import { Avatar, Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
@@ -25,8 +26,9 @@ import {
 import { optionsOf, type ListOptions } from '@/lib/list-options';
 import { cleanHex, isIcon } from '@/lib/looks';
 import { useSession } from '@/lib/session';
-import { NAME_MAX } from '@/lib/covers';
-import { covers, useTheme } from '@/lib/theme';
+import { coverOf, NAME_MAX } from '@/lib/covers';
+import { levelFor, TITLES } from '@/lib/points';
+import { useTheme } from '@/lib/theme';
 
 // The one thing waiting for a "yes, really" at a time.
 type Confirm = { kind: 'leave' } | { kind: 'link' } | { kind: 'member'; member: Member } | null;
@@ -38,7 +40,6 @@ export default function GroupSettings() {
   const { userId } = useSession();
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
   const [name, setName] = useState('');
-  const [cover, setCover] = useState('sky');
   const [editing, setEditing] = useState<{ list: List; name: string; look: LookChoice; options: ListOptions } | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
@@ -61,10 +62,7 @@ export default function GroupSettings() {
 
   const show = useCallback((g: GroupData | null) => {
     setGroup(g);
-    if (g) {
-      setName(g.name);
-      setCover(g.cover);
-    }
+    if (g) setName(g.name);
   }, []);
 
   useEffect(() => {
@@ -74,6 +72,22 @@ export default function GroupSettings() {
       setGroup(null);
     });
   }, [id, show]);
+
+  // The cover is changed on a page of its own. Coming back from it, the group is read again so the
+  // new cover shows, and the name is left as it is in case it was half typed.
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return;
+      let alive = true;
+      fetchGroup(id).then(
+        (g) => alive && g && setGroup(g),
+        () => {},
+      );
+      return () => {
+        alive = false;
+      };
+    }, [id]),
+  );
 
   // Run one change: show it is happening, reload afterwards, and put any failure on the screen.
   // Answers whether it worked, so a confirmation stays open when it did not.
@@ -111,7 +125,7 @@ export default function GroupSettings() {
 
   const isOwner = group.owner === userId;
   const alone = group.members.length === 1;
-  const changed = name.trim() !== group.name || cover !== group.cover;
+  const changed = name.trim() !== group.name;
 
   // Shows the new setting straight away, and puts the old one back if it could not be saved.
   const mute = (next: boolean) => {
@@ -150,29 +164,28 @@ export default function GroupSettings() {
       <Card style={{ padding: 18, gap: 14 }}>
         {/* A name from before the limit came down can be longer, and is not cut short by being edited. */}
         <Field label="Group name" value={name} onChangeText={setName} maxLength={Math.max(NAME_MAX, group.name.length)} />
-        <View style={{ gap: 8 }}>
-          <T size={14} weight="extra">
-            Cover
-          </T>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {Object.entries(covers).map(([key, value]) => (
-              <Pressable
-                key={key}
-                accessibilityRole="button"
-                accessibilityLabel={`${key} cover`}
-                accessibilityState={{ selected: key === cover }}
-                onPress={() => setCover(key)}
-                style={{ flex: 1, height: 52, borderRadius: 16, backgroundColor: value, borderWidth: 3, borderColor: key === cover ? colors.button : 'transparent' }}
-              />
-            ))}
-          </View>
-        </View>
         <Button
-          label="Save"
+          label="Save name"
           small
-          onPress={() => run(() => updateGroup(id, { name: name.trim(), cover }), 'Saved.')}
+          // The cover's word goes along unchanged: it is changed on the cover's own page.
+          onPress={() => run(() => updateGroup(id, { name: name.trim(), cover: group.cover }), 'Saved.')}
           disabled={!changed || !name.trim() || busy}
         />
+      </Card>
+
+      <Card style={{ padding: 18, gap: 12 }}>
+        <T size={16} weight="extra">
+          Cover
+        </T>
+        {/* The cover as it is now, the way it shows on the group's card on Home. */}
+        <Cover
+          cover={coverOf(group)}
+          place="card"
+          name={group.name}
+          earned={group.points !== null ? levelFor(group.points).index + 1 : TITLES.length}
+          style={{ borderRadius: 20 }}
+        />
+        <Button label="Change cover" kind="outline" small onPress={() => router.push(`/group/${id}/cover` as never)} disabled={busy} />
       </Card>
 
       {muted !== null ? (

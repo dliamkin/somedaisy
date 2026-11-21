@@ -45,6 +45,39 @@ export const LOOKS: (Look & { name: string })[] = [
   { name: 'Berry', background: '#8E1F74', shape1: '#B8339A', shape2: '#FF9E7A' },
 ];
 
+/**
+ * The colours offered when a group picks its own three: twelve pale ones, then twelve deep ones.
+ * People pick these, so like the looks they are the same in light and dark mode. Orange and brown
+ * are left out, as everywhere in the app; peach and yellow are the app's own pastels.
+ */
+export const OWN_COLORS = [
+  '#FFFFFF', '#F7C9EA', '#FFD9C7', '#FFE08A', '#E3F2A6', '#CDEFE0',
+  '#BFEDEA', '#CFE3FF', '#D5D6FF', '#E6D2FF', '#F3D1F7', '#E7DBF3',
+  '#2C2040', '#8E1F74', '#B8339A', '#D43D6B', '#5BAA3C', '#2F9E78',
+  '#0F9BB5', '#2F7BE8', '#1F2A5C', '#4B2A8C', '#6D2FC4', '#8A4BE6',
+];
+
+/** Whether two colours are the same, whatever their capitals. */
+export function sameColor(one: string, other: string): boolean {
+  return one.toUpperCase() === other.toUpperCase();
+}
+
+/** The ready-made look these three colours are, or null when they were picked by hand. */
+export function readyLook(look: Look): (Look & { name: string }) | null {
+  return LOOKS.find((ready) => sameColor(ready.background, look.background) && sameColor(ready.shape1, look.shape1) && sameColor(ready.shape2, look.shape2)) ?? null;
+}
+
+/**
+ * The three colours to start from when a group goes on to pick its own: the cover's, if it is a
+ * look. For a plain colour, the shapes of the ready-made look on that background, or failing that
+ * of the first look, so there is always something to change.
+ */
+export function threeOf(cover: Cover): Look {
+  if (cover.kind === 'look') return { background: cover.background, shape1: cover.shape1, shape2: cover.shape2 };
+  const like = LOOKS.find((ready) => sameColor(ready.background, cover.background)) ?? LOOKS[0];
+  return { background: cover.background, shape1: like.shape1, shape2: like.shape2 };
+}
+
 /** The longest name a group can be given from now on. Longer names from before are left alone. */
 export const NAME_MAX = 50;
 
