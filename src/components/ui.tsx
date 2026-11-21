@@ -52,7 +52,7 @@ export function T({
 }
 
 /** The space between the side of the screen and what is on it. A little less than the space between two cards. */
-const GUTTER = 16;
+export const GUTTER = 16;
 
 type Box = ComponentRef<typeof TextInput>;
 /**
@@ -137,31 +137,40 @@ export function Screen({ children, footer, flowers, fade }: { children: ReactNod
             {footer}
           </View>
         ) : null}
-        {footer && band ? (
-          // The band is white like the cards and lifts off the page with a shadow cast upward, which
-          // is what sets it apart from the list scrolling behind it. The shadow is on the outer box
-          // and the flowers are cut to shape by the inner one, so neither clips the other.
-          <View style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.card, boxShadow: `0 -6px 18px ${colors.shadowStrong}` }}>
-            <View
-              style={{
-                paddingHorizontal: GUTTER,
-                paddingTop: 14,
-                paddingBottom: insets.bottom + (insets.bottom > 0 ? 6 : 14),
-                gap: 8,
-                borderTopLeftRadius: 28,
-                borderTopRightRadius: 28,
-                // A hairline as well, for the phones that do not draw the shadow.
-                borderTopWidth: 1,
-                borderColor: colors.line,
-                overflow: 'hidden',
-              }}>
-              <FlowerField />
-              {footer}
-            </View>
-          </View>
-        ) : null}
+        {footer && band ? <FooterBand>{footer}</FooterBand> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * The band of flowers behind a page's pinned buttons, reaching the bottom of the screen. It is
+ * white like the cards and lifts off the page with a shadow cast upward, which is what sets it
+ * apart from the list scrolling behind it. The shadow is on the outer box and the flowers are cut
+ * to shape by the inner one, so neither clips the other.
+ */
+export function FooterBand({ children }: { children: ReactNode }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ borderTopLeftRadius: 28, borderTopRightRadius: 28, backgroundColor: colors.card, boxShadow: `0 -6px 18px ${colors.shadowStrong}` }}>
+      <View
+        style={{
+          paddingHorizontal: GUTTER,
+          paddingTop: 14,
+          paddingBottom: insets.bottom + (insets.bottom > 0 ? 6 : 14),
+          gap: 8,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          // A hairline as well, for the phones that do not draw the shadow.
+          borderTopWidth: 1,
+          borderColor: colors.line,
+          overflow: 'hidden',
+        }}>
+        <FlowerField />
+        {children}
+      </View>
+    </View>
   );
 }
 
@@ -317,6 +326,7 @@ export function Chip({
   soft,
   small,
   before,
+  count,
   accessibilityLabel,
 }: {
   label: string;
@@ -335,6 +345,8 @@ export function Chip({
   small?: boolean;
   /** A small picture before the words, such as an emoji. */
   before?: ReactNode;
+  /** A number after the words, smaller and fainter: how many things the chip stands for. */
+  count?: number;
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
@@ -364,6 +376,11 @@ export function Chip({
       <T size={small ? 13 : 15} weight="extra" color={active && dark ? colors.onTabOn : colors.text}>
         {label}
       </T>
+      {count === undefined ? null : (
+        <T size={12} weight="extra" color={active && dark ? colors.onTabOn : colors.text} style={{ opacity: 0.7 }}>
+          {count}
+        </T>
+      )}
     </Pressable>
   );
 }
@@ -506,7 +523,24 @@ export function Segmented<K extends string>({
   );
 }
 
-export function CircleButton({ children, onPress, label, flat }: { children: ReactNode; onPress: () => void; label: string; /** No shadow, for a button in a row of them. */ flat?: boolean }) {
+export function CircleButton({
+  children,
+  onPress,
+  label,
+  flat,
+  white,
+  edged,
+}: {
+  children: ReactNode;
+  onPress: () => void;
+  label: string;
+  /** No shadow, for a button in a row of them. */
+  flat?: boolean;
+  /** White in every mode, for a button on a group's cover, which does not change with the mode. Give it a dark icon. */
+  white?: boolean;
+  /** An outline in place of the shadow, for a button at the start of a row of chips. */
+  edged?: boolean;
+}) {
   const { colors, shadow } = useTheme();
   return (
     <Pressable
@@ -514,8 +548,9 @@ export function CircleButton({ children, onPress, label, flat }: { children: Rea
       accessibilityLabel={label}
       onPress={onPress}
       style={[
-        { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-        flat ? null : shadow,
+        { width: 44, height: 44, borderRadius: 22, backgroundColor: white ? colors.white : colors.card, alignItems: 'center', justifyContent: 'center' },
+        edged ? { borderWidth: 2, borderColor: colors.outline } : null,
+        flat || edged ? null : shadow,
       ]}>
       {children}
     </Pressable>
