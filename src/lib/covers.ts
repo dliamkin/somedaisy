@@ -181,11 +181,32 @@ function photoFrom(value: unknown, groupId: string | undefined): CoverPhoto | nu
     return { source: 'upload', path: photo.path, version };
   }
   if (photo.source === 'search') {
-    const secure = (address: unknown): address is string => typeof address === 'string' && address.length <= 1000 && /^https:\/\/\S+$/i.test(address);
-    if (!secure(photo.url) || !secure(photo.creditUrl) || typeof photo.credit !== 'string' || !photo.credit.trim() || photo.credit.length > 120) return null;
+    // Only a photo that is on the photo service's own servers, with a credit that leads back to it.
+    if (!searchedPhotoAddress(photo.url) || !creditAddress(photo.creditUrl) || typeof photo.credit !== 'string' || !photo.credit.trim() || photo.credit.length > 120) return null;
     return { source: 'search', url: photo.url, credit: photo.credit, creditUrl: photo.creditUrl };
   }
   return null;
+}
+
+/** The site a secure web address is on, in small letters. Null for anything that is not a plain secure address. */
+function secureSite(address: unknown): string | null {
+  if (typeof address !== 'string' || address.length > 1000 || !/^https:\/\/\S+$/i.test(address)) return null;
+  // Letters, digits, dots and dashes only, then the path: nothing that could hide another site's name.
+  return /^https:\/\/([a-z0-9.-]+)(?=[/?#]|$)/i.exec(address)?.[1].toLowerCase() ?? null;
+}
+
+/**
+ * Whether an address is a photo on Unsplash's own servers, which is where a cover found by search
+ * is always loaded from. Nothing from anywhere else is shown as a searched cover.
+ */
+export function searchedPhotoAddress(address: unknown): address is string {
+  return secureSite(address)?.endsWith('.unsplash.com') ?? false;
+}
+
+/** Whether an address is a page on Unsplash, which is where a searched photo's credit leads. */
+export function creditAddress(address: unknown): address is string {
+  const site = secureSite(address);
+  return site === 'unsplash.com' || site === 'www.unsplash.com';
 }
 
 /** Where a group's uploaded cover photo is kept: one file, in the group's own folder. */

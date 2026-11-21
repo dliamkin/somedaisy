@@ -5,11 +5,14 @@ import { View } from 'react-native';
 import { AvatarStack } from '@/components/avatar-stack';
 import { Cover } from '@/components/cover';
 import { CoverColors } from '@/components/cover-colors';
+import { CoverCredit } from '@/components/cover-credit';
+import { PhotoSearch } from '@/components/photo-search';
 import { Button, ErrorNote, Loading, Screen, Segmented, T, TopBar } from '@/components/ui';
 import { useCoverPhotos } from '@/lib/cover-addresses';
 import { nextVersion, PHOTO_NOT_SAVED, uploadedPhoto } from '@/lib/cover-photos';
 import { coverOf, coverPath, sameCover, type Cover as CoverData } from '@/lib/covers';
 import { fetchGroup, markChanged, saveCover, type GroupData } from '@/lib/data';
+import { reportChosen, searchedCover, searchedPhoto, type FoundPhoto } from '@/lib/photo-search';
 import { chooseCoverPhoto, removeCover, uploadCover, type ChosenPicture } from '@/lib/picture-files';
 import { levelFor, TITLES } from '@/lib/points';
 import { useTheme } from '@/lib/theme';
@@ -26,8 +29,10 @@ const TABS: { key: Tab; label: string }[] = [
  * the top is a preview, with the group's real name and daisy, and changes with every tap. Nothing
  * changes for anyone else until "Save cover" is tapped. Any member can change the cover.
  *
- * A photo is chosen and made small here, and only sent when the cover is saved. A group keeps one
- * photo: a new one takes the place of the old, and going back to colours removes it.
+ * A photo of the group's own is chosen and made small here, and only sent when the cover is
+ * saved. A group keeps one photo: a new one takes the place of the old, and going back to colours
+ * or to a photo found by search removes it. A photo found by search is never copied: the cover
+ * keeps its web address and who took it.
  */
 export default function GroupCover() {
   const { colors } = useTheme();
@@ -40,6 +45,8 @@ export default function GroupCover() {
   // A photo picked here and not yet sent, with the version it will be saved under. It is what the
   // preview shows while the chosen cover is that photo.
   const [fresh, setFresh] = useState<{ picture: ChosenPicture; version: number } | null>(null);
+  // The photo last tapped in the search results, kept so the photo service can be told if it is saved.
+  const [tapped, setTapped] = useState<FoundPhoto | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +111,11 @@ export default function GroupCover() {
       // The photo goes first: the cover is only saved once there is a photo for it to point at.
       if (pending) await uploadCover(id, pending);
       await saveCover(id, cover);
-      // Back to colours: the photo the group had is no longer shown anywhere, so it is removed.
+      // Back to colours, or on to a photo found by search: the photo the group had uploaded is no
+      // longer shown anywhere, so it is removed.
       if (uploadedPhoto(saved) && !uploadedPhoto(cover)) await removeCover(id);
+      // The photo service asks to be told when one of its photos is put to use.
+      if (tapped && searchedPhoto(cover)?.url === tapped.url) reportChosen(tapped);
       // The group's page tells the other members when it next comes into view.
       markChanged(id);
       back();
@@ -135,6 +145,7 @@ export default function GroupCover() {
           </View>
         )}
       </Cover>
+      <CoverCredit cover={cover} />
       <Segmented label="What the cover is made of" options={TABS} value={onShow} onChange={setTab} />
       {onShow === 'colors' ? (
         <>
@@ -146,14 +157,32 @@ export default function GroupCover() {
           <CoverColors value={cover} onChange={setChosen} />
         </>
       ) : (
-        <View style={{ gap: 10 }}>
-          <Button label={cover.kind === 'photo' ? 'Choose a different photo' : 'Upload a photo'} kind="outline" onPress={() => void pick()} busy={choosing} disabled={busy} />
-          <T size={13} color={colors.textMuted} style={{ lineHeight: 18 }}>
-            One photo per group. We shrink it before saving, and a new one replaces the old one.
-          </T>
-          <T size={13} color={colors.textMuted} style={{ lineHeight: 18 }}>
-            Only people in the group can see it.
-          </T>
+        <View style={{ gap: 12 }}>
+          <View style={{ gap: 10 }}>
+            <Button label={uploadedPhoto(cover) ? 'Upload a different photo' : 'Upload a photo'} kind="outline" onPress={() => void pick()} busy={choosing} disabled={busy} />
+            <T size={13} color={colors.textMuted} style={{ lineHeight: 18 }}>
+              One photo per group. We shrink it before saving, and a new one replaces the old one.
+            </T>
+            <T size={13} color={colors.textMuted} style={{ lineHeight: 18 }}>
+              Only people in the group can see it.
+            </T>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1, height: 2, backgroundColor: colors.line }} />
+            <T size={13} color={colors.textMuted}>
+              or
+            </T>
+            <View style={{ flex: 1, height: 2, backgroundColor: colors.line }} />
+          </View>
+          <PhotoSearch
+            chosen={searchedPhoto(cover)?.url ?? null}
+            disabled={busy || choosing}
+            onPick={(photo) => {
+              setError(null);
+              setTapped(photo);
+              setChosen(searchedCover(cover, photo));
+            }}
+          />
         </View>
       )}
       <ErrorNote message={error} />

@@ -5,9 +5,11 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isDark, type Cover as CoverData } from '@/lib/covers';
+import { searchedPhoto } from '@/lib/photo-search';
 import { useTheme } from '@/lib/theme';
 
 import { Cover, COVER } from './cover';
+import { CoverCredit } from './cover-credit';
 import { BackIcon } from './daisy';
 import { CircleButton, FooterBand, GUTTER, T } from './ui';
 
@@ -112,6 +114,8 @@ export function CoverPage({
               paddingRight: GUTTER + insets.right,
               gap: 18,
             }}>
+            {/* Who took the photo, straight under it, when the cover is one found by search. */}
+            {searchedPhoto(cover) ? <CoverCredit cover={cover} size={11} style={{ marginTop: -6, marginBottom: -8 }} /> : null}
             {children}
           </View>
         </ScrollView>

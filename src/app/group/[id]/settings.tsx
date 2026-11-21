@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Switch, View } from 'react-native';
 
 import { Cover } from '@/components/cover';
+import { CoverCredit } from '@/components/cover-credit';
 import { ListLookPicker, type LookChoice } from '@/components/list-look-picker';
 import { ListOptionsPicker } from '@/components/list-options-picker';
 import { Avatar, Button, Card, Chip, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
@@ -195,6 +196,7 @@ export default function GroupSettings() {
           photo={photoOf(coverOf(group))}
           style={{ borderRadius: 20 }}
         />
+        <CoverCredit cover={coverOf(group)} />
         <Button label="Change cover" kind="outline" small onPress={() => router.push(`/group/${id}/cover` as never)} disabled={busy} />
       </Card>
 

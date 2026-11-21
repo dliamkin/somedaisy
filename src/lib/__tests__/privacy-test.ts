@@ -38,6 +38,13 @@ describe('the privacy policy', () => {
     expect(words).toContain('its cover photo included');
   });
 
+  it('says what a cover photo found by search means: what is kept, and what Unsplash learns', () => {
+    expect(words).toContain('the web address of that photo and the name of the person who took it');
+    expect(words).toContain('Unsplash provides the photos that can be searched for');
+    expect(words).toContain('without your name or anything else about you');
+    expect(words).toContain('Unsplash sees the internet address of whoever is looking');
+  });
+
   it('says how to have an account deleted, and gives a way to write in', () => {
     expect(words).toContain('delete your account');
     expect(words).toContain(CONTACT);

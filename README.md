@@ -281,7 +281,8 @@ A cover is one of three kinds:
 - **Classic:** one of the four colours the app has always had, with the flower pattern.
 - **Look:** three colours (background and two shapes). Eight are ready-made (`LOOKS`), and
   `surpriseLook` makes a new one each time from one random hue, so the three never clash.
-- **Photo:** a photo of the group's own, with a dark fade under the name (see "Cover photos").
+- **Photo:** a photo of the group's own, or one found by searching Unsplash, with a dark fade
+  under the name (see "Cover photos" and "Photo search for covers").
 
 Two things are worked out and never chosen, so any cover stays readable. The name is dark ink or
 white, whichever stands out more against the background by the standard contrast sum (`textOn`).
@@ -324,7 +325,8 @@ picker, shown in the preview straight from the device, and only sent when "Save 
   (`useCoverPhotos` in `src/lib/cover-addresses.ts`): one request for every group on Home, and
   each address is used again for the rest of the session. The photo is kept on the device under
   its place and version, not its address, so a new address does not fetch it again.
-- **Tidied up.** The file is removed when the group goes back to colours. The database cannot
+- **Tidied up.** The file is removed when the group goes back to colours, or on to a photo found
+  by search. The database cannot
   remove a stored file, so when the last member leaves, or deletes their account, the app removes
   the photo first. A copy of the app from before this would leave the file behind.
 - **While it loads, or if it will not,** the cover shows the colour and pattern it had, with the
@@ -333,6 +335,51 @@ picker, shown in the preview straight from the device, and only sent when "Save 
 It needs `supabase/updates/019-cover-photos.sql` (the place and its rules) as well as update
 018. Without 019 the app says cover photos cannot be saved yet (`NO_COVER_PHOTOS`). It uses the
 two packages that pictures on ideas already brought in, so nothing new is installed.
+
+### Photo search for covers
+
+The Photo half of the cover picker also has "Search free photos": a box to type in and a grid of
+up to twelve results (`src/components/photo-search.tsx`). Tapping one shows it in the preview, and
+"Save cover" keeps it. The photos come from [Unsplash](https://unsplash.com). Nothing is copied:
+the cover keeps only the photo's web address and its credit, in `cover_style` (update 018, no new
+update). The rules are in `src/lib/photo-search.ts`.
+
+Setting it up, once. Until both steps are done the app says photo search is not set up, and
+everything else works:
+
+1. **A key from Unsplash.** Make a developer account at unsplash.com/developers, make a new
+   application there, and copy its **Access Key**. In the Supabase dashboard open **Edge
+   Functions**, then **Secrets**, and add a secret named exactly `UNSPLASH_ACCESS_KEY` with that
+   key as its value. The key goes nowhere else: never in the app, and never in an `EXPO_PUBLIC_`
+   value.
+2. **Server-side helper.** In **Edge Functions**, choose **Deploy a new function**, then **Via
+   Editor**. Name it exactly `photo-search`, replace the sample code with the whole of
+   `supabase/functions/photo-search/index.ts`, and press **Deploy function**. To change it later,
+   paste the new version and press **Deploy updates**.
+
+A new Unsplash application is allowed 50 requests an hour, across everyone using the app. A search
+is one request, and saving a cover with a found photo is one more. Loading the photos themselves
+is not counted. When the hour is used up the app says search is busy. To get 1,000 an hour, apply
+for production on the application's page at Unsplash, showing that the rules below are followed.
+
+Unsplash's rules, and where each is followed:
+
+- **Photos are shown from Unsplash's own servers,** at the addresses it gives, unchanged. The app
+  refuses to show a searched cover from anywhere else (`searchedPhotoAddress` in
+  `src/lib/covers.ts`), whatever is in the database.
+- **The credit shows wherever the photo does:** "Photo by (name) on Unsplash", with the name
+  linked to the photographer's page and "Unsplash" linked to Unsplash, and every link saying it
+  came from this app (`CoverCredit` in `src/components/cover-credit.tsx`). It is on the group's
+  card on Home, under the cover on the group's page, in the group's settings and in the cover
+  picker. Each photo in the search results has its photographer's name under it.
+- **Unsplash is told when a photo is put to use,** which here is when a cover with it is saved
+  (`reportChosen`). The helper only ever calls the address Unsplash gave with that photo.
+
+The helper only answers signed-in people, only talks to Unsplash, and its log says how many photos
+were found, never what was searched for. Searches are wide photos only, with Unsplash's stricter
+filter on what they show. What each search found is kept for the session, so the same words are
+not asked for twice, and the photos in the results are not kept on the device. The helper's rules
+are tested in `src/lib/__tests__/photo-search-helper-test.ts`.
 
 ### Typing on a phone
 
@@ -584,7 +631,7 @@ private browser window or on another device.
 | `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `src/lib/pictures.ts`, `src/lib/picture-files.ts` | An idea's own picture: the rules, and choosing, shrinking and keeping it |
 | `supabase/schema.sql` | Tables, access rules and functions |
-| `supabase/functions/` | Server-side helpers that run on Supabase (link previews) |
+| `supabase/functions/` | Server-side helpers that run on Supabase (link previews, photo search) |
 
 ## Checks
 

@@ -6,6 +6,7 @@ import { useTheme } from '@/lib/theme';
 
 import { AvatarStack } from './avatar-stack';
 import { Cover } from './cover';
+import { CoverCredit } from './cover-credit';
 import { Card, T } from './ui';
 
 // The card's corners. The cover inside is cut to them.
@@ -39,23 +40,28 @@ export function GroupCard({
   const { colors } = useTheme();
   const plan = next === undefined ? null : (next ?? 'Nothing planned yet');
   const said = [group.name, rank, plan].filter(Boolean).join('. ');
+  const cover = coverOf(group);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${said}`} onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
       {/* The card carries the shadow. The box inside it cuts the cover to the card's rounded corners. */}
       <Card style={{ padding: 0, gap: 0, borderRadius: RADIUS }}>
         <View style={{ borderRadius: RADIUS, overflow: 'hidden' }}>
-          <Cover cover={coverOf(group)} place="card" name={group.name} earned={petals} photo={photo} />
+          <Cover cover={cover} place="card" name={group.name} earned={petals} photo={photo} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, paddingRight: 14, paddingBottom: 12, paddingLeft: 16, minHeight: 48 }}>
             {/* One line only: the rank, then what is next. Whatever does not fit is cut off. */}
-            <T size={13} color={colors.textMuted} lines={1} style={{ flex: 1, minWidth: 0 }}>
-              {rank ? (
-                <T size={13} weight="extra" color={colors.accentText}>
-                  {rank}
-                </T>
-              ) : null}
-              {rank && plan ? ' · ' : ''}
-              {plan ?? ''}
-            </T>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <T size={13} color={colors.textMuted} lines={1}>
+                {rank ? (
+                  <T size={13} weight="extra" color={colors.accentText}>
+                    {rank}
+                  </T>
+                ) : null}
+                {rank && plan ? ' · ' : ''}
+                {plan ?? ''}
+              </T>
+              {/* Who took the photo, when the cover is one found by search. Its links open on their own, not the group. */}
+              <CoverCredit cover={cover} size={11} lines={1} />
+            </View>
             <AvatarStack members={group.members} />
           </View>
         </View>
