@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { Button, Chip, ErrorNote, Field, Screen, T, TopBar } from '@/components/ui';
 import { createGroup } from '@/lib/data';
+import { NAME_MAX } from '@/lib/covers';
 import { covers, STARTER_LISTS, useTheme } from '@/lib/theme';
 
 export default function NewGroup() {
@@ -34,7 +35,7 @@ export default function NewGroup() {
   return (
     <Screen footer={<Button label="Create group" onPress={submit} disabled={!name.trim()} busy={busy} />}>
       <TopBar title="New group" subtitle="Step 1 of 2" backTo="/" />
-      <Field label="Group name" value={name} onChangeText={setName} placeholder="Roommates, book club, us two..." maxLength={60} autoFocus />
+      <Field label="Group name" value={name} onChangeText={setName} placeholder="Roommates, book club, us two..." maxLength={NAME_MAX} autoFocus />
       <View style={{ gap: 8 }}>
         <T size={16} weight="extra">
           Pick a cover
