@@ -36,6 +36,20 @@ export function paintWebPage(background: string, dark: boolean): void {
 }
 
 /**
+ * Website only. Asks search engines to leave the page on show out of their results, and gives
+ * back what takes the request away again when the page is left. This reaches the search engines
+ * that run the app. The ones that do not are told by public/_headers.
+ */
+export function hideFromSearch(): () => void {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return () => {};
+  const tag = document.createElement('meta');
+  tag.name = 'robots';
+  tag.content = 'noindex, nofollow';
+  document.head.appendChild(tag);
+  return () => tag.remove();
+}
+
+/**
  * Whether a box is out of sight, or so near the edge of what can be seen that its label or the
  * line being typed is cut off. `area` is the part of the screen its page shows through.
  */

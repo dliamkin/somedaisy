@@ -94,4 +94,13 @@ describe('the files the tags point at', () => {
     expect(fs.readFileSync(path.join(root, 'public', 'robots.txt'), 'utf8')).toContain(`Sitemap: ${SITE}/sitemap.xml`);
     expect(fs.readFileSync(path.join(root, 'public', 'sitemap.xml'), 'utf8')).toContain(`<loc>${SITE}/</loc>`);
   });
+
+  it('keep the admin page out of search engines, without pointing anyone at it', () => {
+    const headers = fs.readFileSync(path.join(root, 'public', '_headers'), 'utf8').replace(/\r/g, '');
+    expect(headers).toContain('\n/admin\n  X-Robots-Tag: noindex, nofollow\n');
+    expect(headers).toContain('\n/admin/*\n  X-Robots-Tag: noindex, nofollow\n');
+    // Naming it in these two would advertise it, and robots.txt would stop the rule above being read.
+    expect(fs.readFileSync(path.join(root, 'public', 'robots.txt'), 'utf8')).not.toMatch(/admin/i);
+    expect(fs.readFileSync(path.join(root, 'public', 'sitemap.xml'), 'utf8')).not.toMatch(/admin/i);
+  });
 });

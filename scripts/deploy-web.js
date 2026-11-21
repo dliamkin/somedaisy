@@ -35,5 +35,7 @@ fs.writeFileSync(page, withHead(fs.readFileSync(page, 'utf8')));
 for (const file of ['og.png', 'manifest.json', 'robots.txt', 'sitemap.xml', 'icons/apple-touch-icon.png']) {
   if (!fs.existsSync(path.join(dist, file))) throw new Error(`The built site is missing ${file}, which the page's tags point at.`);
 }
+// Cloudflare reads this file for the rule that keeps the admin page out of search engines.
+if (!fs.existsSync(path.join(dist, '_headers'))) throw new Error('The built site is missing _headers (from public/_headers).');
 
 run('npx wrangler@latest pages deploy dist --project-name somedaisy --branch main --commit-dirty=true');

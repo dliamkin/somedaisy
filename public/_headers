@@ -1,0 +1,10 @@
+# Read by Cloudflare Pages when the site is deployed. It is not served as a page.
+#
+# Tells search engines to leave the admin page out of their results. This is said here, in the
+# reply itself, because a search engine that does not run the app never sees what the page adds
+# for itself (hideFromSearch in src/lib/web-page.ts). The page is deliberately not named in
+# robots.txt: that would stop a search engine reading this, and would point people at it.
+/admin
+  X-Robots-Tag: noindex, nofollow
+/admin/*
+  X-Robots-Tag: noindex, nofollow
