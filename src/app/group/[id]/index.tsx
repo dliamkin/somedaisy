@@ -1,30 +1,30 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, View } from 'react-native';
+import { AppState, View } from 'react-native';
 
-import { ActionIcon, IconAction } from '@/components/action-icons';
-import { ComingUpCard, DoneButtons } from '@/components/coming-up';
+import { ActionIcon } from '@/components/action-icons';
+import { AvatarStack } from '@/components/avatar-stack';
+import { ComingUpCard, ComingUpHeading, ComingUpRow, PlanSheet } from '@/components/coming-up';
+import { CoverPage } from '@/components/cover-page';
 import { Daisy } from '@/components/daisy';
-import { Emoji } from '@/components/emoji';
+import { IdeaCard } from '@/components/idea-card';
 import { AgainChoice, EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
 import { SlideIn } from '@/components/celebrate';
 import { ListStrip } from '@/components/list-strip';
-import { ListIcon, ListTile } from '@/components/list-tile';
-import { PreviewPicture } from '@/components/preview-picture';
-import { Avatar, Button, Card, Chip, CircleButton, ErrorNote, Loading, Screen, T, TopBar } from '@/components/ui';
+import { ListIcon } from '@/components/list-tile';
+import { Sheet, SheetRow } from '@/components/sheet';
+import { Button, Card, CircleButton, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, takeListToOpen, type GroupData, type Idea } from '@/lib/data';
+import { coverOf } from '@/lib/covers';
 import { openLink } from '@/lib/links';
-import { countdown, formatPlan, plannedIdeas } from '@/lib/plans';
-import { timeAgo } from '@/lib/comments';
+import { plannedIdeas } from '@/lib/plans';
 import { isToDo, optionsOf } from '@/lib/list-options';
 import { gather } from '@/lib/live';
 import { lookFor } from '@/lib/looks';
-import { cardPicture } from '@/lib/pictures';
-import { levelUp, type Completion, type Level } from '@/lib/points';
+import { levelFor, levelUp, TITLES, type Completion, type Level } from '@/lib/points';
 import { useSession } from '@/lib/session';
-import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
-import { MORE_REACTIONS, useTheme } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { fetchAgainPrompts, fetchFreshCompletion, setDoAgain, undoDone, type AgainPrompt } from '@/lib/together';
 
 export default function GroupScreen() {
@@ -41,6 +41,9 @@ export default function GroupScreen() {
   // Which "mark as done" is asking to be sure: a plan's id for its card at the top, or "card:" and
   // the id for the idea's own card, so only the one that was tapped changes.
   const [confirmDone, setConfirmDone] = useState<string | null>(null);
+  // The plan opened from the row of plans, and the idea whose "..." was tapped: each shows on a sheet.
+  const [planOpen, setPlanOpen] = useState<string | null>(null);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   // The "you did it" screen for the person who tapped "We did it", with their do-again answer.
   const [didIt, setDidIt] = useState<{ completion: Completion; total: number; reached: Level | null; again: boolean | null } | null>(null);
   // A new title the group reached while this person was looking, thanks to someone else.
@@ -294,31 +297,50 @@ export default function GroupScreen() {
   const ideas = activeList ? newestFirst.filter((i) => i.list_id === activeList.id) : newestFirst;
   // Whether the ideas on a list can be given a date. A list such as "Song titles" may say no.
   const canDate = (idea: Idea) => optionsOf(group.lists.find((l) => l.id === idea.list_id)).dates;
-  const nameOf = (uid: string | null) => (uid === userId ? 'you' : (group.members.find((m) => m.user_id === uid)?.name ?? 'someone'));
+
+  const cover = coverOf(group);
+  // One petal for each rank the group has reached. Without points, the whole daisy.
+  const petals = group.points !== null ? levelFor(group.points).index + 1 : TITLES.length;
+  // How many ideas each list holds, for its tab.
+  const counts: Record<string, number> = {};
+  for (const idea of group.ideas) counts[idea.list_id] = (counts[idea.list_id] ?? 0) + 1;
+  const go = (page: string) => router.push(`/group/${group.id}/${page}` as never);
+  // The plan opened from the row, and the idea whose "..." was tapped. Each goes when its idea does.
+  const planShown = plans.find((plan) => plan.id === planOpen) ?? null;
+  const menuIdea = group.ideas.find((idea) => idea.id === menuFor) ?? null;
+  const closePlan = () => {
+    setPlanOpen(null);
+    setConfirmDone(null);
+  };
 
   return (
     <View style={{ flex: 1 }}>
-      <Screen
-        flowers
+      <CoverPage
+        cover={cover}
+        name={group.name}
+        earned={petals}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        actions={[
+          { label: 'Invite people', icon: (color) => <ActionIcon name="invite" color={color} />, onPress: () => go('invite') },
+          { label: 'Group settings', icon: (color) => <ListIcon name="sliders" size={22} color={color} />, onPress: () => go('settings') },
+        ]}
+        under={(ink) => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <AvatarStack members={group.members} size={30} most={4} ring={colors.white} ink={ink} />
+            <T size={14} weight="extra" color={ink}>
+              {group.members.length === 1 ? "It's just you" : `${group.members.length} people`}
+            </T>
+          </View>
+        )}
         footer={
           group.lists.length > 0 ? (
-            // "Pick for us" appears once there is something to choose between.
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {group.ideas.length > 1 ? <Button label="Pick for us" kind="soft" onPress={() => router.push(`/group/${group.id}/pick` as never)} style={{ flex: 1 }} /> : null}
-              <Button label="Add an idea" onPress={() => router.push(`/group/${group.id}/add${activeList ? `?list=${activeList.id}` : ''}` as never)} style={{ flex: 1 }} />
+            // "Pick for us" appears once there is something to choose between. Adding is the main thing, so its button is the wider one.
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {group.ideas.length > 1 ? <Button label="Pick for us" kind="outline" onPress={() => go('pick')} style={{ flex: 1 }} /> : null}
+              <Button label="Add an idea" onPress={() => go(`add${activeList ? `?list=${activeList.id}` : ''}`)} style={{ flex: 1.25 }} />
             </View>
           ) : null
         }>
-        <TopBar
-          title={group.name}
-          subtitle={group.members.length === 1 ? "It's just you" : `${group.members.length} people`}
-          backTo="/"
-          right={
-            <CircleButton label="Invite people" onPress={() => router.push(`/group/${group.id}/invite` as never)}>
-              <ActionIcon name="invite" color={colors.text} />
-            </CircleButton>
-          }
-        />
         {/* A group of one has nobody to plan with. Until someone joins, the way to invite them stays in
             plain sight here, for anyone who skipped past it when the group was made. */}
         {group.members.length === 1 ? (
@@ -331,21 +353,18 @@ export default function GroupScreen() {
                 Send your people the invite link so they can join in.
               </T>
             </View>
-            <Button label="Invite" small onPress={() => router.push(`/group/${group.id}/invite` as never)} />
+            <Button label="Invite" small onPress={() => go('invite')} />
           </Card>
         ) : null}
-        {/* The group's rank, and its other pages as three round buttons beside it, kept at the top so
-            nobody has to scroll past every idea to reach them. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {group.points !== null ? <RankLine points={group.points} onPress={() => router.push(`/group/${group.id}/stamps` as never)} /> : <View style={{ flex: 1 }} />}
-          <CircleButton flat label="Calendar" onPress={() => router.push(`/group/${group.id}/calendar` as never)}>
+        {/* The group's rank, which opens its stamps, and its two other pages as round buttons beside it,
+            kept at the top so nobody has to scroll past every idea to reach them. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {group.points !== null ? <RankLine points={group.points} onPress={() => go('stamps')} /> : <View style={{ flex: 1 }} />}
+          <CircleButton label="Calendar" onPress={() => go('calendar')}>
             <ListIcon name="calendar" size={22} color={colors.link} />
           </CircleButton>
-          <CircleButton flat label="Things we did" onPress={() => router.push(`/group/${group.id}/done` as never)}>
+          <CircleButton label="Things we did" onPress={() => go('done')}>
             <ListIcon name="trophy" size={22} color={colors.link} />
-          </CircleButton>
-          <CircleButton flat label="Group settings" onPress={() => router.push(`/group/${group.id}/settings` as never)}>
-            <ListIcon name="sliders" size={22} color={colors.link} />
           </CircleButton>
         </View>
         <ErrorNote message={error} />
@@ -367,26 +386,42 @@ export default function GroupScreen() {
           </Card>
         ) : null}
 
-        {plans.map((plan) => (
-          <ComingUpCard
-            key={plan.id}
-            title={plan.title}
-            plannedFor={plan.planned_for}
-            now={now}
-            confirming={confirmDone === plan.id}
-            onAskDone={() => setConfirmDone(plan.id)}
-            onDone={() => void finish(plan)}
-            onNotYet={() => setConfirmDone(null)}
-            onChangeDate={() => openPlan(plan)}
-          />
-        ))}
+        {/* Every plan that is coming up. One plan is a card with its buttons on it. More than one go in a
+            row that slides sideways, and tapping one opens it. With none, there is nothing here at all. */}
+        {plans.length > 0 ? (
+          <View style={{ gap: 10 }}>
+            <ComingUpHeading count={plans.length} onSeeAll={() => go('calendar')} />
+            {plans.length === 1 ? (
+              <ComingUpCard
+                title={plans[0].title}
+                plannedFor={plans[0].planned_for}
+                now={now}
+                confirming={confirmDone === plans[0].id}
+                onAskDone={() => setConfirmDone(plans[0].id)}
+                onDone={() => void finish(plans[0])}
+                onNotYet={() => setConfirmDone(null)}
+                onChangeDate={() => openPlan(plans[0])}
+              />
+            ) : (
+              <ComingUpRow
+                plans={plans}
+                now={now}
+                onOpen={(plan) => {
+                  setConfirmDone(null);
+                  setPlanOpen(plan.id);
+                }}
+              />
+            )}
+          </View>
+        ) : null}
 
         <ListStrip
           lists={group.lists}
+          counts={counts}
+          total={group.ideas.length}
           activeId={activeList?.id ?? null}
           onPick={pickList}
-          onAll={() => router.push(`/group/${group.id}/lists${activeList ? `?list=${activeList.id}` : ''}` as never)}
-          onNew={openNewList}
+          onAll={() => go(`lists${activeList ? `?list=${activeList.id}` : ''}`)}
         />
 
         {group.lists.length === 0 ? (
@@ -404,223 +439,108 @@ export default function GroupScreen() {
         ) : null}
 
         {/* The ideas slide in afresh each time a different list is picked, from the side that list's tab is on. */}
-        <SlideIn key={activeList?.id ?? 'newest'} from={slideFrom} style={{ gap: 18 }}>
-        {group.lists.length > 0 && ideas.length === 0 ? (
-          <View style={{ alignItems: 'center', gap: 10, paddingVertical: 32 }}>
-            <Daisy size={64} petal={colors.today} />
-            <T size={22} weight="black" center>
-              {activeList ? `Nothing in ${activeList.name} yet` : 'No ideas yet'}
-            </T>
-            <T weight="medium" color={colors.textMuted} center>
-              Add the first idea and see who else is in.
-            </T>
-          </View>
-        ) : null}
+        <SlideIn key={activeList?.id ?? 'newest'} from={slideFrom} style={{ gap: 14 }}>
+          {group.lists.length > 0 && ideas.length === 0 ? (
+            <View style={{ alignItems: 'center', gap: 10, paddingVertical: 32 }}>
+              <Daisy size={64} petal={colors.today} />
+              <T size={22} weight="black" center>
+                {activeList ? `Nothing in ${activeList.name} yet` : 'No ideas yet'}
+              </T>
+              <T weight="medium" color={colors.textMuted} center>
+                Add the first idea and see who else is in.
+              </T>
+            </View>
+          ) : null}
 
-        {ideas.map((idea) => {
-          const place = group.lists.findIndex((l) => l.id === idea.list_id);
-          const ideaList = place === -1 ? null : group.lists[place];
-          const look = lookFor(ideaList, Math.max(0, place));
-          const rs = group.reactions.filter((r) => r.idea_id === idea.id);
-          const count = (e: string) => rs.filter((r) => r.emoji === e).length;
-          const mine = (e: string) => rs.some((r) => r.emoji === e && r.user_id === userId);
-          const allIn = everyoneIn(idea.id, group.members, group.reactions);
-          const waiting = group.members.filter((m) => !rs.some((r) => r.user_id === m.user_id && (r.emoji === '👍' || r.emoji === '👎')));
-          // Every other emoji someone has used on this idea, in the order they were first used.
-          const extras = [...new Set(rs.map((r) => r.emoji))].filter((e) => e !== '👍' && e !== '👎');
-          const comments = group.commentCounts[idea.id] ?? 0;
-          const latest = group.latestComments[idea.id] ?? [];
-          // The clock stops once the idea has a date.
-          const clock = idea.planned_for ? null : somedayLabel(idea.created_at, now);
-          const dated = canDate(idea);
-          // Something to go and do is answered with "I'm in" and can be planned. Something that is only
-          // kept on a list, such as a name for a band, gets a thumbs up or down beside the other icons.
-          const toDo = isToDo(ideaList, idea.planned_for);
-          const ups = count('👍');
-          const downs = count('👎');
-          const pickEmoji = () => setPickerFor(pickerFor === idea.id ? null : idea.id);
-          // The idea's own picture if it has one, otherwise the picture of the page it links to.
-          const shown = cardPicture(idea);
-          return (
-            <Card key={idea.id}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                {/* Every idea gets a picture, so no card is bare: its list's icon on the list's colour. */}
-                <ListTile icon={look.icon} color={look.color} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <T size={17} weight="extra">
-                    {idea.title}
-                  </T>
-                  <T size={13} color={colors.textMuted}>
-                    {/* Under "Newest" the lists are mixed together, so each card says which it is from. */}
-                    {!activeList && ideaList ? `${ideaList.name} · ` : ''}
-                    Added by {nameOf(idea.added_by)}
-                    {clock ? ` · ${clock}` : ''}
-                  </T>
-                </View>
-                {allIn && toDo ? (
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: colors.mint }}>
-                    <T size={12} weight="extra" color={colors.mintText}>
-                      {group.members.length === 2 ? 'Both in' : "Everyone's in"}
-                    </T>
-                  </View>
-                ) : null}
-              </View>
-              {/* The picture runs from one edge of the card to the other, so it does not read as a card inside a card. */}
-              {shown ? <PreviewPicture uri={shown} label={idea.title} bleed={14} onPress={idea.link ? () => openLink(idea.link as string) : undefined} /> : null}
-              {idea.note ? (
-                <T size={14} weight="medium">
-                  {idea.note}
-                </T>
-              ) : null}
-              {idea.link ? (
-                <Pressable accessibilityRole="link" onPress={() => openLink(idea.link as string)}>
-                  <T size={14} color={colors.link} lines={1} style={{ textDecorationLine: 'underline' }}>
-                    {idea.link}
-                  </T>
-                </Pressable>
-              ) : null}
-              {/* The votes are small, so the card stays about the idea. A list that is only for keeping
-                  things has no row of votes: its thumbs and emoji sit with the icons further down. */}
-              {toDo ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                  <Chip soft small label={ups ? `I'm in · ${ups}` : "I'm in"} accessibilityLabel={`I'm in, ${ups}`} selected={mine('👍')} onPress={() => react(idea, '👍')} />
-                  <Chip soft small label={downs ? `Eh · ${downs}` : 'Eh'} accessibilityLabel={`Eh, ${downs}`} selected={mine('👎')} onPress={() => react(idea, '👎')} />
-                  {extras.map((e) => (
-                    <Chip soft small key={e} before={<Emoji char={e} size={18} />} label={String(count(e))} accessibilityLabel={`${e}, ${count(e)}`} selected={mine(e)} onPress={() => react(idea, e)} />
-                  ))}
-                  <Chip soft small label="+ emoji" accessibilityLabel="Add a reaction" onPress={pickEmoji} />
-                </View>
-              ) : null}
-              {pickerFor === idea.id ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                  {MORE_REACTIONS.map((e) => (
-                    <Pressable
-                      key={e}
-                      accessibilityRole="button"
-                      accessibilityLabel={`React with ${e}`}
-                      accessibilityState={{ selected: mine(e) }}
-                      onPress={() => react(idea, e)}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: 2,
-                        borderColor: mine(e) ? colors.button : 'transparent',
-                        backgroundColor: mine(e) ? colors.voteOn : colors.background,
-                      }}>
-                      <Emoji char={e} size={26} />
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              {/* What you can do with the idea, kept apart from the votes above. The three icons each
-                  say what they do to a screen reader, and on a computer when the pointer is over them.
-                  Giving the idea a date is the main thing to do with it, so it alone has its name on show. */}
-              <View style={{ flexDirection: 'row', alignItems: toDo ? 'center' : 'flex-start', justifyContent: 'space-between', gap: toDo ? 8 : 4 }}>
-                {toDo ? null : (
-                  // The thumbs, then each emoji people have used, then the way to add one: all on the one
-                  // line with the other icons. Only when there are more than fit do they run on to a second.
-                  <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
-                    <IconAction tip="start" icon="up" label={ups === 0 ? 'Thumbs up' : ups === 1 ? 'Thumbs up, 1 person' : `Thumbs up, ${ups} people`} text={ups ? String(ups) : null} on={mine('👍')} onPress={() => react(idea, '👍')} />
-                    <IconAction tip="start" icon="down" label={downs === 0 ? 'Thumbs down' : downs === 1 ? 'Thumbs down, 1 person' : `Thumbs down, ${downs} people`} text={downs ? String(downs) : null} on={mine('👎')} onPress={() => react(idea, '👎')} />
-                    {extras.map((e) => (
-                      <IconAction
-                        key={e}
-                        noTip
-                        icon="emoji"
-                        picture={<Emoji char={e} size={22} />}
-                        label={count(e) === 1 ? `${e}, 1 person` : `${e}, ${count(e)} people`}
-                        text={String(count(e))}
-                        on={mine(e)}
-                        onPress={() => react(idea, e)}
-                      />
-                    ))}
-                    <IconAction tip="start" icon="emoji" label="Add a reaction" onPress={pickEmoji} />
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: toDo ? 6 : 2 }}>
-                  {/* These three sit at the left of the row beside "Plan it", and at the right beside the thumbs. */}
-                  <IconAction
-                    tip={toDo ? 'start' : 'end'}
-                    icon="comment"
-                    label={comments === 1 ? '1 comment' : comments ? `${comments} comments` : 'Add a comment'}
-                    text={comments ? String(comments) : null}
-                    onPress={() => openComments(idea)}
-                  />
-                  <IconAction tip={toDo ? 'start' : 'end'} icon="share" label={`Share ${idea.title} as a picture`} onPress={() => router.push(`/group/${group.id}/share?idea=${idea.id}` as never)} />
-                  <IconAction tip={toDo ? 'start' : 'end'} icon="edit" label={`Edit ${idea.title}`} onPress={() => openEdit(idea)} />
-                </View>
-                {/* A date already set always shows, and can be changed or taken off, even on a list that no longer has dates. */}
-                {idea.planned_for ? (
-                  <IconAction tip="end" icon="date" strong label={`Planned for ${formatPlan(idea.planned_for, now)}. Change date`} text={formatPlan(idea.planned_for, now)} onPress={() => openPlan(idea)} />
-                ) : dated ? (
-                  <Button label="Plan it" small onPress={() => openPlan(idea)} />
-                ) : null}
-              </View>
-              {/* A plan can be finished from here as well as from its card at the top of the page. Whoever
-                  just gave the idea a date comes back to this card, often with that one scrolled out of sight. */}
-              {idea.planned_for ? (
-                <DoneButtons
-                  started={countdown(idea.planned_for, now) === null}
-                  confirming={confirmDone === `card:${idea.id}`}
-                  onAskDone={() => setConfirmDone(`card:${idea.id}`)}
-                  onDone={() => void finish(idea)}
-                  onNotYet={() => setConfirmDone(null)}
-                />
-              ) : null}
-              {/* The newest two comments, right on the card. Tapping them opens the whole conversation. */}
-              {latest.length > 0 ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={comments > latest.length ? `See all ${comments} comments` : 'Open the comments'}
-                  onPress={() => openComments(idea)}
-                  style={{ gap: 8 }}>
-                  {comments > latest.length ? (
-                    <T size={13} weight="extra" color={colors.textMuted}>
-                      See all {comments} comments
-                    </T>
-                  ) : null}
-                  {latest.map((comment) => {
-                    const by = group.members.find((m) => m.user_id === comment.user_id);
-                    return (
-                      <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                        <Avatar name={by?.name ?? 'Someone'} color={by?.color ?? colors.sky} photo={by?.photo} size={26} />
-                        <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}>
-                          <T size={13} weight="extra">
-                            {comment.user_id === userId ? 'You' : (by?.name ?? 'Someone')}
-                            <T size={12} color={colors.textMuted}>
-                              {'  '}
-                              {timeAgo(comment.created_at, now)}
-                            </T>
-                          </T>
-                          <T size={14} weight="medium" lines={3}>
-                            {comment.body}
-                          </T>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </Pressable>
-              ) : null}
-              {toDo && !allIn && waiting.length > 0 && group.members.length > 1 ? (
-                <T size={13} color={colors.textMuted}>
-                  Waiting on {waiting.map((m) => (m.user_id === userId ? 'you' : m.name)).join(', ')}
-                </T>
-              ) : null}
-            </Card>
-          );
-        })}
+          {ideas.map((idea) => {
+            const place = group.lists.findIndex((l) => l.id === idea.list_id);
+            const ideaList = place === -1 ? null : group.lists[place];
+            const latest = group.latestComments[idea.id] ?? [];
+            return (
+              <IdeaCard
+                key={idea.id}
+                idea={idea}
+                listName={ideaList?.name ?? null}
+                look={lookFor(ideaList, Math.max(0, place))}
+                members={group.members}
+                reactions={group.reactions.filter((r) => r.idea_id === idea.id)}
+                userId={userId}
+                now={now}
+                // Something to go and do is answered with "I'm in" and can be planned. Something that is only
+                // kept on a list, such as a name for a band, gets a thumbs up or down.
+                toDo={isToDo(ideaList, idea.planned_for)}
+                canDate={canDate(idea)}
+                allIn={everyoneIn(idea.id, group.members, group.reactions)}
+                comments={group.commentCounts[idea.id] ?? 0}
+                latest={latest[latest.length - 1] ?? null}
+                pickerOpen={pickerFor === idea.id}
+                confirming={confirmDone === `card:${idea.id}`}
+                onReact={(emoji) => void react(idea, emoji)}
+                onPickEmoji={() => setPickerFor(pickerFor === idea.id ? null : idea.id)}
+                onPlan={() => openPlan(idea)}
+                onComments={() => openComments(idea)}
+                onMore={() => setMenuFor(idea.id)}
+                onOpenLink={() => idea.link && openLink(idea.link)}
+                onAskDone={() => setConfirmDone(`card:${idea.id}`)}
+                onDone={() => void finish(idea)}
+                onNotYet={() => setConfirmDone(null)}
+              />
+            );
+          })}
         </SlideIn>
+      </CoverPage>
 
-        <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', paddingTop: 4 }}>
-          {group.members.map((m) => (
-            <Avatar key={m.user_id} name={m.name} color={m.color} photo={m.photo} />
-          ))}
-        </View>
+      {/* A plan opened from the row of plans, with the buttons that change its date or finish it. */}
+      {planShown && !didIt ? (
+        <PlanSheet
+          plan={planShown}
+          now={now}
+          onClose={closePlan}
+          confirming={confirmDone === planShown.id}
+          onAskDone={() => setConfirmDone(planShown.id)}
+          // The sheet is put away once the plan is done, so undoing "done" does not bring it back up.
+          onDone={() => void finish(planShown).then(() => setPlanOpen(null))}
+          onNotYet={() => setConfirmDone(null)}
+          onChangeDate={() => {
+            closePlan();
+            openPlan(planShown);
+          }}
+        />
+      ) : null}
 
-      </Screen>
+      {/* What else can be done with an idea, behind its "..." button. */}
+      {menuIdea ? (
+        <Sheet title={menuIdea.title} onClose={() => setMenuFor(null)}>
+          <View style={{ gap: 2 }}>
+            {menuIdea.link ? (
+              <SheetRow
+                icon={<ActionIcon name="link" />}
+                label="Open the link"
+                onPress={() => {
+                  setMenuFor(null);
+                  openLink(menuIdea.link as string);
+                }}
+              />
+            ) : null}
+            <SheetRow
+              icon={<ActionIcon name="share" />}
+              label="Share as a picture"
+              onPress={() => {
+                setMenuFor(null);
+                go(`share?idea=${menuIdea.id}`);
+              }}
+            />
+            <SheetRow
+              icon={<ActionIcon name="edit" />}
+              label="Edit"
+              onPress={() => {
+                setMenuFor(null);
+                openEdit(menuIdea);
+              }}
+            />
+          </View>
+        </Sheet>
+      ) : null}
 
       {didIt ? (
         <YouDidIt

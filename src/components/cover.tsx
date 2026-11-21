@@ -79,7 +79,8 @@ const FADE = [
  * will not load, the cover shows its colour and pattern instead, with the name in a colour that
  * can be read on them.
  *
- * `children` go under the name: the members and how many there are. On the group's page, `above`
+ * `children` go under the name: the members and how many there are. Given as a function, they
+ * are told the colour the name is in, so words beside it can match. On the group's page, `above`
  * is the row of round buttons over the cover, and `inset` is the room the clock and battery take
  * at the top of the screen, which the cover runs under.
  */
@@ -102,7 +103,7 @@ export function Cover({
   photoUri?: string | null;
   above?: ReactNode;
   inset?: number;
-  children?: ReactNode;
+  children?: ReactNode | ((ink: string) => ReactNode);
   style?: StyleProp<ViewStyle>;
 }) {
   const layout = COVER[place];
@@ -114,6 +115,7 @@ export function Cover({
   const ink = nameColor(cover, showing);
   const size = nameSize(name, layout.name);
   const height = layout.height + inset;
+  const below = typeof children === 'function' ? children(ink) : children;
 
   const title = (
     <T size={size} weight="black" color={ink} lines={2} style={{ lineHeight: Math.round(size * 1.08), letterSpacing: -0.6 }}>
@@ -170,13 +172,13 @@ export function Cover({
           {above}
           <View style={{ marginTop: 20, marginRight: layout.clear - layout.left, gap: 8 }}>
             {title}
-            {children}
+            {below}
           </View>
         </View>
       ) : (
         <View style={{ position: 'absolute', left: layout.left, right: layout.clear, bottom: layout.bottom, gap: 8 }}>
           {title}
-          {children}
+          {below}
         </View>
       )}
     </View>

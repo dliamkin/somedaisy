@@ -74,6 +74,8 @@ export const light = {
   shadowStrong: 'rgba(90, 40, 140, 0.22)',
   /** The faint flower outlines behind buttons and bands. */
   bloom: '#A582E8',
+  /** What dims the page behind a sheet that slides up over it. */
+  scrim: 'rgba(44, 32, 64, 0.45)',
   /** Removing and deleting, and the words of an error. */
   danger: '#A3221B',
   /** The box behind an error. */
@@ -110,6 +112,7 @@ export const dark: Colors = {
 
   shadowStrong: 'rgba(0, 0, 0, 0.5)',
   bloom: '#A582E8',
+  scrim: 'rgba(0, 0, 0, 0.6)',
   danger: '#FF9E94',
   dangerTint: '#4A1D22',
   good: '#8FE0BD',

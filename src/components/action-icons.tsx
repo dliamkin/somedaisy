@@ -29,6 +29,10 @@ const DRAWINGS = {
   lists: [dot(4.5, 6.5, 0.6), dot(4.5, 12, 0.6), dot(4.5, 17.5, 0.6), 'M9 6.5h11.5M9 12h11.5M9 17.5h11.5'],
   // A magnifying glass.
   search: [dot(10.5, 10.5, 6.5), 'M15.5 15.5L21 21'],
+  // Three dots in a row: more to do with this, behind a tap.
+  more: [dot(5.5, 12, 0.9), dot(12, 12, 0.9), dot(18.5, 12, 0.9)],
+  // A link in a chain: the page an idea points to.
+  link: ['M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2', 'M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2'],
   // A smiling face with a plus beside it.
   emoji: [dot(10.5, 13.5, 7.5), dot(8, 12, 0.4), dot(13, 12, 0.4), 'M7.5 15.5a3.6 3.6 0 0 0 6 0', 'M20 2.5v5M17.5 5h5'],
 } as const;

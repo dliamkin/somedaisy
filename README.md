@@ -402,17 +402,49 @@ A box the list leaves off can still be added to one idea: the forms for a new id
 editing one show "+ Add a link" and "+ Add a note" for whatever is not on show. That changes the
 idea only, not the list.
 
+### The group's page
+
+The design is `docs/REDESIGN-HOME-AND-GROUP-2.md`, sections 3 to 5. The page is put together in
+`src/app/group/[id]/index.tsx` from these parts:
+
+- **The cover** across the top, edge to edge and under the clock and battery
+  (`src/components/cover-page.tsx`). Back, Invite and Settings are round white buttons on it, with
+  the group's name and members under them. The clock and battery are drawn dark over a pale cover
+  and light over a dark one. The cover scrolls away with the page. Once it has gone, a small bar
+  with the way back, the name and the same buttons stays at the top.
+- **A panel** in the page's colour that rides up over the bottom of the cover and holds the rest.
+- **The rank line**, which opens the stamps, with Calendar and "Things we did" beside it.
+- **Coming up** (`src/components/coming-up.tsx`). One plan is a card with its buttons on it. More
+  than one go in a row that slides sideways, and tapping one opens it on a sheet that slides up
+  (`src/components/sheet.tsx`), which is where "Change date", "Did it early" and "We did it!" are
+  then. With no plans the whole block is left out.
+- **The row of lists** (see below).
+- **The ideas** (`src/components/idea-card.tsx`). An idea with a picture gets a picture card: the
+  picture across the top, the name in white over its darkened foot, and small labels for its list,
+  its date and "Everyone's in". Tapping the picture opens the idea's link. An idea with no picture,
+  or one that will not load, gets a compact card with its list's icon. Both end the same way: the
+  votes with "Plan it" at the right, then a row that shows the newest comment and opens them all.
+  Sharing and editing are behind the "..." button, which opens a sheet.
+- **The bottom bar**: "Pick for us" and "Add an idea" on the band of flowers.
+
 ### Finding and making lists
 
 The group's page shows its lists as one row of tabs that slides sideways
 (`src/components/list-strip.tsx`), so the row stays one line tall however many lists there are.
-From four lists up, a button at the start of the row opens a page of every list
-(`src/app/group/[id]/lists.tsx`): one under the other in order of name, each with its icon and how
-many ideas it holds, and from eight lists up a box to type part of a name in. Tapping a list there shuts the
-page and shows that list, and the row of tabs moves to bring its tab into view. On a computer the
-mouse wheel slides the row, since a wheel only turns up and down.
+Each tab says how many ideas its list holds. A round button at the start of the row stays put
+while the tabs slide, and opens a page of every list (`src/app/group/[id]/lists.tsx`): one under
+the other in order of name, each with its icon and how many ideas it holds, and from eight lists
+up a box to type part of a name in. Tapping a list there shuts the page and shows that list, and
+the row of tabs moves to bring its tab into view.
 
-"+ List" opens a page of its own (`src/app/group/[id]/new-list.tsx`) with the name, the kind and
+How the row is moved depends on what it is moved with. With a finger (the phone app, and the
+website on a device with no mouse) there is no scrollbar, and the tabs fade out at the right edge
+to say there are more. With a mouse the wheel slides the row, since a wheel only turns up and
+down, and a slim scrollbar under the tabs can be dragged. The website hides that bar with a CSS
+rule only where the device has no fine pointer.
+
+"New list", at the bottom of the page of every list, opens a page of its own
+(`src/app/group/[id]/new-list.tsx`) with the name, the kind and
 the look, an X to shut it and "Add list" pinned at the bottom. Both pages tell the group page which
 list to show by leaving word in `openList` (`src/lib/data.ts`), which the group page reads when it
 comes back into view. No form opens the keyboard by itself, so the whole form is seen first.
