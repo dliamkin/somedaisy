@@ -7,6 +7,8 @@
 // This file is the rules, with nothing in it that needs a phone. Choosing a picture, making it
 // small and sending it are in src/lib/picture-files.ts.
 
+import { ideaPhoto, type IdeaPhoto } from './idea-photos';
+
 /** Only a secure web address is shown as a picture: the same rule as for a link's preview picture (`usablePicture`). */
 function usablePicture(value: unknown): string | null {
   return typeof value === 'string' && value.length <= 2000 && /^https:\/\/\S+$/i.test(value) ? value : null;
@@ -64,12 +66,24 @@ export function pictureAddress(path: unknown, base: string | undefined = process
   return usablePicture(`${base.replace(/\/+$/, '')}/storage/v1/object/public/${PICTURE_BUCKET}/${place}`);
 }
 
+/** As much of an idea as decides which picture its card shows. */
+type Pictured = { picture?: string | null; photo?: unknown; image_url?: string | null; link?: string | null };
+
 /**
- * The picture an idea's card shows: its own if it has one, otherwise the preview picture of the
- * page it links to. Null when it has neither.
+ * The picture an idea's card shows: its own if it has one, otherwise a photo found by search
+ * (src/lib/idea-photos.ts), otherwise the preview picture of the page it links to. Null when it
+ * has none of them.
  */
-export function cardPicture(idea: { picture?: string | null; image_url?: string | null; link?: string | null }, base?: string): string | null {
-  return pictureAddress(idea.picture, base) ?? (idea.link ? usablePicture(idea.image_url) : null);
+export function cardPicture(idea: Pictured, base?: string): string | null {
+  return pictureAddress(idea.picture, base) ?? ideaPhoto(idea.photo)?.url ?? (idea.link ? usablePicture(idea.image_url) : null);
+}
+
+/**
+ * Who to credit under the picture an idea's card shows: the found photo, when that is the
+ * picture on show. Null when the card shows the idea's own picture, its link's, or none.
+ */
+export function cardCredit(idea: Pictured, base?: string): IdeaPhoto | null {
+  return pictureAddress(idea.picture, base) ? null : ideaPhoto(idea.photo);
 }
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

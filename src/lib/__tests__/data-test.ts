@@ -248,6 +248,23 @@ describe('addIdea', () => {
     expect(argsOf(without, 'insert')?.[0]).not.toHaveProperty('picture');
   });
 
+  it('saves a photo found by search, and says nothing of one when there is none', async () => {
+    const photo = { url: 'https://images.unsplash.com/photo-1', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+    const { calls } = fakeClient({ ideas: [{ data: { id: 'i1' } }, { data: { id: 'i2' } }] });
+    await addIdea({ ...input, thumbsUp: false, photo });
+    await addIdea({ ...input, thumbsUp: false, photo: null });
+    const [withPhoto, without] = stepsFor(calls, 'ideas');
+    expect(argsOf(withPhoto, 'insert')?.[0]).toMatchObject({ title: 'Picnic', photo });
+    expect(argsOf(without, 'insert')?.[0]).not.toHaveProperty('photo');
+  });
+
+  it('never drops a found photo quietly: without update 022 the idea is not added, and the person is told why', async () => {
+    const photo = { url: 'https://images.unsplash.com/photo-1', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+    const { calls } = fakeClient({ ideas: [{ error: { message: 'no photo column', code: 'PGRST204' } as never }] });
+    await expect(addIdea({ ...input, thumbsUp: true, photo })).rejects.toThrow('update 022');
+    expect(stepsFor(calls, 'reactions')).toHaveLength(0);
+  });
+
   it('never drops a picture quietly: without update 017 the idea is not added, and the person is told why', async () => {
     const missing = { error: { message: 'no picture column', code: 'PGRST204' } as never };
     const { calls } = fakeClient({ ideas: [missing] });
@@ -525,6 +542,25 @@ describe('updateIdea', () => {
     expect(fresh).toMatchObject({ picture: 'g1/p2.jpg' });
     expect(off).toMatchObject({ picture: null });
     expect(untouched).not.toHaveProperty('picture');
+  });
+
+  it('changes the found photo only when told to: a new one, or none', async () => {
+    const photo = { url: 'https://images.unsplash.com/photo-1', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+    const change = { title: 'Tacos', link: null, note: null, listId: 'l2' };
+    const { calls } = fakeClient();
+    await updateIdea('i1', { ...change, photo });
+    await updateIdea('i1', { ...change, photo: null });
+    await updateIdea('i1', change);
+    const [fresh, off, untouched] = stepsFor(calls, 'ideas').map((steps) => argsOf(steps, 'update')?.[0]);
+    expect(fresh).toMatchObject({ photo });
+    expect(off).toMatchObject({ photo: null });
+    expect(untouched).not.toHaveProperty('photo');
+  });
+
+  it('says why when a found photo cannot be saved because update 022 is missing', async () => {
+    const photo = { url: 'https://images.unsplash.com/photo-1', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+    fakeClient({ ideas: [{ error: { message: 'no photo column', code: '42703' } as never }] });
+    await expect(updateIdea('i1', { title: 'Tacos', link: null, note: null, listId: 'l2', photo })).rejects.toThrow('update 022');
   });
 
   it('says why when a picture cannot be saved because update 017 is missing', async () => {

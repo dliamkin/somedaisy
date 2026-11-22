@@ -38,6 +38,12 @@ describe('the privacy policy', () => {
     expect(words).toContain('its cover photo included');
   });
 
+  it("says that an idea's picture can be a photo found by search too, kept and shown the same way", () => {
+    expect(words).toContain("If a group's cover or an idea's picture is a photo found by search");
+    expect(words).toContain("searched for as a group's cover or an idea's picture");
+    expect(words).toContain("a cover or an idea's picture found by search, come from Unsplash each time they are shown");
+  });
+
   it('says what a cover photo found by search means: what is kept, and what Unsplash learns', () => {
     expect(words).toContain('the web address of that photo and the name of the person who took it');
     expect(words).toContain('Unsplash provides the photos that can be searched for');
