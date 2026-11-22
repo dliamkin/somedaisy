@@ -66,6 +66,17 @@ export function CloseIcon({ color }: { color?: string }) {
   );
 }
 
+/** A magnifying glass, for a box to search with. */
+export function SearchIcon({ color }: { color?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Circle cx={8.5} cy={8.5} r={5} fill="none" stroke={color ?? colors.text} strokeWidth={2.5} />
+      <Path d="M12.5 12.5L16.5 16.5" fill="none" stroke={color ?? colors.text} strokeWidth={2.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function PlusIcon({ color, size = 20 }: { color?: string; size?: number }) {
   const { colors } = useTheme();
   return (

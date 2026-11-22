@@ -1,6 +1,7 @@
 // Comments on an idea. Any member of the group can read and add them; people remove only their own.
 // Needs supabase/updates/003-comments.sql.
 
+import { COUNTED, everyRow } from './every-row';
 import { db } from './supabase';
 
 export type Comment = { id: string; idea_id: string; user_id: string; body: string; created_at: string };
@@ -15,13 +16,19 @@ export function cleanComment(text: string): string | null {
 
 /** An idea's comments, oldest first, so they read like a conversation. */
 export async function fetchComments(ideaId: string): Promise<Comment[]> {
-  const { data, error } = await db()
-    .from('comments')
-    .select('id, idea_id, user_id, body, created_at')
-    .eq('idea_id', ideaId)
-    .order('created_at', { ascending: true });
+  const { data, error } = await everyRow<Comment>(
+    (from, to) =>
+      db()
+        .from('comments')
+        .select('id, idea_id, user_id, body, created_at', COUNTED)
+        .eq('idea_id', ideaId)
+        .order('created_at', { ascending: true })
+        .order('id')
+        .range(from, to),
+    (comment) => comment.id,
+  );
   if (error) throw new Error(error.message);
-  return (data ?? []) as Comment[];
+  return data ?? [];
 }
 
 export async function addComment(input: { groupId: string; ideaId: string; userId: string; text: string }): Promise<void> {

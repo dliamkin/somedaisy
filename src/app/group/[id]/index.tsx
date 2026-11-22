@@ -13,7 +13,7 @@ import { SlideIn } from '@/components/celebrate';
 import { ListStrip } from '@/components/list-strip';
 import { ListIcon } from '@/components/list-tile';
 import { Sheet, SheetRow } from '@/components/sheet';
-import { Button, Card, CircleButton, ErrorNote, Loading, Screen, T } from '@/components/ui';
+import { Button, Card, CircleButton, ErrorNote, Loading, Screen, SearchBox, SHOW_AT_ONCE, ShowMore, T } from '@/components/ui';
 import { everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, takeListToOpen, type GroupData, type Idea } from '@/lib/data';
 import { useCoverPhotos } from '@/lib/cover-addresses';
 import { coverOf } from '@/lib/covers';
@@ -23,6 +23,7 @@ import { isToDo, optionsOf } from '@/lib/list-options';
 import { gather } from '@/lib/live';
 import { lookFor } from '@/lib/looks';
 import { levelFor, levelUp, TITLES, type Completion, type Level } from '@/lib/points';
+import { FIND_MAX, findIdeas, findWords, foundLine, SEARCH_FROM } from '@/lib/search';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -45,6 +46,9 @@ export default function GroupScreen() {
   // The plan opened from the row of plans, and the idea whose "..." was tapped: each shows on a sheet.
   const [planOpen, setPlanOpen] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  // What is typed in the search box, and how many ideas are on show before "Show more" is needed.
+  const [find, setFind] = useState('');
+  const [most, setMost] = useState(SHOW_AT_ONCE);
   // The "you did it" screen for the person who tapped "We did it", with their do-again answer.
   const [didIt, setDidIt] = useState<{ completion: Completion; total: number; reached: Level | null; again: boolean | null } | null>(null);
   // A new title the group reached while this person was looking, thanks to someone else.
@@ -288,6 +292,13 @@ export default function GroupScreen() {
     const placeOf = (listKey: string | null) => (listKey ? group.lists.findIndex((l) => l.id === listKey) + 1 : 0);
     setSlideFrom(placeOf(next) >= placeOf(activeList?.id ?? null) ? 1 : -1);
     setListId(next);
+    // A different list starts from its top.
+    setMost(SHOW_AT_ONCE);
+  };
+  // So does a different search.
+  const search = (typed: string) => {
+    setFind(typed);
+    setMost(SHOW_AT_ONCE);
   };
 
   const openPlan = (idea: Idea) => router.push(`/group/${group.id}/plan?idea=${idea.id}` as never);
@@ -298,7 +309,14 @@ export default function GroupScreen() {
 
   const plans = plannedIdeas(group.ideas);
   const newestFirst = [...group.ideas].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const ideas = activeList ? newestFirst.filter((i) => i.list_id === activeList.id) : newestFirst;
+  const inList = activeList ? newestFirst.filter((i) => i.list_id === activeList.id) : newestFirst;
+  // Search looks where the person is looking: in the list that is picked, or in every list on
+  // "Newest". In a list, it also counts what the other lists hold, so nothing seems to be missing.
+  const searching = findWords(find).length > 0;
+  const ideas = searching ? findIdeas(find, inList, group.lists) : inList;
+  const elsewhere = searching && activeList ? findIdeas(find, newestFirst, group.lists).length - ideas.length : 0;
+  // A long list shows its first few. "Show more" brings the next few.
+  const shown = ideas.slice(0, most);
   // Whether the ideas on a list can be given a date. A list such as "Song titles" may say no.
   const canDate = (idea: Idea) => optionsOf(group.lists.find((l) => l.id === idea.list_id)).dates;
 
@@ -443,9 +461,37 @@ export default function GroupScreen() {
           </Card>
         ) : null}
 
+        {/* Once there are enough ideas to lose one among them. It stays while there is something typed in it. */}
+        {group.ideas.length >= SEARCH_FROM || find ? (
+          <SearchBox
+            label={activeList ? `Search ${activeList.name}` : 'Search ideas'}
+            placeholder={activeList ? `Search ${activeList.name}` : 'Search ideas'}
+            value={find}
+            onChangeText={search}
+            maxLength={FIND_MAX}
+          />
+        ) : null}
+
         {/* The ideas slide in afresh each time a different list is picked, from the side that list's tab is on. */}
         <SlideIn key={activeList?.id ?? 'newest'} from={slideFrom} style={{ gap: 14 }}>
-          {group.lists.length > 0 && ideas.length === 0 ? (
+          {searching && ideas.length > 0 ? (
+            <T size={13} weight="extra" color={colors.textMuted}>
+              {foundLine(ideas.length)}
+              {activeList ? ` in ${activeList.name}` : ''}
+            </T>
+          ) : null}
+          {searching && ideas.length === 0 ? (
+            <View style={{ alignItems: 'center', gap: 6, paddingVertical: 24 }}>
+              <T size={20} weight="black" center>
+                Nothing found
+              </T>
+              <T weight="medium" color={colors.textMuted} center>
+                {activeList ? `No idea in ${activeList.name} matches "${find.trim()}".` : `No idea matches "${find.trim()}".`}
+              </T>
+            </View>
+          ) : null}
+
+          {!searching && group.lists.length > 0 && ideas.length === 0 ? (
             <View style={{ alignItems: 'center', gap: 10, paddingVertical: 32 }}>
               <Daisy size={64} petal={colors.today} />
               <T size={22} weight="black" center>
@@ -457,7 +503,7 @@ export default function GroupScreen() {
             </View>
           ) : null}
 
-          {ideas.map((idea) => {
+          {shown.map((idea) => {
             const place = group.lists.findIndex((l) => l.id === idea.list_id);
             const ideaList = place === -1 ? null : group.lists[place];
             const latest = group.latestComments[idea.id] ?? [];
@@ -492,6 +538,16 @@ export default function GroupScreen() {
               />
             );
           })}
+          <ShowMore shown={shown.length} total={ideas.length} onMore={() => setMost(most + SHOW_AT_ONCE)} />
+          {/* What the search also found on other lists, which "Newest" shows together. */}
+          {elsewhere > 0 ? (
+            <Button
+              label={`Show ${elsewhere}${ideas.length > 0 ? ' more' : ''} from other lists`}
+              kind="ghost"
+              small
+              onPress={() => pickList(null)}
+            />
+          ) : null}
         </SlideIn>
       </CoverPage>
 

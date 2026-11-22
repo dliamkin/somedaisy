@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import { Daisy } from '@/components/daisy';
 import { AgainChoice, PointsBar } from '@/components/together';
-import { Button, Card, Chip, ErrorNote, FlowerCard, Loading, Screen, T, TopBar } from '@/components/ui';
+import { Button, Card, Chip, ErrorNote, FlowerCard, Loading, Screen, SHOW_AT_ONCE, ShowMore, T, TopBar } from '@/components/ui';
 import { fetchDone, fetchGroup, markChanged, restoreIdea, type DoneIdea, type GroupData } from '@/lib/data';
 import { dayLabel } from '@/lib/plans';
 import { answersFor, myAnswer, onShelf, type DoAgainVote } from '@/lib/points';
@@ -23,6 +23,8 @@ export default function ThingsWeDid() {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A group that has done a great deal shows its latest first. "Show more" brings the next few.
+  const [most, setMost] = useState(SHOW_AT_ONCE);
 
   const read = useCallback(async (groupId: string): Promise<Loaded> => {
     const [group, done, votes] = await Promise.all([fetchGroup(groupId), fetchDone(groupId), fetchDoAgainVotes(groupId)]);
@@ -124,7 +126,7 @@ export default function ThingsWeDid() {
         </T>
       ) : null}
 
-      {done.map((idea) => {
+      {done.slice(0, most).map((idea) => {
         const when = dayLabel(new Date(idea.done_at), now);
         const list = listName(idea.list_id);
         const answers = votes ? answersFor(idea.id, memberIds, votes) : null;
@@ -209,6 +211,7 @@ export default function ThingsWeDid() {
           </Card>
         );
       })}
+      <ShowMore shown={Math.min(most, done.length)} total={done.length} onMore={() => setMost(most + SHOW_AT_ONCE)} />
     </Screen>
   );
 }

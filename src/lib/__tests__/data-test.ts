@@ -39,7 +39,7 @@ import { db } from '../supabase';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
 
-type Result = { data?: unknown; error?: { message: string } | null };
+type Result = { data?: unknown; error?: { message: string } | null; count?: number };
 type Call = { table: string; steps: [method: string, ...args: unknown[]][] };
 
 /**
@@ -53,7 +53,7 @@ function fakeClient(results: Record<string, Result[]> = {}) {
     const call: Call = { table, steps: [] };
     calls.push(call);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'not', 'match', 'order', 'limit', 'single', 'maybeSingle']) {
+    for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'not', 'match', 'order', 'limit', 'range', 'single', 'maybeSingle']) {
       builder[method] = (...args: unknown[]) => {
         call.steps.push([method, ...args]);
         return builder;
@@ -606,7 +606,42 @@ describe('fetchGroup', () => {
     const { calls } = fakeClient();
     await fetchGroup('g1');
     // "*" brings every column, the planned date among them, and any added by later updates.
-    expect(argsOf(stepsFor(calls, 'ideas')[0], 'select')).toEqual(['*']);
+    expect(argsOf(stepsFor(calls, 'ideas')[0], 'select')).toEqual(['*', { count: 'exact' }]);
+  });
+
+  it('reads past the 1,000 rows one request gives, so no vote goes missing', async () => {
+    const votes = Array.from({ length: 1250 }, (_, n) => react(`i${n}`, 'ann', '👍'));
+    const { calls } = fakeClient({
+      groups: [{ data: { id: 'g1', name: 'Friends', cover: '🌼', invite_code: 'abc' } }],
+      reactions: [
+        { data: votes.slice(0, 1000), count: 1250 },
+        { data: votes.slice(1000), count: 1250 },
+      ],
+    });
+    expect((await fetchGroup('g1'))?.reactions).toHaveLength(1250);
+    const asked = stepsFor(calls, 'reactions');
+    expect(asked.map((steps) => argsOf(steps, 'range'))).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+  });
+
+  it('puts everything it reads in pages in an order no two rows share', async () => {
+    const { calls } = fakeClient();
+    await fetchGroup('g1');
+    const orderOf = (table: string) => stepsFor(calls, table)[0].filter(([method]) => method === 'order').map(([, column]) => column);
+    expect(orderOf('ideas')).toEqual(['created_at', 'id']);
+    expect(orderOf('reactions')).toEqual(['idea_id', 'user_id', 'emoji']);
+    expect(orderOf('comments')).toEqual(['created_at', 'id']);
+    expect(orderOf('completions')).toEqual(['id']);
+  });
+
+  it('fails when a later page of ideas or votes cannot be read, instead of showing part of the group', async () => {
+    fakeClient({
+      groups: [{ data: { id: 'g1', name: 'Friends', cover: '🌼', invite_code: 'abc' } }],
+      reactions: [{ data: Array.from({ length: 1000 }, (_, n) => react(`i${n}`, 'ann', '👍')), count: 1250 }, { error: { message: 'connection lost' } }],
+    });
+    await expect(fetchGroup('g1')).rejects.toThrow('connection lost');
   });
 
   it('returns null when the group does not exist', async () => {

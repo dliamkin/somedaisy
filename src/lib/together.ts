@@ -5,6 +5,7 @@
 // Any other failure, such as a dropped connection, is still a failure: it must not be mistaken
 // for "not set up", or the app would fall back to how things worked before the update.
 
+import { COUNTED, everyRow } from './every-row';
 import type { Completion, DoAgainVote } from './points';
 import { db } from './supabase';
 
@@ -19,18 +20,21 @@ export function notSetUp(error: Failure | null): boolean {
 
 /** Everything a group has done, newest first. Null when points are not set up in the database yet. */
 export async function fetchCompletions(groupId: string): Promise<Completion[] | null> {
-  const { data, error } = await db().from('completions').select(COMPLETION).eq('group_id', groupId).order('done_at', { ascending: false });
+  const { data, error } = await everyRow<Completion>(
+    (from, to) => db().from('completions').select(COMPLETION, COUNTED).eq('group_id', groupId).order('done_at', { ascending: false }).order('id').range(from, to),
+    (completion) => completion.id,
+  );
   if (notSetUp(error)) return null;
   if (error) throw new Error(error.message);
-  return (data ?? []) as Completion[];
+  return data ?? [];
 }
 
 /** The points of every group this person is in, by group id. Null when points are not set up yet. */
 export async function fetchPointsByGroup(): Promise<Record<string, number> | null> {
-  const { data, error } = await db().from('completions').select('group_id, points');
+  const { data, error } = await everyRow<{ group_id: string; points: number }>((from, to) => db().from('completions').select('group_id, points', COUNTED).order('id').range(from, to));
   if (error) return null;
   const totals: Record<string, number> = {};
-  for (const row of (data ?? []) as { group_id: string; points: number }[]) totals[row.group_id] = (totals[row.group_id] ?? 0) + row.points;
+  for (const row of data ?? []) totals[row.group_id] = (totals[row.group_id] ?? 0) + row.points;
   return totals;
 }
 
@@ -47,10 +51,13 @@ export async function fetchFreshCompletion(ideaId: string, now: Date = new Date(
 
 /** Everyone's do-again answers in a group. Null when they are not set up in the database yet. */
 export async function fetchDoAgainVotes(groupId: string): Promise<DoAgainVote[] | null> {
-  const { data, error } = await db().from('do_again_votes').select('idea_id, user_id, again').eq('group_id', groupId);
+  const { data, error } = await everyRow<DoAgainVote>(
+    (from, to) => db().from('do_again_votes').select('idea_id, user_id, again', COUNTED).eq('group_id', groupId).order('idea_id').order('user_id').range(from, to),
+    (vote) => `${vote.idea_id} ${vote.user_id}`,
+  );
   if (notSetUp(error)) return null;
   if (error) throw new Error(error.message);
-  return (data ?? []) as DoAgainVote[];
+  return data ?? [];
 }
 
 /** Save this person's answer to "would you do it again?". Answering again replaces the earlier answer. */

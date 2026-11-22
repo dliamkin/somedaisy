@@ -1,5 +1,6 @@
 import { countByIdea, latestByIdea, type Comment } from './comments';
 import { coverChange, NO_COVERS, type Cover } from './covers';
+import { COUNTED, everyRow } from './every-row';
 import { ALL_ON, sameOptions, type ListOptions } from './list-options';
 import { NO_PICTURES } from './pictures';
 import { db } from './supabase';
@@ -95,7 +96,9 @@ export type PlanSummary = { title: string; planned_for: string };
  * group id. For the "Next:" line on each group's card on Home.
  */
 export async function fetchPlansByGroup(): Promise<Record<string, PlanSummary[]>> {
-  const { data, error } = await db().from('ideas').select('group_id, title, planned_for').not('planned_for', 'is', null).is('done_at', null);
+  const { data, error } = await everyRow((from, to) =>
+    db().from('ideas').select('group_id, title, planned_for', COUNTED).not('planned_for', 'is', null).is('done_at', null).order('planned_for').order('id').range(from, to),
+  );
   fail(error);
   const byGroup: Record<string, PlanSummary[]> = {};
   for (const row of (data ?? []) as { group_id: string; title: string; planned_for: string }[]) {
@@ -128,16 +131,30 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     client.from('group_members').select('user_id, profiles(*)').eq('group_id', id).order('joined_at'),
     // "*" takes whatever a list has, so this works before and after update 012 (icons and colours).
     client.from('lists').select('*').eq('group_id', id).order('position'),
-    client
-      .from('ideas')
-      // "*" takes whatever an idea has, so this works before and after update 011 (preview pictures).
-      .select('*')
-      .eq('group_id', id)
-      .is('done_at', null)
-      .order('created_at', { ascending: false }),
-    client.from('reactions').select('idea_id, user_id, emoji').eq('group_id', id),
-    client.from('comments').select('id, idea_id, user_id, body, created_at').eq('group_id', id),
-    client.from('completions').select('points').eq('group_id', id),
+    // The four below can pass the 1,000 rows one request gives, so each is read a page at a time
+    // (see `everyRow`). Each is in an order no two rows share, which is what keeps the pages apart.
+    everyRow<Idea>(
+      (from, to) =>
+        client
+          .from('ideas')
+          // "*" takes whatever an idea has, so this works before and after update 011 (preview pictures).
+          .select('*', COUNTED)
+          .eq('group_id', id)
+          .is('done_at', null)
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(from, to),
+      (idea) => idea.id,
+    ),
+    everyRow<Reaction>(
+      (from, to) => client.from('reactions').select('idea_id, user_id, emoji', COUNTED).eq('group_id', id).order('idea_id').order('user_id').order('emoji').range(from, to),
+      (r) => `${r.idea_id} ${r.user_id} ${r.emoji}`,
+    ),
+    everyRow<Comment>(
+      (from, to) => client.from('comments').select('id, idea_id, user_id, body, created_at', COUNTED).eq('group_id', id).order('created_at').order('id').range(from, to),
+      (c) => c.id,
+    ),
+    everyRow<{ points: number }>((from, to) => client.from('completions').select('points', COUNTED).eq('group_id', id).order('id').range(from, to)),
   ]);
   fail(g.error ?? m.error ?? l.error ?? i.error ?? r.error);
   if (!g.data) return null;
@@ -151,13 +168,13 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     owner: ownerOf(g.data.created_by as string | null | undefined, members),
     members,
     lists: (l.data ?? []) as List[],
-    ideas: (i.data ?? []) as Idea[],
-    reactions: (r.data ?? []) as Reaction[],
+    ideas: i.data ?? [],
+    reactions: r.data ?? [],
     // A failure here (comments not set up in the database yet) must not hide the whole group.
-    commentCounts: c.error ? {} : countByIdea(c.data as { idea_id: string }[] | null),
-    latestComments: c.error ? {} : latestByIdea(c.data as Comment[] | null),
+    commentCounts: c.error ? {} : countByIdea(c.data),
+    latestComments: c.error ? {} : latestByIdea(c.data),
     // The same goes for points: without them the group still shows, just with no bar.
-    points: p.error ? null : ((p.data ?? []) as { points: number }[]).reduce((sum, row) => sum + row.points, 0),
+    points: p.error ? null : (p.data ?? []).reduce((sum, row) => sum + row.points, 0),
   };
 }
 
@@ -464,14 +481,20 @@ export type DoneIdea = Idea & { done_at: string };
 
 /** The ideas a group has marked as done, most recently done first. */
 export async function fetchDone(groupId: string): Promise<DoneIdea[]> {
-  const { data, error } = await db()
-    .from('ideas')
-    .select('id, list_id, title, link, note, added_by, planned_for, created_at, done_at')
-    .eq('group_id', groupId)
-    .not('done_at', 'is', null)
-    .order('done_at', { ascending: false });
+  const { data, error } = await everyRow<DoneIdea>(
+    (from, to) =>
+      db()
+        .from('ideas')
+        .select('id, list_id, title, link, note, added_by, planned_for, created_at, done_at', COUNTED)
+        .eq('group_id', groupId)
+        .not('done_at', 'is', null)
+        .order('done_at', { ascending: false })
+        .order('id')
+        .range(from, to),
+    (idea) => idea.id,
+  );
   fail(error);
-  return (data ?? []) as DoneIdea[];
+  return data ?? [];
 }
 
 /** Undo "done": the idea goes back on its list, keeping its reactions and any date it had. */

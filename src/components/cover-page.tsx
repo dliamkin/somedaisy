@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState, type ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isDark, type Cover as CoverData } from '@/lib/covers';
@@ -11,11 +11,13 @@ import { useTheme } from '@/lib/theme';
 import { Cover, COVER } from './cover';
 import { CoverCredit } from './cover-credit';
 import { BackIcon } from './daisy';
-import { CircleButton, FooterBand, GUTTER, T } from './ui';
+import { CircleButton, FooterBand, GUTTER, T, TypingContext, useKeepInView } from './ui';
 
 // How far the panel under the cover rides up over it, and how round its top corners are.
 const OVERLAP = 28;
 const CORNER = 30;
+// How tall the small bar that stays at the top is, under the clock and battery.
+const BAR = 56;
 
 /** A round button over the cover. `icon` is given the colour to draw in. */
 export type CoverAction = { label: string; icon: (color: string) => ReactNode; onPress: () => void };
@@ -28,6 +30,10 @@ export type CoverAction = { label: string; icon: (color: string) => ReactNode; o
  *
  * `under` goes below the name on the cover (see `Cover`). `footer` is pinned to the bottom of the
  * screen on a band of flowers.
+ *
+ * A box on the page that is being typed in is kept above the keyboard, as on every other page
+ * (see `useKeepInView`), and clear of the small bar. Sliding the page puts the keyboard away,
+ * so what a search found can be read with the whole screen.
  */
 export function CoverPage({
   cover,
@@ -64,17 +70,26 @@ export function CoverPage({
     }, []),
   );
   const leaves = COVER.page.height - OVERLAP - 8;
+  const { scroller, reveal, typing, scrolled } = useKeepInView(insets.top + BAR + 12);
   const coverDark = isDark(cover, cover.kind === 'photo' && Boolean(photo));
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Dark words over a pale cover and light ones over a dark cover. Past the cover, whatever the mode asks for. */}
       {onShow ? <StatusBar style={gone ? (dark ? 'light' : 'dark') : coverDark ? 'light' : 'dark'} /> : null}
-      <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
+      {/* Makes room for the keyboard: the page gets shorter, so the box being typed in and the pinned buttons stay in view. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' }}>
+        <TypingContext.Provider value={typing}>
         <ScrollView
+          ref={scroller}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onLayout={reveal}
           scrollEventThrottle={32}
           onScroll={(event) => {
-            const past = event.nativeEvent.contentOffset.y > leaves;
+            const y = event.nativeEvent.contentOffset.y;
+            scrolled(y);
+            const past = y > leaves;
             if (past !== gone) setGone(past);
           }}
           contentContainerStyle={{ flexGrow: 1 }}>
@@ -119,6 +134,7 @@ export function CoverPage({
             {children}
           </View>
         </ScrollView>
+        </TypingContext.Provider>
         {gone ? (
           <View
             style={{
@@ -151,7 +167,7 @@ export function CoverPage({
           </View>
         ) : null}
         {footer ? <FooterBand>{footer}</FooterBand> : null}
-      </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }

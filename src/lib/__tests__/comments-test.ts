@@ -9,7 +9,7 @@ type Result = { data?: unknown; error?: { message: string } | null };
 function fakeClient(result: Result = {}) {
   const steps: [method: string, ...args: unknown[]][] = [];
   const builder: Record<string, unknown> = {};
-  for (const method of ['select', 'insert', 'delete', 'eq', 'order']) {
+  for (const method of ['select', 'insert', 'delete', 'eq', 'order', 'range']) {
     builder[method] = (...args: unknown[]) => {
       steps.push([method, ...args]);
       return builder;
