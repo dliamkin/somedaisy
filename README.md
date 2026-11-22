@@ -234,9 +234,12 @@ beside the ones that add a link or a note:
 
 - **"+ Add a picture"** opens the phone's or computer's own photo chooser. The app never sees
   any photo but the one chosen.
-- **"Find one on the web"** opens a picture search for the idea's name in the person's browser
-  (`pictureSearch` in `src/lib/pictures.ts`). They save a picture they like, come back, and add
-  it. There is no search inside the app: that needs a paid search service, and none is set up.
+- **"Search free photos"** opens a search under the chips, starting from the idea's name. It is
+  the same search a group's cover uses, and tapping a result makes it the idea's picture. See
+  "A found photo on an idea" under "Photo search for covers". For what free photos do not have,
+  such as a film's poster, "Not there? Look on the web" under the results opens a picture search
+  for the idea's name in the person's browser (`pictureSearch` in `src/lib/pictures.ts`). They
+  save a picture they like, come back, and add it.
 
 The chosen picture is made small on the device before it is sent: no more than 1280 dots along
 its longer side, as a JPEG, which comes to a few hundred kilobytes
@@ -368,7 +371,7 @@ is one request, and saving a cover with a found photo is one more. Loading the p
 is not counted. When the hour is used up the app says search is busy. To get 1,000 an hour, apply
 for production on the application's page at Unsplash, showing that the rules below are followed.
 
-So that one person cannot use up that hour, each person has a share of it: 12 searches and 6
+So that one person cannot use up that hour, each person has a share of it: 12 searches and 12
 saved photos an hour. Before it calls Unsplash, the helper asks the database, as that person,
 whether they are still within it (`take_photo_search`, update 021). Past it, the app says "You
 have searched a lot in the last hour" and Unsplash is not called. The database keeps who asked
@@ -376,6 +379,21 @@ and when, never the words, and removes each row once it is over an hour old. The
 are in `take_photo_search`: once Unsplash approves the app for production there is room to
 raise them, by changing them there and running the file again. If the count cannot be kept (the
 update is not run, or the database cannot be reached) search carries on without one.
+
+**A found photo on an idea.** The same search is on the forms for a new idea and for editing one
+(`IdeaPicture` in `src/components/idea-picture.tsx`). It needs
+`supabase/updates/022-idea-photos.sql`, which adds a `photo` column to ideas holding the photo's
+web address and its credit, and nothing else. No file is kept. Without the update the app says
+which update is missing, and the idea is not saved without its photo (`NO_IDEA_PHOTOS`). The
+rules are in `src/lib/idea-photos.ts`:
+
+- An idea has its own picture or a found photo, not both. Choosing one takes the other off.
+- A card shows the idea's own picture first, then a found photo, then the picture from its link
+  (`cardPicture` in `src/lib/pictures.ts`).
+- The credit is under the photo on the idea's card and on the forms (`PhotoCredit`), and
+  Unsplash is told when an idea is saved with the photo.
+- Only a photo on Unsplash's own servers is ever shown as a found photo, whatever is in the
+  database (`ideaPhoto`).
 
 Unsplash's rules, and where each is followed:
 
@@ -714,6 +732,7 @@ private browser window or on another device.
 | `src/lib/theme.ts` | Every colour in the app, for light and dark mode. Screens read them with `useTheme()` |
 | `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `src/lib/pictures.ts`, `src/lib/picture-files.ts` | An idea's own picture: the rules, and choosing, shrinking and keeping it |
+| `src/lib/idea-photos.ts` | A photo found by search as an idea's picture: only its address and credit are kept |
 | `src/lib/every-row.ts` | Reading past the 1,000 rows one request gives |
 | `src/lib/group-files.ts` | Clearing out a group's idea pictures before the group is deleted |
 | `src/lib/search.ts` | Finding an idea in a group by typing part of it |

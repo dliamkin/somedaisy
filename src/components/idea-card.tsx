@@ -7,13 +7,14 @@ import type { Comment } from '@/lib/comments';
 import type { Idea, Member, Reaction } from '@/lib/data';
 import { siteName } from '@/lib/links';
 import type { ListLook } from '@/lib/looks';
-import { cardPicture } from '@/lib/pictures';
+import { cardCredit, cardPicture } from '@/lib/pictures';
 import { countdown, formatPlan } from '@/lib/plans';
 import { somedayLabel } from '@/lib/someday';
 import { MORE_REACTIONS, useTheme } from '@/lib/theme';
 
 import { ActionIcon, IconAction } from './action-icons';
 import { DoneButtons } from './coming-up';
+import { PhotoCredit } from './cover-credit';
 import { Emoji } from './emoji';
 import { ListTile } from './list-tile';
 import { Avatar, Button, Card, Chip, T } from './ui';
@@ -31,6 +32,8 @@ const SIDE = 14;
  * picture across the top with the name over it. An idea without one, or whose picture will not
  * load, gets a compact card: its list's icon, then the name. Both end the same way: the votes and
  * "Plan it", then a row that opens the comments and shows the latest one.
+ *
+ * A picture that is a photo found by search has who took it under it, as Unsplash asks.
  *
  * Sharing and editing are behind the "..." button, to leave room for that comment row.
  */
@@ -96,6 +99,8 @@ export function IdeaCard({
   const [broken, setBroken] = useState<string | null>(null);
   const shown = cardPicture(idea);
   const picture = shown && broken !== shown ? shown : null;
+  // Who to credit, when the picture on show is a photo found by search.
+  const credit = picture ? cardCredit(idea) : null;
 
   const count = (emoji: string) => reactions.filter((r) => r.emoji === emoji).length;
   const mine = (emoji: string) => reactions.some((r) => r.emoji === emoji && r.user_id === userId);
@@ -196,6 +201,8 @@ export function IdeaCard({
           {more(false)}
         </View>
       )}
+
+      {credit ? <PhotoCredit photo={credit} size={11} lines={1} style={{ paddingHorizontal: SIDE, paddingTop: 6 }} /> : null}
 
       {idea.note || (idea.link && !picture) ? (
         <View style={{ paddingHorizontal: SIDE, paddingTop: 10, gap: 6 }}>

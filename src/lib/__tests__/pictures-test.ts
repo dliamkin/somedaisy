@@ -1,4 +1,4 @@
-import { base64Size, bytesFromBase64, cardPicture, fitWithin, ownPicture, pictureAddress, picturePath, pictureSearch, PICTURE_SIDE } from '../pictures';
+import { base64Size, bytesFromBase64, cardCredit, cardPicture, fitWithin, ownPicture, pictureAddress, picturePath, pictureSearch, PICTURE_SIDE } from '../pictures';
 
 const GROUP = '0f0e0d0c-0b0a-4908-8706-050403020100';
 const FILE = '11111111-2222-4333-8444-555555555555';
@@ -77,6 +77,35 @@ describe('cardPicture', () => {
   it('is nothing for an idea with no picture at all', () => {
     expect(cardPicture({ link: 'https://example.org' }, BASE)).toBeNull();
     expect(cardPicture({}, BASE)).toBeNull();
+  });
+
+  const photo = { url: 'https://images.unsplash.com/photo-1?w=1080', credit: 'Photo by Ann Example on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+
+  it('shows a photo found by search before the one from its link, and after its own', () => {
+    expect(cardPicture({ photo, image_url: linked, link: 'https://example.org' }, BASE)).toBe(photo.url);
+    expect(cardPicture({ photo }, BASE)).toBe(photo.url);
+    expect(cardPicture({ picture: PATH, photo, image_url: linked, link: 'https://example.org' }, BASE)).toBe(ADDRESS);
+  });
+
+  it('never shows a found photo that is not on Unsplash', () => {
+    expect(cardPicture({ photo: { ...photo, url: 'https://example.com/a.jpg' }, image_url: linked, link: 'https://example.org' }, BASE)).toBe(linked);
+    expect(cardPicture({ photo: 'nonsense' }, BASE)).toBeNull();
+  });
+});
+
+describe('cardCredit', () => {
+  const photo = { url: 'https://images.unsplash.com/photo-1?w=1080', credit: 'Photo by Ann Example on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+
+  it('credits the found photo when that is the picture on show', () => {
+    expect(cardCredit({ photo }, BASE)).toEqual(photo);
+    expect(cardCredit({ photo, image_url: 'https://cdn.example.org/a.jpg', link: 'https://example.org' }, BASE)).toEqual(photo);
+  });
+
+  it("credits nobody when the card shows the idea's own picture, its link's, or none", () => {
+    expect(cardCredit({ picture: PATH, photo }, BASE)).toBeNull();
+    expect(cardCredit({ image_url: 'https://cdn.example.org/a.jpg', link: 'https://example.org' }, BASE)).toBeNull();
+    expect(cardCredit({}, BASE)).toBeNull();
+    expect(cardCredit({ photo: { ...photo, url: 'https://example.com/a.jpg' } }, BASE)).toBeNull();
   });
 });
 

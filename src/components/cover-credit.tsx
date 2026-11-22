@@ -26,15 +26,21 @@ export function TextLink({ to, label, children }: { to: string; label?: string; 
 }
 
 /**
- * Who took a cover's photo, for a photo found by search: "Photo by <name> on Unsplash", with the
- * name leading to the photographer's page and "Unsplash" to Unsplash. Unsplash asks for this
- * wherever one of its photos shows, so it goes with the cover on Home, on the group's page, in
- * its settings and in the cover picker. Nothing for any other cover.
+ * Who took a cover's photo, for a photo found by search. Unsplash asks for this wherever one of
+ * its photos shows, so it goes with the cover on Home, on the group's page, in its settings and
+ * in the cover picker. Nothing for any other cover.
  */
 export function CoverCredit({ cover, size = 12, lines, style }: { cover: Cover; size?: number; lines?: number; style?: StyleProp<TextStyle> }) {
-  const { colors } = useTheme();
   const photo = searchedPhoto(cover);
-  if (!photo) return null;
+  return photo ? <PhotoCredit photo={photo} size={size} lines={lines} style={style} /> : null;
+}
+
+/**
+ * Who took a photo found by search: "Photo by <name> on Unsplash", with the name leading to the
+ * photographer's page and "Unsplash" to Unsplash. For a cover, and for a found photo on an idea.
+ */
+export function PhotoCredit({ photo, size = 12, lines, style }: { photo: { credit: string; creditUrl: string }; size?: number; lines?: number; style?: StyleProp<TextStyle> }) {
+  const { colors } = useTheme();
   const name = creditName(photo.credit);
   return (
     <T size={size} weight="medium" color={colors.textMuted} lines={lines} style={style}>

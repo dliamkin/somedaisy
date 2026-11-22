@@ -22,9 +22,11 @@
 --     notes the request, or answers false when that person has had their share for the hour.
 --   * A job that clears out old rows once a day, for when nobody has searched in a while.
 --
--- The numbers: 12 searches and 6 saved photos an hour for each person. They are the two numbers
--- in take_photo_search below. Once Unsplash approves the app for production there is room for
--- more: change them there and run this file again.
+-- The numbers: 12 searches and 12 saved photos an hour for each person. They are the two
+-- numbers in take_photo_search below. Saved photos were 6 until ideas could have a found photo
+-- too (update 022): a save tells Unsplash the photo was put to use, which it asks to be told,
+-- so there are as many of those as searches. Once Unsplash approves the app for production
+-- there is room for more: change them there and run this file again.
 
 -- ---------- What has been asked for lately ----------
 
@@ -59,7 +61,7 @@ declare
   me uuid := auth.uid();
   v_kind text := case when p_kind = 'chosen' then 'chosen' else 'search' end;
   -- How many of each one person may make in an hour.
-  v_most int := case when v_kind = 'chosen' then 6 else 12 end;
+  v_most int := case when v_kind = 'chosen' then 12 else 12 end;
   v_used int;
 begin
   if me is null then

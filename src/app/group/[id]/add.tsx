@@ -13,6 +13,7 @@ import { Button, Card, ErrorNote, Field, Loading, Screen, Segmented, T, TopBar }
 import { addIdea, fetchDone, fetchGroup, lateChange, markChanged, type IdeaTags, type List } from '@/lib/data';
 import { LINK_MAX, looksLikeLink, NOTE_MAX, siteName, tidyLink } from '@/lib/links';
 import { formShows, optionsOf } from '@/lib/list-options';
+import { reportChosen } from '@/lib/photo-search';
 import { removePicture, uploadPicture } from '@/lib/picture-files';
 import { attachPreview, nameFromTitle, TITLE_MAX } from '@/lib/preview';
 import type { Known } from '@/lib/similar';
@@ -47,7 +48,8 @@ export default function AddIdea() {
   const [thumbsUp, setThumbsUp] = useState(true);
   // Boxes the list leaves off the form that the person has asked for, for this idea only.
   const [added, setAdded] = useState({ link: false, note: false });
-  // A picture of the person's own, chosen for this idea. It is sent when the idea is added.
+  // The picture chosen for this idea: one of the person's own, which is sent when the idea is
+  // added, or a photo found by search, of which only the address and the credit are kept.
   const [own, setOwn] = useState<PictureChoice>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +154,10 @@ export default function AddIdea() {
         thumbsUp: shows.countMeIn && thumbsUp,
         tags: !pasting && shows.tags ? tags : undefined,
         picture: kept,
+        photo: own?.kind === 'found' ? own.photo : null,
       });
+      // Unsplash asks to be told when one of its photos is put to use.
+      if (own?.kind === 'found' && own.found) reportChosen(own.found);
       // The link's picture is saved in the background and appears on the card shortly after. If
       // it was already found while typing, that one is used and it is not looked up again.
       const found = preview.state === 'found' && preview.link === tidy.link ? preview.picture : null;

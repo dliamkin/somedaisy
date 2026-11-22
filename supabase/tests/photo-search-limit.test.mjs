@@ -8,7 +8,7 @@ const UPDATE = '021-photo-search-limit.sql';
 const sql = fs.readFileSync(path.join(REPO, 'supabase/updates', UPDATE), 'utf8');
 
 const SEARCHES = 12;
-const SAVES = 6;
+const SAVES = 12;
 
 async function world() {
   const db = await freshDb([UPDATE]);
@@ -51,7 +51,7 @@ await test("one person's searches do not use up another's", async () => {
   eq(await w.take(w.bo, 'search'), true);
 });
 
-await test('saving found photos has its own, smaller share', async () => {
+await test('saving found photos has its own share', async () => {
   const w = await world();
   eq(await w.takeMany(w.ann, 'chosen', SAVES), SAVES);
   eq(await w.take(w.ann, 'chosen'), false);

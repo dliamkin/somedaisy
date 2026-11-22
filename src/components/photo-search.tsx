@@ -12,16 +12,16 @@ import { Button, Field, T } from './ui';
 const ACROSS = 3;
 
 /**
- * Search free photos for a cover: a box to type in, and a grid of what was found. Tapping a photo
- * hands it to `onPick`, which shows it in the cover at the top of the picker. Nothing is fetched
- * until the person searches.
+ * Search free photos, for a cover or for an idea: a box to type in, and a grid of what was found.
+ * Tapping a photo hands it to `onPick`, which shows it above the grid. Nothing is fetched until
+ * the person searches. `start` is what the box holds to begin with, such as an idea's name.
  *
  * The photos are Unsplash's, so each one says who took it, and the line at the bottom leads to
  * Unsplash, as Unsplash asks.
  */
-export function PhotoSearch({ chosen, onPick, disabled }: { chosen: string | null; onPick: (photo: FoundPhoto) => void; disabled?: boolean }) {
+export function PhotoSearch({ chosen, onPick, disabled, start }: { chosen: string | null; onPick: (photo: FoundPhoto) => void; disabled?: boolean; start?: string }) {
   const { colors } = useTheme();
-  const [words, setWords] = useState('');
+  const [words, setWords] = useState(() => (start ?? '').replace(/\s+/g, ' ').trim().slice(0, SEARCH_MAX));
   // What the last search found. Null until there has been one.
   const [found, setFound] = useState<FoundPhoto[] | null>(null);
   const [searching, setSearching] = useState(false);
