@@ -23,7 +23,7 @@ export const SECTIONS: Section[] = [
     blocks: [
       [
         'Your name and colour. You choose them, and the people in your groups see them.',
-        'Your email address, if you add one. It is how you sign in. Other people never see it.',
+        'Your email address, if you add one. It is how you sign in. Other people using SomeDaisy never see it.',
         'If you continue with Google: your name, email address and profile picture from your Google account. The picture is shown as your circle unless you switch that off where you change your name. We never see your Google password.',
         'What you add to a group: the group itself, its lists, ideas (with any link or note), reactions, comments, the dates you plan things for, what you mark as done, the points and stamps your group earns for it, and your answer when asked whether you would do something again.',
         'If an idea has a link: the web address of that page\'s preview picture, so the idea\'s card can show it. We keep the address, not the picture.',
@@ -46,8 +46,10 @@ export const SECTIONS: Section[] = [
         'Anyone who has a group\'s invite link can see that group\'s name, its colour and how many people are in it, and can join it. Share invite links only with people you want in the group.',
         'A picture added to an idea is shown to the group. It also has a long web address of its own that nobody could guess, and anyone who is given that address can open the picture. The app only gives it to the group.',
         'A photo uploaded as a group\'s cover is shown only to the people in that group, while they are signed in. Someone holding the invite link sees the cover\'s colour, not the photo.',
-        'Nobody else can see your groups.',
+        'Nobody else using SomeDaisy can see your groups.',
       ],
+      'The people who run SomeDaisy can open a page that lists the people and groups using it. It shows names, email addresses, when each person joined, the names of groups and lists, and how much has been added, as numbers. It is there to keep SomeDaisy working and to help when you write in. It does not show ideas, notes, comments or pictures.',
+      'Like anyone who runs a service, they can also reach the database itself when something needs fixing.',
     ],
   },
   {

@@ -1,0 +1,2 @@
+# Cloudflare reads this file when the site is deployed, so it keeps plain line endings on every computer.
+public/_headers text eol=lf

@@ -381,6 +381,57 @@ filter on what they show. What each search found is kept for the session, so the
 not asked for twice, and the photos in the results are not kept on the device. The helper's rules
 are tested in `src/lib/__tests__/photo-search-helper-test.ts`.
 
+### The admin page
+
+The website has a page at `/admin` for whoever runs SomeDaisy (`src/app/admin.tsx`, with its
+pieces in `src/components/admin.tsx` and its rules in `src/lib/admin.ts`). It only shows. Changing
+or removing anything is still done in the Supabase dashboard.
+
+- **Overview:** how many people, groups and ideas there are, what happened in the last seven days,
+  new people for each of the last eight weeks, how far people get (picked a name, in a group, added
+  an idea, in a group that did something), how many groups are shared and how many last, and which
+  kinds of cover are in use.
+- **People:** everyone with a name, newest first, found by name or email. Opening one shows how
+  they sign in, when they joined and the groups they are in.
+- **Groups:** busiest, newest or biggest first, found by name. Opening one shows its people and
+  its lists.
+
+It shows names, email addresses, dates and counts. It never shows the words of an idea, a note or
+a comment, or anyone's pictures, and the privacy policy says all of this.
+
+Setting it up, once:
+
+1. Run `supabase/updates/020-admin.sql` in the Supabase SQL editor. That lets nobody in.
+2. Let yourself in by running this one line there, with your own email in it. Do not save your
+   email into a file in this repository.
+
+   ```sql
+   insert into public.admins (user_id)
+   select id from auth.users where lower(email) = lower('you@example.com')
+   on conflict do nothing;
+   ```
+
+   "INSERT 0 1" means it found you. "INSERT 0 0" means no account has that email yet: sign in to
+   SomeDaisy with it once and run the line again.
+3. Sign in to the website with that account and open `/admin`.
+
+To let someone else in later, run the same line with their email. To shut someone out, delete
+their row from `admins` (the line for that is at the top of the update).
+
+How it is kept shut:
+
+- **The database decides, not the page.** Each thing the page asks for is a database function that
+  first checks the `admins` table and refuses everyone else, so reading the app's code or calling
+  the functions by hand gets nothing. The app cannot read or change `admins` at all. A guest is
+  never an admin.
+- **Nothing leads to it.** No screen links to `/admin`. To anyone who is not an admin, signed in or
+  not, the address shows the same "not found" page as any address that leads nowhere.
+- **Search engines are asked to leave it out,** by `public/_headers` (read by Cloudflare Pages)
+  and by a tag the page adds while it is open. It is deliberately not named in `robots.txt`.
+
+Being hard to find is not what protects it: this repository is public, so the address is no
+secret. The check in the database is the protection.
+
 ### Typing on a phone
 
 Every text box in the app is one component (`Field` in `src/components/ui.tsx`), and two things
@@ -611,6 +662,7 @@ private browser window or on another device.
 | `src/app/account.tsx` | Add an email, continue with Google, sign in, sign out, delete the account, and choose light or dark mode |
 | `src/app/privacy.tsx` | The privacy policy, at `/privacy`. Its words are in `src/lib/privacy.ts` |
 | `src/app/notifications.tsx` | Choose which notifications to get |
+| `src/app/admin.tsx` | The admin page, at `/admin`. Only for the people in the `admins` table |
 | `src/app/profile.tsx` | Change your name and colour, and show or hide your Google photo |
 | `src/app/join/[code].tsx` | Join by invite link |
 | `src/app/group/[id]/index.tsx` | Group page: lists, ideas, reactions |

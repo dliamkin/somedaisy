@@ -45,6 +45,16 @@ describe('the privacy policy', () => {
     expect(words).toContain('Unsplash sees the internet address of whoever is looking');
   });
 
+  it('says what the people who run the app can see, and what their page leaves out', () => {
+    expect(words).toContain('The people who run SomeDaisy can open a page that lists the people and groups using it');
+    expect(words).toContain('names, email addresses, when each person joined');
+    expect(words).toContain('It does not show ideas, notes, comments or pictures');
+    expect(words).toContain('they can also reach the database itself');
+    // Neither of these is true of the people who run it, so both say who they are about.
+    expect(words).toContain('Other people using SomeDaisy never see it');
+    expect(words).toContain('Nobody else using SomeDaisy can see your groups');
+  });
+
   it('says how to have an account deleted, and gives a way to write in', () => {
     expect(words).toContain('delete your account');
     expect(words).toContain(CONTACT);
