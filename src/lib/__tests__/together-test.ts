@@ -13,7 +13,7 @@ function fakeClient(results: Record<string, Result[]> = {}) {
     const call: Call = { table, steps: [] };
     calls.push(call);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'update', 'upsert', 'eq', 'gte', 'order', 'limit']) {
+    for (const method of ['select', 'update', 'upsert', 'eq', 'gte', 'order', 'limit', 'range']) {
       builder[method] = (...args: unknown[]) => {
         call.steps.push([method, ...args]);
         return builder;

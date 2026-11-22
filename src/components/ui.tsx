@@ -19,7 +19,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { fonts, useTheme } from '@/lib/theme';
 
-import { BackIcon, CloseIcon } from './daisy';
+import { BackIcon, CloseIcon, SearchIcon } from './daisy';
 import { FlowerField } from './flower-outlines';
 
 type Weight = 'medium' | 'bold' | 'extra' | 'black';
@@ -59,24 +59,25 @@ type Box = ComponentRef<typeof TextInput>;
  * How a text box tells the page it is on that it is being typed in, or no longer is, so the page
  * can keep it in view above the keyboard.
  */
-const TypingContext = createContext<(box: Box | null, on: boolean) => void>(() => {});
+export const TypingContext = createContext<(box: Box | null, on: boolean) => void>(() => {});
 
 /** How far from the top and bottom of the part that scrolls a box being typed in is kept. Room for its label above. */
 const ABOVE = 40;
 const BELOW = 16;
 
 /**
- * Page wrapper: pastel background, phone-width column, optional pinned footer.
- * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
- * `fade` lets what scrolls fade out as it reaches a plain footer, instead of being cut off in a line.
+ * Keeps the box being typed in above the keyboard, for a page that scrolls.
+ *
+ * On a phone the keyboard makes the part that scrolls shorter, and the box being typed in can
+ * end up under it. Each time that part changes height, and when a box is first tapped, the box
+ * is scrolled back into view. The website does the same for itself (see src/lib/web-page.ts).
+ *
+ * The page gives `scroller` to its ScrollView as its ref, calls `reveal` from the ScrollView's
+ * onLayout and `scrolled` from its onScroll, puts the ScrollView inside a KeyboardAvoidingView,
+ * and hands `typing` to the boxes on it through `TypingContext`. `above` is how far from the top of
+ * the part that scrolls the box is kept, for a page with a bar of its own lying over the top.
  */
-export function Screen({ children, footer, flowers, fade }: { children: ReactNode; footer?: ReactNode; flowers?: boolean; fade?: boolean }) {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const band = Boolean(footer && flowers);
-  // On a phone the keyboard makes the part that scrolls shorter, and the box being typed in can
-  // end up under it. Each time that part changes height, and when a box is first tapped, the box
-  // is scrolled back into view. The website does the same for itself (see src/lib/web-page.ts).
+export function useKeepInView(above: number = ABOVE) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const typingIn = useRef<Box | null>(null);
   const scrolledTo = useRef(0);
@@ -89,7 +90,7 @@ export function Screen({ children, footer, flowers, fade }: { children: ReactNod
         box.measureInWindow((_bx, boxTop, _bw, boxHeight) => {
           if (typingIn.current !== box || !height) return;
           const over = boxTop + boxHeight + BELOW - (top + height);
-          const under = top + ABOVE - boxTop;
+          const under = top + above - boxTop;
           // Below the bottom edge: move up just enough. Above the top edge: move down just enough.
           if (over > 0) page.scrollTo({ y: scrolledTo.current + over, animated: true });
           else if (under > 0) page.scrollTo({ y: Math.max(0, scrolledTo.current - under), animated: true });
@@ -98,7 +99,7 @@ export function Screen({ children, footer, flowers, fade }: { children: ReactNod
     } catch {
       // Not being able to measure is no reason to stop someone typing.
     }
-  }, []);
+  }, [above]);
   const typing = useCallback(
     (box: Box | null, on: boolean) => {
       if (on) {
@@ -112,6 +113,22 @@ export function Screen({ children, footer, flowers, fade }: { children: ReactNod
     },
     [reveal],
   );
+  const scrolled = useCallback((y: number) => {
+    scrolledTo.current = y;
+  }, []);
+  return { scroller, reveal, typing, scrolled };
+}
+
+/**
+ * Page wrapper: pastel background, phone-width column, optional pinned footer.
+ * `flowers` draws the footer as a band of the brand's flowers that reaches the bottom of the screen.
+ * `fade` lets what scrolls fade out as it reaches a plain footer, instead of being cut off in a line.
+ */
+export function Screen({ children, footer, flowers, fade }: { children: ReactNode; footer?: ReactNode; flowers?: boolean; fade?: boolean }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const band = Boolean(footer && flowers);
+  const { scroller, reveal, typing, scrolled } = useKeepInView();
   return (
     // With the band, the bottom edge is left to the band itself, so its colour runs under the phone's own bar.
     <SafeAreaView edges={band ? ['top', 'left', 'right'] : undefined} style={{ flex: 1, backgroundColor: colors.background }}>
@@ -122,9 +139,7 @@ export function Screen({ children, footer, flowers, fade }: { children: ReactNod
           ref={scroller}
           keyboardShouldPersistTaps="handled"
           onLayout={reveal}
-          onScroll={(e) => {
-            scrolledTo.current = e.nativeEvent.contentOffset.y;
-          }}
+          onScroll={(e) => scrolled(e.nativeEvent.contentOffset.y)}
           scrollEventThrottle={32}
           contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: 24, paddingBottom: footer ? 12 : 16, gap: 18, flexGrow: 1 }}>
           {children}
@@ -477,6 +492,111 @@ export function Field({
       />
         {after}
       </View>
+    </View>
+  );
+}
+
+/**
+ * A box to search with: a magnifying glass, the words, and an X that empties it once there is
+ * something in it. What it finds changes as each letter is typed, so there is no button to press.
+ */
+export function SearchBox({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  maxLength,
+}: {
+  /** What the box searches, for a screen reader. */
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+}) {
+  const { colors, dark } = useTheme();
+  const [focused, setFocused] = useState(false);
+  const box = useRef<Box>(null);
+  const typing = useContext(TypingContext);
+  // A box that goes away while it is being typed in is no longer the one to keep in view.
+  useEffect(() => {
+    const mine = box.current;
+    return () => typing(mine, false);
+  }, [typing]);
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 2,
+        borderColor: focused ? colors.button : colors.line,
+        backgroundColor: colors.card,
+        paddingLeft: 14,
+      }}>
+      <SearchIcon color={colors.textMuted} />
+      <TextInput
+        ref={box}
+        accessibilityLabel={label}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textDisabled}
+        keyboardAppearance={dark ? 'dark' : 'light'}
+        maxLength={maxLength}
+        onFocus={() => {
+          setFocused(true);
+          typing(box.current, true);
+        }}
+        onBlur={() => {
+          setFocused(false);
+          typing(box.current, false);
+        }}
+        autoCapitalize="none"
+        autoCorrect={false}
+        // Kept away from the phone's password manager, like every box that is not for signing in.
+        autoComplete="off"
+        importantForAutofill="no"
+        returnKeyType="search"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          height: '100%',
+          outlineWidth: 0,
+          paddingLeft: 8,
+          paddingRight: value ? 0 : 14,
+          paddingVertical: 0,
+          fontFamily: fonts.bold,
+          fontSize: 16,
+          color: colors.text,
+        }}
+      />
+      {value ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => onChangeText('')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <CloseIcon color={colors.textMuted} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/** How many things a long list shows before it asks. "Show more" adds this many again. */
+export const SHOW_AT_ONCE = 25;
+
+/**
+ * The end of a long list that is only partly on show: how much of it is, and a button for more.
+ * Nothing at all once everything is showing.
+ */
+export function ShowMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  const { colors } = useTheme();
+  if (shown >= total) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      <T size={13} color={colors.textMuted} center>
+        Showing {shown} of {total}
+      </T>
+      <Button label="Show more" kind="outline" small onPress={onMore} />
     </View>
   );
 }

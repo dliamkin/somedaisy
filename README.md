@@ -604,6 +604,23 @@ On a list that is just a list, the thumbs, the emoji people have used and the ic
 all sit on the one line with the comment, share and edit icons. They run on to a second line only
 when there are more than fit.
 
+### Big groups: loading, long lists and search
+
+Three things keep a group with hundreds of ideas working.
+
+- **Loading all of it.** Supabase gives back at most 1,000 rows for one request and says nothing
+  when it stops there. Five people voting on 250 ideas is already 1,250 reactions. So ideas,
+  reactions, comments, done things and do-again answers are read a page at a time until the
+  count the database gives has arrived (`everyRow` in `src/lib/every-row.ts`). A small group
+  still makes one request for each. Anything new that can grow past 1,000 rows should be read the
+  same way, in an order no two rows share.
+- **"Show more".** The group's page and "Things we did" draw 25 cards, then a "Show more" button
+  that adds 25. Everything is already loaded, so the button asks the database for nothing.
+- **Search.** Once a group has six ideas its page has a search box. It looks through names,
+  notes, links, tags and list names as each letter is typed (`src/lib/search.ts`), in the list
+  that is picked, or in every list on "Newest". It asks the database for nothing either. Ideas
+  that are done are not searched.
+
 ### Live updates
 
 When someone changes something in a group, the others looking at that group see it without
@@ -682,6 +699,8 @@ private browser window or on another device.
 | `src/lib/theme.ts` | Every colour in the app, for light and dark mode. Screens read them with `useTheme()` |
 | `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `src/lib/pictures.ts`, `src/lib/picture-files.ts` | An idea's own picture: the rules, and choosing, shrinking and keeping it |
+| `src/lib/every-row.ts` | Reading past the 1,000 rows one request gives |
+| `src/lib/search.ts` | Finding an idea in a group by typing part of it |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews, photo search) |
 
