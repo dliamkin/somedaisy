@@ -61,7 +61,7 @@ export const SECTIONS: Section[] = [
         'Cloudflare delivers the website and counts its visits. Like any web host, it sees the internet address your device connects from.',
         'Resend sends the emails with sign-in codes, so it receives your email address.',
         'Google signs you in if you choose Continue with Google, and delivers notifications to Android phones. If you tap "Find one on the web" for a picture, your own browser opens a Google search for the idea\'s name.',
-        'Unsplash provides the photos that can be searched for as a group\'s cover. Our server sends it the words you search for, without your name or anything else about you. When a group starts using one of its photos, our server tells Unsplash that the photo was used, and not who chose it.',
+        'Unsplash provides the photos that can be searched for as a group\'s cover. Our server sends it the words you search for, without your name or anything else about you. When a group starts using one of its photos, our server tells Unsplash that the photo was used, and not who chose it. So that search stays free for everyone to use, we count how many photo searches each person makes in an hour. We keep when each one was made, not the words, and remove it within a day.',
         'Expo passes notifications on to phones. It receives the address for your phone and the words of the notification, which can include a friend\'s name, the title of an idea and the words of a comment.',
       ],
       'These companies may keep information in countries other than yours, including the United States.',

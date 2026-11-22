@@ -134,6 +134,17 @@ describe('searchPhotos', () => {
     }
   });
 
+  it("says so when it is the person's own share of the hour that is used up, and asks again next time", async () => {
+    const client = fakeClient(async () => ({ data: { photos: [], why: 'busy', mine: true }, error: null }));
+    expect(await searchPhotos('beach')).toEqual({ photos: [], trouble: 'limit' });
+    expect(SEARCH_SAYS.limit).toBe('You have searched a lot in the last hour. Try again later, or upload a photo.');
+    await searchPhotos('beach');
+    expect(client.functions.invoke).toHaveBeenCalledTimes(2);
+    // Only "busy" can be the person's own.
+    fakeClient(async () => ({ data: { photos: [], why: 'failed', mine: true }, error: null }));
+    expect((await searchPhotos('beach')).trouble).toBe('failed');
+  });
+
   it('says search is not set up when the helper is not there', async () => {
     fakeClient(async () => ({ data: null, error: { message: 'not found', context: { status: 404 } } }));
     expect(await searchPhotos('beach')).toEqual({ photos: [], trouble: 'off' });

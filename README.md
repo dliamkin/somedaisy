@@ -263,10 +263,13 @@ picture on the web. The address holds two long random ids, the app gives it only
 and nobody outside the group can list the folder. The privacy policy says so.
 
 A picture's file is removed when the picture is taken off or replaced, or its idea is removed.
-Two cases leave a file behind, wasting a little room and nothing else: a group that is deleted
-when its last member leaves, and an idea removed by a copy of the app from before pictures. Clear
-those from the Storage page of the Supabase dashboard, never by deleting rows from
-`storage.objects`, which leaves the files in place. Supabase's free plan has 1 GB of Storage,
+When a group is deleted, because its last member leaves or deletes their account, every file in
+the group's folder is removed first, while that person is still allowed to
+(`removeGroupPictures` in `src/lib/group-files.ts`). The database cannot remove a stored file
+itself. Two cases still leave a file behind, wasting a little room and nothing else: a group
+deleted by a copy of the app from before 21 November 2026, and an idea removed by a copy from
+before pictures. Clear those from the Storage page of the Supabase dashboard, never by deleting
+rows from `storage.objects`, which leaves the files in place. Supabase's free plan has 1 GB of Storage,
 room for several thousand pictures of this size.
 
 ### Group covers
@@ -356,11 +359,23 @@ everything else works:
    Editor**. Name it exactly `photo-search`, replace the sample code with the whole of
    `supabase/functions/photo-search/index.ts`, and press **Deploy function**. To change it later,
    paste the new version and press **Deploy updates**.
+3. **A share for each person.** Run `supabase/updates/021-photo-search-limit.sql`. Without it
+   search works, with nothing to stop one person using up the hour. The order of steps 2 and 3
+   does not matter.
 
 A new Unsplash application is allowed 50 requests an hour, across everyone using the app. A search
 is one request, and saving a cover with a found photo is one more. Loading the photos themselves
 is not counted. When the hour is used up the app says search is busy. To get 1,000 an hour, apply
 for production on the application's page at Unsplash, showing that the rules below are followed.
+
+So that one person cannot use up that hour, each person has a share of it: 12 searches and 6
+saved photos an hour. Before it calls Unsplash, the helper asks the database, as that person,
+whether they are still within it (`take_photo_search`, update 021). Past it, the app says "You
+have searched a lot in the last hour" and Unsplash is not called. The database keeps who asked
+and when, never the words, and removes each row once it is over an hour old. The two numbers
+are in `take_photo_search`: once Unsplash approves the app for production there is room to
+raise them, by changing them there and running the file again. If the count cannot be kept (the
+update is not run, or the database cannot be reached) search carries on without one.
 
 Unsplash's rules, and where each is followed:
 
@@ -700,6 +715,7 @@ private browser window or on another device.
 | `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `src/lib/pictures.ts`, `src/lib/picture-files.ts` | An idea's own picture: the rules, and choosing, shrinking and keeping it |
 | `src/lib/every-row.ts` | Reading past the 1,000 rows one request gives |
+| `src/lib/group-files.ts` | Clearing out a group's idea pictures before the group is deleted |
 | `src/lib/search.ts` | Finding an idea in a group by typing part of it |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews, photo search) |
