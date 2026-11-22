@@ -45,6 +45,11 @@ describe('the privacy policy', () => {
     expect(words).toContain('Unsplash sees the internet address of whoever is looking');
   });
 
+  it('says that photo searches are counted for each person, and what is kept of them', () => {
+    expect(words).toContain('we count how many photo searches each person makes in an hour');
+    expect(words).toContain('We keep when each one was made, not the words, and remove it within a day');
+  });
+
   it('says what the people who run the app can see, and what their page leaves out', () => {
     expect(words).toContain('The people who run SomeDaisy can open a page that lists the people and groups using it');
     expect(words).toContain('names, email addresses, when each person joined');

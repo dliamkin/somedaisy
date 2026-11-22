@@ -21,8 +21,14 @@
 //     every link to Unsplash says which app it came from.
 //   * Unsplash is told when a photo is chosen as a cover.
 //
+// Each person gets a share of the hour: so many searches, and so many found photos saved. Before
+// calling Unsplash the helper asks the database, as the person, whether they are still within
+// it (take_photo_search in supabase/updates/021-photo-search-limit.sql). Until that update has
+// been run there is no share, and everything else works as before.
+//
 // Safety:
 //   * Only signed-in people can call it (auth: 'user').
+//   * One person cannot use up the hour that Unsplash allows everyone.
 //   * It only ever talks to api.unsplash.com, and only passes on addresses that are on Unsplash.
 //   * Its log says how many photos were found, never what was searched for.
 
@@ -59,7 +65,32 @@ export type Photo = {
 
 /** Why a search gave nothing: it is not set up, Unsplash's hourly limit is used up, or it failed. */
 export type Why = 'off' | 'busy' | 'failed';
-export type Answer = { photos: Photo[]; why?: Why };
+/**
+ * `mine` goes with "busy" when it is this person's own share of the hour that is used up, not
+ * everyone's. A copy of the app from before it knew of shares reads that as plain "busy".
+ */
+export type Answer = { photos: Photo[]; why?: Why; mine?: true };
+
+/** The two things a person has a share of: searching, and telling Unsplash a photo was put to use. */
+export type Kind = 'search' | 'chosen';
+
+/** As much of the database client as this helper uses: calling one of the database's functions. */
+export type Asker = { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }> };
+
+/**
+ * Whether this person may make one more request of this kind in this hour. The database decides
+ * and keeps count. When it cannot say (the update has not been run, or it could not be reached),
+ * the answer is yes: a count that is not working is no reason for search to stop.
+ */
+export async function withinShare(client: Asker | null | undefined, kind: Kind): Promise<boolean> {
+  if (!client) return true;
+  try {
+    const { data, error } = await client.rpc('take_photo_search', { p_kind: kind });
+    return error ? true : data !== false;
+  } catch {
+    return true;
+  }
+}
 
 /** The words to search for, tidied, or null when there is nothing worth searching for. */
 export function cleanQuery(input: unknown): string | null {
@@ -181,7 +212,8 @@ function secret(): string | null {
 }
 
 export default {
-  fetch: withSupabase({ auth: 'user' }, async (req: Request) => {
+  // `ctx.supabase` is the database as the signed-in person, so the count is kept against them.
+  fetch: withSupabase({ auth: 'user' }, async (req: Request, ctx?: { supabase?: Asker }) => {
     if (req.method !== 'POST') return Response.json({ photos: [] }, { status: 405 });
     let body: { query?: unknown; chosen?: unknown } | null = null;
     try {
@@ -193,9 +225,16 @@ export default {
     const key = secret();
     try {
       if (body && body.chosen !== undefined) {
-        const told = await tellChosen(body.chosen, key, fetch);
-        console.log(`chosen: ${told ? 'Unsplash was told' : 'Unsplash was not told'}`);
+        // Nothing is counted for a request that would not reach Unsplash anyway.
+        const may = !key || !chosenTarget(body.chosen) || (await withinShare(ctx?.supabase, 'chosen'));
+        const told = may ? await tellChosen(body.chosen, key, fetch) : false;
+        console.log(`chosen: ${told ? 'Unsplash was told' : may ? 'Unsplash was not told' : 'not told, this person has had their share for the hour'}`);
         return Response.json({ told });
+      }
+      if (key && cleanQuery(body?.query) && !(await withinShare(ctx?.supabase, 'search'))) {
+        console.log('search: not made, this person has had their share for the hour');
+        const spent: Answer = { photos: [], why: 'busy', mine: true };
+        return Response.json(spent);
       }
       const answer = await search(body?.query, key, fetch);
       console.log(`search: ${answer.photos.length} photos${answer.why ? `, ${answer.why}` : ''}`);

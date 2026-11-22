@@ -24,6 +24,7 @@ import {
   type List,
   type Member,
 } from '@/lib/data';
+import { removeGroupPictures } from '@/lib/group-files';
 import { optionsOf, type ListOptions } from '@/lib/list-options';
 import { cleanHex, isIcon } from '@/lib/looks';
 import { useSession } from '@/lib/session';
@@ -151,8 +152,9 @@ export default function GroupSettings() {
     setError(null);
     try {
       // The last one out takes the group with them, and the database cannot remove a stored file.
-      // So the cover photo goes first, while this person is still allowed to remove it.
-      if (alone && uploadedPhoto(coverOf(group))) await removeCover(id);
+      // So the cover photo and the pictures on its ideas go first, while this person is still
+      // allowed to remove them.
+      if (alone) await Promise.all([uploadedPhoto(coverOf(group)) ? removeCover(id) : null, removeGroupPictures(id)]);
       await leaveGroup(id);
       router.replace('/');
     } catch (e) {

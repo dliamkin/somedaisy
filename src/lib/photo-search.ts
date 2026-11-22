@@ -41,8 +41,11 @@ export type FoundPhoto = {
   report: string | null;
 };
 
-/** Why a search gave nothing: it is not set up, the hour's searches are used up, or it failed. */
-export type SearchTrouble = 'off' | 'busy' | 'failed';
+/**
+ * Why a search gave nothing: it is not set up, the hour's searches are used up for everyone, this
+ * person has used up their own share of the hour, or it failed.
+ */
+export type SearchTrouble = 'off' | 'busy' | 'limit' | 'failed';
 
 /**
  * What is said for each. The first names the helper on purpose: only whoever looks after the
@@ -51,6 +54,7 @@ export type SearchTrouble = 'off' | 'busy' | 'failed';
 export const SEARCH_SAYS: Record<SearchTrouble, string> = {
   off: 'Photo search is not set up yet. Its helper (photo-search) or its key is missing. You can still upload a photo.',
   busy: 'Photo search is busy right now. Try again in a while, or upload a photo.',
+  limit: 'You have searched a lot in the last hour. Try again later, or upload a photo.',
   failed: "We couldn't search for photos. Try again.",
 };
 
@@ -136,7 +140,9 @@ export async function searchPhotos(typed: string): Promise<{ photos: FoundPhoto[
       const status = (error as { context?: { status?: unknown } }).context?.status;
       return { photos: [], trouble: status === 404 ? 'off' : 'failed' };
     }
-    const why = (data as { why?: unknown } | null)?.why;
+    const { why, mine } = (data ?? {}) as { why?: unknown; mine?: unknown };
+    // "Busy" with `mine` is this person's own share of the hour, not everyone's.
+    if (why === 'busy' && mine === true) return { photos: [], trouble: 'limit' };
     if (why === 'off' || why === 'busy' || why === 'failed') return { photos: [], trouble: why };
     const photos = foundFrom(data);
     kept.set(key, photos);

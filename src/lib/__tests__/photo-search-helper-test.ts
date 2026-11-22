@@ -14,10 +14,12 @@ type Helper = {
   photoFrom: (result: unknown) => Photo | null;
   search: (query: unknown, key: string | null | undefined, fetcher: Fetcher) => Promise<{ photos: Photo[]; why?: string }>;
   tellChosen: (location: unknown, key: string | null | undefined, fetcher: Fetcher) => Promise<boolean>;
-  default: { fetch: (req: Request) => Promise<Response> };
+  withinShare: (client: Asker | null | undefined, kind: 'search' | 'chosen') => Promise<boolean>;
+  default: { fetch: (req: Request, ctx?: { supabase?: Asker }) => Promise<Response> };
 };
+type Asker = { rpc: (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: unknown }> };
 const helper = jest.requireActual<Helper>('../../../supabase/functions/photo-search/index');
-const { cleanQuery, chosenTarget, profileLink, photoFrom, search, tellChosen } = helper;
+const { cleanQuery, chosenTarget, profileLink, photoFrom, search, tellChosen, withinShare } = helper;
 
 const LOCATION = 'https://api.unsplash.com/photos/LBI7cgq3pbM/download?ixid=abc123';
 
@@ -229,5 +231,100 @@ describe('the helper itself', () => {
 
   it('reads its key from the secret it is named for', () => {
     expect(helper.SECRET).toBe('UNSPLASH_ACCESS_KEY');
+  });
+});
+
+describe('withinShare', () => {
+  const asker = (answer: { data?: unknown; error?: unknown }) => ({ rpc: jest.fn(async () => ({ data: null, error: null, ...answer })) });
+
+  it('asks the database, as the person, about that kind of request', async () => {
+    const client = asker({ data: true });
+    expect(await withinShare(client, 'search')).toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith('take_photo_search', { p_kind: 'search' });
+    await withinShare(client, 'chosen');
+    expect(client.rpc).toHaveBeenLastCalledWith('take_photo_search', { p_kind: 'chosen' });
+  });
+
+  it('is no when the database says the share is used up', async () => {
+    expect(await withinShare(asker({ data: false }), 'search')).toBe(false);
+  });
+
+  it('is yes when the count cannot be kept: the update is not run, the database is down, or there is nobody to ask', async () => {
+    expect(await withinShare(asker({ error: { code: 'PGRST202', message: 'Could not find the function' } }), 'search')).toBe(true);
+    expect(await withinShare(asker({ error: { message: 'timeout' } }), 'search')).toBe(true);
+    expect(await withinShare({ rpc: () => Promise.reject(new Error('offline')) }, 'search')).toBe(true);
+    expect(await withinShare(null, 'search')).toBe(true);
+    expect(await withinShare(undefined, 'chosen')).toBe(true);
+  });
+});
+
+describe("the helper and each person's share", () => {
+  const world = globalThis as { Deno?: unknown; fetch: unknown };
+  const realFetch = world.fetch;
+  let calls: jest.Mock;
+
+  beforeEach(() => {
+    // The key is set, and Unsplash answers every call with one photo.
+    world.Deno = { env: { get: (name: string) => (name === helper.SECRET ? 'k' : undefined) } };
+    calls = jest.fn(async () => new Response(JSON.stringify({ results: [result()] }), { status: 200 }));
+    world.fetch = calls;
+  });
+  afterEach(() => {
+    delete world.Deno;
+    world.fetch = realFetch;
+  });
+
+  const call = (body: unknown, share: boolean | 'missing') => {
+    const supabase = { rpc: jest.fn(async () => (share === 'missing' ? { data: null, error: { code: 'PGRST202' } } : { data: share, error: null })) };
+    const response = helper.default.fetch(new Request('https://project.example.org/functions/v1/photo-search', { method: 'POST', body: JSON.stringify(body) }), { supabase });
+    return { response, supabase };
+  };
+
+  it('searches when the person is within their share', async () => {
+    const { response, supabase } = call({ query: 'beach' }, true);
+    const answer = (await (await response).json()) as { photos: Photo[]; why?: string };
+    expect(answer.photos).toHaveLength(1);
+    expect(answer.why).toBeUndefined();
+    expect(supabase.rpc).toHaveBeenCalledWith('take_photo_search', { p_kind: 'search' });
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call Unsplash once the share is used up, and says it is this person who is over', async () => {
+    const { response } = call({ query: 'beach' }, false);
+    expect(await (await response).json()).toEqual({ photos: [], why: 'busy', mine: true });
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it('searches without a share until update 021 has been run', async () => {
+    const { response } = call({ query: 'beach' }, 'missing');
+    expect(((await (await response).json()) as { photos: Photo[] }).photos).toHaveLength(1);
+  });
+
+  it('counts nothing for a search that would not be made anyway', async () => {
+    const short = call({ query: ' a ' }, true);
+    expect(await (await short.response).json()).toEqual({ photos: [] });
+    expect(short.supabase.rpc).not.toHaveBeenCalled();
+    world.Deno = undefined;
+    const off = call({ query: 'beach' }, true);
+    expect(await (await off.response).json()).toEqual({ photos: [], why: 'off' });
+    expect(off.supabase.rpc).not.toHaveBeenCalled();
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it('tells Unsplash of a chosen photo within the share, and not past it', async () => {
+    const within = call({ chosen: LOCATION }, true);
+    expect(await (await within.response).json()).toEqual({ told: true });
+    expect(within.supabase.rpc).toHaveBeenCalledWith('take_photo_search', { p_kind: 'chosen' });
+    expect(calls).toHaveBeenCalledTimes(1);
+    const past = call({ chosen: LOCATION }, false);
+    expect(await (await past.response).json()).toEqual({ told: false });
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts nothing for an address it would never call', async () => {
+    const { response, supabase } = call({ chosen: 'https://example.com/photos/x/download' }, true);
+    expect(await (await response).json()).toEqual({ told: false });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(calls).not.toHaveBeenCalled();
   });
 });
