@@ -6,7 +6,7 @@
 /** Where people write to about their information. This address has to reach a person. */
 export const CONTACT = 'hello@somedaisy.com';
 
-export const UPDATED = '21 November 2026';
+export const UPDATED = '23 November 2026';
 
 /** A paragraph is a string. A list of points is an array of strings. */
 export type Block = string | string[];
@@ -30,6 +30,8 @@ export const SECTIONS: Section[] = [
         'A picture you add to an idea yourself. You choose it from your photos, your device makes a smaller copy, and we keep that copy with the idea. The app never sees your other photos.',
         'A photo you add as a group\'s cover. It is chosen and made smaller in the same way, and we keep that copy for the group. A group keeps one cover photo: a new one takes the place of the old one.',
         'If a group\'s cover or an idea\'s picture is a photo found by search: the web address of that photo and the name of the person who took it. We keep those, not the photo.',
+        'How your group has made its garden look: the colours of its house, how its lawn is kept, and which of the things it has earned are out.',
+        'If someone in your group waters an idea to nudge you: who did, and when. We keep it so that you are not nudged about the same idea more than once a day.',
         'If you turn on notifications: an address that lets us send notifications to your phone, whether it is an Android phone or an iPhone, your time zone, and which kinds of notification you want.',
         'A sign-in kept on your phone or in your browser, so you stay signed in.',
       ],

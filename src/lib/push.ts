@@ -130,9 +130,17 @@ export type NotificationSettings = {
   comments: boolean;
   /** A plan is about two hours away. */
   reminders: boolean;
+  /** A friend watered an idea I have not voted on, in the garden. */
+  nudges: boolean;
 };
 
-export const defaultNotificationSettings: NotificationSettings = { reactions: true, comments: true, reminders: true };
+export const defaultNotificationSettings: NotificationSettings = { reactions: true, comments: true, reminders: true, nudges: true };
+
+/**
+ * Said when nudges cannot be switched off because the database does not have update 024. It names
+ * the update on purpose: only whoever looks after the database can put this right.
+ */
+export const NO_NUDGES = 'Nudges cannot be switched off yet. The database is missing update 024 (nudges).';
 
 /** The signed-in person's choices. Someone who never chose has everything on. */
 export async function getNotificationSettings(): Promise<NotificationSettings> {
@@ -143,16 +151,21 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
     reactions: data?.reactions !== false,
     comments: data?.comments !== false,
     reminders: data?.reminders !== false,
+    nudges: data?.nudges !== false,
   };
 }
 
 export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
   if (!supabase) throw new Error('Not connected.');
-  const { error } = await supabase.rpc('set_notification_settings', {
-    p_reactions: settings.reactions,
-    p_reminders: settings.reminders,
-    p_comments: settings.comments,
-  });
+  const choices = { p_reactions: settings.reactions, p_reminders: settings.reminders, p_comments: settings.comments };
+  let { error } = await supabase.rpc('set_notification_settings', { ...choices, p_nudges: settings.nudges });
+  // PGRST202 is the database saying it has no function that takes the choice about nudges:
+  // update 024 has not been run. The other choices are still saved. Nudges cannot be sent
+  // without that update either, so only switching them off is worth an error.
+  if (error && (error as { code?: string }).code === 'PGRST202') {
+    ({ error } = await supabase.rpc('set_notification_settings', choices));
+    if (!error && !settings.nudges) throw new Error(NO_NUDGES);
+  }
   if (error) throw new Error(error.message);
 }
 
