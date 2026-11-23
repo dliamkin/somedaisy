@@ -117,6 +117,12 @@ With `supabase/updates/010-notification-polish.sql`, each person can mute a sing
 its settings (no notifications from that group, for them only), and tapping a notification
 about a comment opens that idea's comments instead of the group.
 
+With `supabase/updates/024-nudges.sql` there is a fourth kind, and it is the only one a person
+sends on purpose: in the garden, watering an idea nudges the members who have not voted on it
+(see "The garden" below). A person gets at most one nudge about the same idea in 24 hours, whoever
+waters it, and "Nudges" on the Notification settings page switches them off. Run updates 001 and
+003 before it.
+
 To check it end to end: install the build on two phones, join the same group, turn on notifications
 on both from the home screen, add an idea on one and react to it on the other. Expo's push tool at
 https://expo.dev/notifications can also send a test to a single phone.
@@ -582,7 +588,8 @@ The design is `docs/REDESIGN-HOME-AND-GROUP-2.md`, sections 3 to 5. The page is 
   and light over a dark one. The cover scrolls away with the page. Once it has gone, a small bar
   with the way back, the name and the same buttons stays at the top.
 - **A panel** in the page's colour that rides up over the bottom of the cover and holds the rest.
-- **The rank line**, which opens the stamps, with Calendar and "Things we did" beside it.
+- **The rank line**, which opens the stamps, with the garden (see "The garden" below), Calendar and
+  "Things we did" beside it. The garden's button is there once the group has an idea.
 - **Coming up** (`src/components/coming-up.tsx`). One plan is a card with its buttons on it. More
   than one go in a row that slides sideways, and tapping one opens it on a sheet that slides up
   (`src/components/sheet.tsx`), which is where "Change date", "Did it early" and "We did it!" are
@@ -666,6 +673,11 @@ The signal is sent twice over. The database sends it as part of saving any chang
 change. That phone also sends one itself, which is all there is until update 016 is run.
 Signals that arrive together are answered with one load (`src/lib/live.ts`).
 
+The garden opens on top of the group's page and listens to the same channel. Supabase hands out one
+channel for each name, so the two screens share it through `listenToGroup` in `src/lib/live.ts`,
+which closes the channel only when the last of them has gone. A screen that makes a change tells
+the other one directly, since a channel does not play a signal back to the app that sent it.
+
 A phone or a browser tab stops listening while it is in the background, so the group is also
 loaded again when the person comes back to it, and every 20 seconds while it is open. If
 Realtime is turned off or unreachable, nothing breaks: changes still save, and the 20 seconds
@@ -691,6 +703,114 @@ An idea can carry two optional tags, set when adding or editing it: how long it 
 staying in or going out. An idea without a tag is never left out because of it. The tags need
 `supabase/updates/014-idea-tags.sql`; without it the screen still works, on every idea, and
 tags chosen on the forms are simply not kept.
+
+### The garden
+
+Another way to look at a group's ideas, reached from the round tulip button on the group's page.
+Instead of a list, the group sees a little house on a hilltop, and every idea is a daisy in the
+yard. It sits beside the list and replaces nothing: the arrow at the top goes back to the list.
+The design came in two handoffs, `design_handoff_garden_a/` and `design_handoff_garden_a_v2/`
+(working prototypes and their notes), whose colours, sizes and timings are final.
+
+How to read a flower:
+
+- **Its shape** is how far the idea has come. A closed bud is new. A half-open cup has some
+  answers. A full bloom means everyone is in. A date marker behind the bloom means it is planned,
+  with the day of the month on it.
+- **Its petals** are the colour of its list.
+- **Its leaves** are the members, each in that member's colour: a full leaf for "I'm in", a
+  smaller one for "Eh", a green nub for no answer yet. A flower has up to six leaves. In a bigger
+  group they are the six who joined first, with the person looking always among them.
+- **The daisy in the sky** is the group's rank: one petal filled in for each rank reached.
+
+Tapping a flower moves the camera in on it and opens a sheet with who has answered and what can be
+done next: "I'm in" and "Eh" until everyone is in, then "Plan it", then "We did it!". "We did it!"
+sends the flower into the house, and the usual "You did it" screen follows, where a mistaken tap
+can be undone. "Pick for us" sends a bee to choose a flower, and "Add an idea" opens the usual
+form: the new idea comes up as a bud in the front row.
+
+What else is in it:
+
+- **The house can be walked into.** Tap the door, or the book at the top. Inside is a hallway
+  where every finished idea hangs in a frame: a pressed flower in its list's colour, or the idea's
+  own picture if the group gave it one. (A photo found by search is not framed: it has to carry its
+  credit wherever it shows, and a small frame cannot.) A wall holds twelve frames and covers whole
+  months. Quiet months share a wall and a busy month runs on to the next, and walls fill from the
+  oldest forward, so only the newest wall ever changes. Swipe sideways or use the arrows to walk
+  along, tap a frame to lean in, and use the list button to see everything and walk straight to
+  one. The link at the foot of that list opens the full "Things we did" page. The rule for the
+  walls is `buildWalls` in `src/lib/garden-house.ts`.
+- **"Our garden"**, the round button left of "Pick for us": paint the roof, walls and door, and
+  choose a soft, mown or meadow lawn. Everyone in the group sees the same garden, and any member
+  can change it. It needs `supabase/updates/023-garden-look.sql`. Without it the garden still
+  opens, as it first was, and a change says which update is missing.
+- **Things to earn.** A bench at 5 things done, a birdbath at 10 and string lights at 20
+  (`EXTRAS` in `src/lib/garden-look.ts`). Each can be switched off and on in "Our garden".
+- **Seasons** follow the date: blossom in spring, turning leaves in autumn, snow in winter. The
+  device's time zone decides which half of the world it is in, so December is summer in Sydney.
+  Nothing about where anyone is gets kept.
+- **Water to nudge.** While an idea is waiting on someone, its sheet has "Water to nudge" with
+  their names. The watering can tips, and the members who have not voted get a notification on
+  their phones. Someone who said "Eh" is never nudged. It needs `supabase/updates/024-nudges.sql`
+  (see "Push notifications"). Without it the can still pours and the app says nudges cannot be
+  sent yet.
+- **Friends drop by.** When another member says "I'm in" while you have the garden open, their
+  butterfly flies in under their name and lands on that flower, and their leaf unfurls as it
+  does. Only votes that arrive while the garden is open do this.
+- **A postcard.** The camera at the top takes a picture of the garden as it is. "Share" opens the
+  share sheet with it. "Save picture" downloads it on the website. In the phone app it opens the
+  share sheet too, which is where a phone offers to keep a picture: saving straight into the
+  phone's photos would mean asking for access to them, and the app does not.
+- **Sounds**, off until someone turns them on in "Our garden", and remembered on that device only:
+  wind, birds by day, crickets at night, and a few notes when things happen. They are made as they
+  play. There are no sound files.
+
+What it shows, and what it leaves to the list:
+
+- Only things to go and do. Ideas on a list that is just a list have nothing to plan.
+- Twelve flowers at a time, newest first, which is what the yard holds. A group with more gets
+  "Bed 1 of 3" and two arrows above the bottom bar.
+- Dark mode is night, with stars, a shooting star now and then, fireflies and a lit window. Light
+  mode is day, and dusk from five until nine in the evening.
+- People who have asked their device for less motion get a garden that stands still: nothing
+  sways, the walk into the house is a quick cut, and a friend's vote simply shows.
+- The flowers are also there as a list nobody sees, so a keyboard or a screen reader can reach
+  each one and open it. Inside the house the list of finished ideas does that job. The list view
+  remains the fuller way to do everything.
+
+How it is built:
+
+- **The scene** is in `src/garden/`, drawn with three.js: `scene.ts` (flowers, camera, taps and
+  each frame), `land.ts` (hill, house), `sky.ts` (sky, stars, clouds, the valley round the hill),
+  `plants.ts` (trees, shrubs, grass, wildflowers), `extras.ts` (bench, birdbath, lights, snow),
+  `hallway.ts` (inside the house), `creatures.ts` (butterflies, the bee, fireflies, the watering
+  can), `sound.ts`, and three files with no drawing in them that the tests cover: `ground.ts`,
+  `plan.ts` and `palette.ts`. Nothing is loaded from an image file except a group's own pictures
+  in frames. Trees and grass are worked out from the same run of made-up numbers every time, so it
+  is always the same garden.
+- **It is web code.** `src/components/garden-view.tsx` starts with `'use dom'`, which makes it an
+  Expo DOM component: on the website it is drawn straight into the page, and in the phone app Expo
+  puts it in a web view of its own. Nothing extra needs installing for that. The screen passes it
+  plain values (the flowers, the walls of the house, the season) and hears back through functions.
+- **Everything over the garden** (header, sheets, the bar inside the house, the postcard) is the
+  app's own, in `src/components/garden-chrome.tsx`, put together by
+  `src/app/group/[id]/garden.tsx`.
+- **The rules** are in `src/lib/garden.ts` (an idea's stage, who gets a leaf, who is nudged),
+  `src/lib/garden-look.ts` (paint, lawn, what is earned, the season) and
+  `src/lib/garden-house.ts` (which frames hang on which wall).
+- **A phone draws less.** In the app, and on the website with a finger for a pointer, the garden
+  has about half the leaves and grass, softer shadows and fewer dots to the screen (`QUALITY` in
+  `src/garden/kit.ts`). It stops drawing while another screen is over it or the app is in the
+  background, the garden is not drawn while the camera is inside the house, and only three walls of
+  the hallway are ever built.
+
+Of the options in the prototypes' side panels, this is the Meadow layout, petals in the list's
+colour, daisy-shaped petals and vote leaves on. The Path and Tall stems layouts are not built, and
+the side panel itself is a review tool, not part of the app.
+
+Checked against the prototypes in a browser on a computer, where they look alike and the garden
+holds 60 frames a second, in every season and time of day, and with 0, 1, 3, 12, 40 and 320 things
+done in the house. Not yet seen on a phone, and not yet timed on one.
 
 ## Run it
 
@@ -724,6 +844,7 @@ private browser window or on another device.
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
 | `src/app/group/[id]/stamps.tsx` | The group's rank, the ladder of ranks, points and stamps |
 | `src/app/group/[id]/pick.tsx` | Pick for us |
+| `src/app/group/[id]/garden.tsx` | The garden: a group's ideas as flowers round a little house |
 | `src/app/group/[id]/share.tsx` | Share an idea as a picture |
 | `src/app/group/[id]/invite.tsx` | Invite link, a QR code of it, and members |
 | `src/app/group/[id]/settings.tsx` | Rename the group, tidy its lists, remove people, replace the invite link, leave |
@@ -736,6 +857,11 @@ private browser window or on another device.
 | `src/lib/every-row.ts` | Reading past the 1,000 rows one request gives |
 | `src/lib/group-files.ts` | Clearing out a group's idea pictures before the group is deleted |
 | `src/lib/search.ts` | Finding an idea in a group by typing part of it |
+| `src/garden/` | The garden's 3D scene, drawn with three.js. Web code, shown through `src/components/garden-view.tsx` |
+| `src/lib/garden.ts` | What each idea looks like as a flower, the words on its sheet, and who a watering nudges |
+| `src/lib/garden-look.ts` | A garden's paint and lawn, what a group has earned for its yard, and the season |
+| `src/lib/garden-house.ts` | Inside the house: which finished ideas hang on which wall |
+| `src/lib/postcard.ts`, `src/lib/garden-sound.ts` | Sharing a postcard of the garden, and whether its sounds are on |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews, photo search) |
 
@@ -753,6 +879,11 @@ sets with the same names (`light` and `dark`) plus the colours that never change
 daisy, the logo tile). A screen gets the right set from `useTheme()`. The names and values come from
 `docs/POLISH-AND-DARK-MODE.md`, and `src/lib/__tests__/theme-test.ts` checks that both sets have the
 same names and that text can be read on what it sits on.
+
+The one exception is the garden. Its scene is a picture of a place, with greens, bark and sky of
+its own that follow the time of day, not the mode. Those are all in `src/garden/palette.ts`, and a
+test checks the ones it shares with the brand against the theme. The buttons and sheets over the
+garden use the theme like everything else.
 
 The mode is chosen under **Appearance** on the account screen: Auto (follow the phone or browser),
 Light or Dark. The choice is kept on the device, not the account, so guests have it too. Two things

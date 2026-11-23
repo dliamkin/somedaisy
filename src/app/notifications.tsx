@@ -75,6 +75,13 @@ export default function Notifications() {
           />
           <View style={{ height: 1, backgroundColor: colors.line }} />
           <Choice
+            title="Nudges"
+            detail="When a friend waters an idea in the garden that you have not voted on."
+            value={settings.nudges}
+            onChange={(nudges) => change({ ...settings, nudges })}
+          />
+          <View style={{ height: 1, backgroundColor: colors.line }} />
+          <Choice
             title="Plan reminders"
             detail="About two hours before a plan starts."
             value={settings.reminders}

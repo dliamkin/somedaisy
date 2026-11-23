@@ -1,6 +1,7 @@
 import { countByIdea, latestByIdea, type Comment } from './comments';
 import { coverChange, NO_COVERS, type Cover } from './covers';
 import { COUNTED, everyRow } from './every-row';
+import { NO_GARDEN_LOOK, type GardenLook } from './garden-look';
 import { NO_IDEA_PHOTOS, type IdeaPhoto } from './idea-photos';
 import { ALL_ON, sameOptions, type ListOptions } from './list-options';
 import { NO_PICTURES } from './pictures';
@@ -62,6 +63,8 @@ export type GroupData = {
   cover: string;
   /** The rest of the cover (see `GroupSummary`). Absent until update 018 has been run. */
   cover_style?: unknown;
+  /** How the group's garden looks (read it with `gardenLook` in `src/lib/garden-look.ts`). Absent until update 023 has been run. */
+  garden?: unknown;
   invite_code: string;
   /** The member who can remove people and replace the invite link. See `ownerOf`. */
   owner: string | null;
@@ -167,6 +170,7 @@ export async function fetchGroup(id: string): Promise<GroupData | null> {
     name: g.data.name,
     cover: g.data.cover,
     cover_style: g.data.cover_style as unknown,
+    garden: g.data.garden as unknown,
     invite_code: g.data.invite_code,
     owner: ownerOf(g.data.created_by as string | null | undefined, members),
     members,
@@ -228,6 +232,13 @@ export async function saveCover(groupId: string, cover: Cover): Promise<void> {
     if (change.cover_style !== null || !change.cover) throw new Error(NO_COVERS);
     ({ error } = await db().from('groups').update({ cover: change.cover }).eq('id', groupId));
   }
+  fail(error);
+}
+
+/** Save how a group's garden looks: its house's paint, its lawn, and which earned things are out. Any member can. Needs update 023. */
+export async function saveGardenLook(groupId: string, look: GardenLook): Promise<void> {
+  const { error } = await db().from('groups').update({ garden: look }).eq('id', groupId);
+  if (noSuchColumn(error)) throw new Error(NO_GARDEN_LOOK);
   fail(error);
 }
 
@@ -497,7 +508,8 @@ export async function fetchDone(groupId: string): Promise<DoneIdea[]> {
     (from, to) =>
       db()
         .from('ideas')
-        .select('id, list_id, title, link, note, added_by, planned_for, created_at, done_at', COUNTED)
+        // "*" takes whatever an idea has, so this works before and after update 017 (the idea's own picture).
+        .select('*', COUNTED)
         .eq('group_id', groupId)
         .not('done_at', 'is', null)
         .order('done_at', { ascending: false })
@@ -507,6 +519,26 @@ export async function fetchDone(groupId: string): Promise<DoneIdea[]> {
   );
   fail(error);
   return data ?? [];
+}
+
+/** How many things a group has done, for the number on the way to "Things we did". Asks only for the count. */
+export async function countDone(groupId: string): Promise<number> {
+  const { count, error } = await db().from('ideas').select('id', { count: 'exact', head: true }).eq('group_id', groupId).not('done_at', 'is', null);
+  fail(error);
+  return count ?? 0;
+}
+
+/**
+ * Nudge the members who have not voted on an idea, with a push to their phones (update 024).
+ * Answers with the ids of the people nudged: empty when everyone has answered, or was already
+ * nudged about this idea in the last 24 hours. Null when nudges are not set up in the database yet.
+ */
+export async function nudgeIdea(ideaId: string): Promise<string[] | null> {
+  const { data, error } = await db().rpc('nudge_idea', { p_idea: ideaId });
+  // PGRST202 is the database saying it has no such function: update 024 has not been run.
+  if (error && (error as { code?: string }).code === 'PGRST202') return null;
+  fail(error);
+  return (data ?? []) as string[];
 }
 
 /** Undo "done": the idea goes back on its list, keeping its reactions and any date it had. */

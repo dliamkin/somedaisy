@@ -56,6 +56,12 @@ describe('the privacy policy', () => {
     expect(words).toContain('We keep when each one was made, not the words, and remove it within a day');
   });
 
+  it('says that a nudge is kept, and why, and that the garden\'s look is kept for the group', () => {
+    expect(words).toContain('waters an idea to nudge you: who did, and when');
+    expect(words).toContain('not nudged about the same idea more than once a day');
+    expect(words).toContain('How your group has made its garden look');
+  });
+
   it('says what the people who run the app can see, and what their page leaves out', () => {
     expect(words).toContain('The people who run SomeDaisy can open a page that lists the people and groups using it');
     expect(words).toContain('names, email addresses, when each person joined');

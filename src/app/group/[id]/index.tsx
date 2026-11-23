@@ -20,7 +20,7 @@ import { coverOf } from '@/lib/covers';
 import { openLink } from '@/lib/links';
 import { plannedIdeas } from '@/lib/plans';
 import { isToDo, optionsOf } from '@/lib/list-options';
-import { gather } from '@/lib/live';
+import { gather, listenToGroup } from '@/lib/live';
 import { lookFor } from '@/lib/looks';
 import { levelFor, levelUp, TITLES, type Completion, type Level } from '@/lib/points';
 import { FIND_MAX, findIdeas, findWords, foundLine, SEARCH_FROM } from '@/lib/search';
@@ -109,18 +109,14 @@ export default function GroupScreen() {
   // Signals that arrive together are answered with one load.
   useEffect(() => {
     if (!supabase || !id) return;
-    const client = supabase;
     const reload = gather(() => void load());
-    const channel = client.channel(`group:${id}`, { config: { broadcast: { self: false } } });
-    channel.on('broadcast', { event: 'changed' }, reload.ask);
-    channel.subscribe();
-    notifyRef.current = () => {
-      void channel.send({ type: 'broadcast', event: 'changed', payload: {} });
-    };
+    // The channel is shared with the garden, which opens on top of this page (see `listenToGroup`).
+    const live = listenToGroup(supabase, id, reload.ask);
+    notifyRef.current = live.tell;
     return () => {
       notifyRef.current = () => {};
       reload.cancel();
-      void client.removeChannel(channel);
+      live.stop();
     };
   }, [id, load]);
 
@@ -383,6 +379,12 @@ export default function GroupScreen() {
             kept at the top so nobody has to scroll past every idea to reach them. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {group.points !== null ? <RankLine points={group.points} onPress={() => go('stamps')} /> : <View style={{ flex: 1 }} />}
+          {/* The same ideas as a garden. Only once there is something that could grow in it. */}
+          {group.ideas.length > 0 ? (
+            <CircleButton label="Garden view" onPress={() => go('garden')}>
+              <ListIcon name="tulip" size={22} color={colors.link} />
+            </CircleButton>
+          ) : null}
           <CircleButton label="Calendar" onPress={() => go('calendar')}>
             <ListIcon name="calendar" size={22} color={colors.link} />
           </CircleButton>

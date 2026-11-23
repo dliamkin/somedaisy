@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SomeDaisy Garden A</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#EDE6F4;font-family:Nunito,system-ui,sans-serif;color:#2C2040}
+a{color:#5A25A6}a:hover{color:#2C2040}
+button{font-family:inherit}
+.wrap{min-height:100vh;display:flex;flex-wrap:wrap;gap:44px;justify-content:center;align-items:flex-start;padding:40px 24px}
+.phone{--card:#FFFFFF;--ink:#2C2040;--muted:#625475;--bg:#F6F0FB;--line:#E7DBF3;--btn:#6D2FC4;--link:#5A25A6;--outline:#B49FCF;--pink:#9C2580;width:390px;height:844px;flex:none;position:relative;overflow:hidden;border-radius:40px;background:#CFE3FF;border:1px solid #E7DBF3;box-shadow:0 8px 12px rgba(90,40,140,.12);user-select:none}
+.phone.night{--card:#2A2038;--ink:#F4EEFB;--muted:#C4B5D4;--bg:#171124;--line:#3F3150;--btn:#8A4BE6;--link:#C9A6FF;--outline:#8A76A6;--pink:#F0A6DD;background:#171124}
+#gl,#labels{position:absolute;inset:0}
+#labels{pointer-events:none;overflow:hidden}
+.hdr{position:absolute;left:16px;right:16px;top:16px;display:flex;align-items:center;gap:10px;pointer-events:none}
+.round{width:44px;height:44px;flex:none;border-radius:22px;background:var(--card);display:grid;place-items:center;position:relative;transition:background .8s}
+.round svg{stroke:var(--ink)}
+.ttl{flex:1;min-width:0;color:var(--ink);transition:color .8s}
+.ttl b{display:block;font:900 20px/1.1 Nunito,sans-serif}
+.ttl span{font:800 12.5px Nunito,sans-serif}
+.badge{position:absolute;right:-4px;top:-4px;min-width:20px;height:20px;border-radius:10px;background:#B8339A;color:#fff;font:900 11.5px/20px Nunito,sans-serif;text-align:center}
+.pop{animation:pop .6s ease-out}
+@keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.3)}100%{transform:scale(1)}}
+.pills{position:absolute;left:16px;right:16px;top:74px;display:flex;gap:6px;font:800 12.5px Nunito,sans-serif;color:var(--ink);pointer-events:none}
+.pills div{height:32px;padding:0 10px;border-radius:16px;background:var(--card);display:flex;align-items:center;gap:5px;transition:background .8s}
+.pills b{font-weight:900}
+.toast{position:absolute;left:0;right:0;top:120px;display:flex;justify-content:center;pointer-events:none;opacity:0;transition:opacity .4s}
+.toast.on{opacity:1}
+.toast div{padding:9px 16px;border-radius:20px;background:#2C2040;color:#fff;font:800 13.5px Nunito,sans-serif;max-width:330px;text-align:center}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 20px;background:var(--bg);border-top:1px solid var(--line);display:flex;gap:10px;transition:background .8s}
+.pill{height:44px;padding:0 22px;border-radius:22px;border:none;background:var(--btn);color:#fff;font:800 15px Nunito,sans-serif;cursor:pointer}
+.pill:active{transform:scale(.96)}
+.pill.out{background:transparent;border:2px solid var(--btn);color:var(--link)}
+.pill.soft{background:transparent;border:1.5px solid var(--outline);color:var(--ink)}
+.pill.text{background:transparent;color:var(--link);padding:0 14px}
+.bar .pill{flex:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);color:var(--ink);border-radius:30px 30px 0 0;box-shadow:0 -8px 12px rgba(90,40,140,.12);padding:20px 16px 22px;transform:translateY(110%);transition:transform .38s cubic-bezier(.3,1.1,.4,1)}
+.sheet.open{transform:none}
+.sheet h3{font:900 19px Nunito,sans-serif;margin:0}
+.sheet .sub{font:700 13px Nunito,sans-serif;color:var(--muted);margin:2px 0 12px}
+.mem{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.mem div{display:flex;align-items:center;gap:6px;font:800 13px Nunito,sans-serif}
+.mem i{width:16px;height:16px;border-radius:8px}
+.mem span{font-weight:700;color:var(--muted)}
+.acts{display:flex;gap:8px}
+.acts .text{margin-left:auto}
+.side{flex:1 1 320px;max-width:420px;padding-top:8px}
+.eyebrow{font:800 12px Nunito,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#9C2580}
+.side h1{font:900 34px/1.1 Nunito,sans-serif;margin:6px 0 12px}
+.side p{font:500 15.5px/1.5 Nunito,sans-serif;margin:0 0 16px;text-wrap:pretty}
+.side h2{font:900 16px Nunito,sans-serif;margin:22px 0 8px}
+.try{display:flex;flex-direction:column;gap:8px;font:500 15px/1.4 Nunito,sans-serif}
+.try b{font-weight:800}
+.opts{background:#fff;border-radius:24px;padding:16px;box-shadow:0 8px 12px rgba(90,40,140,.12);display:flex;flex-direction:column;gap:12px}
+.opt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.opt label{font:800 13px Nunito,sans-serif;color:#625475;width:86px;flex:none}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{height:36px;padding:0 14px;border-radius:18px;border:none;background:#F6F0FB;color:#2C2040;font:800 13.5px Nunito,sans-serif;cursor:pointer}
+.seg button.on{background:#2C2040;color:#fff}
+.err{position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;font:800 15px Nunito,sans-serif}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phone" id="phone" data-screen-label="Garden A">
+    <div id="gl"></div>
+    <div id="labels"></div>
+    <div class="hdr">
+      <div class="round"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L6 10l6 6"></path></svg></div>
+      <div class="ttl"><b>Weekend crew</b><span>Thrill Seekers · 30 to go</span></div>
+      <div class="round" id="book" title="Things we did"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5v13M11 5C9 3.5 6 3.5 3 4v13c3-.5 6-.5 8 1M11 5c2-1.5 5-1.5 8-1v13c-3-.5-6-.5-8 1"></path></svg><div class="badge" id="doneN">3</div></div>
+    </div>
+    <div class="pills"><div>New <b id="n1">0</b></div><div>Waiting <b id="n2">0</b></div><div>Everyone's in <b id="n3">0</b></div><div>Planned <b id="n4">0</b></div></div>
+    <div class="toast" id="toast"><div id="toastT"></div></div>
+    <div class="bar"><button class="pill out" id="pickBtn">Pick for us</button><button class="pill" id="addBtn">Add an idea</button></div>
+    <div class="sheet" id="sheet">
+      <h3 id="sT"></h3><div class="sub" id="sS"></div><div class="mem" id="sM"></div>
+      <div class="acts"><button class="pill" id="bIn">I'm in</button><button class="pill soft" id="bEh">Eh</button><button class="pill" id="bPlan">Plan it</button><button class="pill" id="bDone">We did it!</button><button class="pill text" id="bClose">Close</button></div>
+    </div>
+  </div>
+  <div class="side">
+    <div class="eyebrow">SomeDaisy · Garden A</div>
+    <h1>A little house on a hill</h1>
+    <p>The group's garden is a real place now. Every flower in the yard is an idea, and it grows as the idea moves along. The daisy in the sky is the group's rank, five of eight petals filled. You are Jo.</p>
+    <h2>Try this</h2>
+    <div class="try">
+      <div><b>Tap Dune</b>, the purple half-open flower at the front right. Say "I'm in". Your leaf unfurls and the flower opens, because now everyone's in.</div>
+      <div><b>Tap it again.</b> "Plan it" stands a date marker behind the bloom.</div>
+      <div><b>Tap Mini golf</b>, the teal bloom with the 28 tag. "We did it!" sends the flower into the house, to Things we did.</div>
+      <div><b>Add an idea</b> grows a new bud. <b>Pick for us</b> sends a bee to choose.</div>
+      <div><b>Hover</b> a flower to see its name. <b>Drag</b> to look around. Butterflies land on open flowers.</div>
+    </div>
+    <h2>Options</h2>
+    <div class="opts" id="opts"></div>
+    <h2>Reading a flower</h2>
+    <p>A closed bud is new. A half-open cup is waiting on votes. A full bloom is everyone's in. A date marker behind the bloom means planned. Each flower has three leaves for Sam, Alex and Jo: a full leaf is "I'm in", a small leaf is "Eh", a green nub has not voted.</p>
+    <button class="pill out" id="resetBtn" style="--btn:#6D2FC4;--link:#5A25A6">Start over</button>
+  </div>
+</div>
+<script type="module">
+import { createGarden } from './garden3d.js?v=3';
+const $ = s => document.querySelector(s), MC = ['#CFE3FF', '#FFD9C7', '#F7C9EA'], N = ['Sam', 'Alex', 'Jo'];
+const seed = () => [
+  [1, 'Sunrise beach walk', 'Beach walk', 'Places', 2, 3, [1, 0, 0]],
+  [2, 'Paddington in Peru', 'Paddington', 'Movies', 1, 0, [0, 0, 0], 'Jo'],
+  [3, 'Botanic gardens at night', 'Botanic', 'Places', 3, 40, [1, 1, 1]],
+  [4, 'Dune: Part Two', 'Dune', 'Movies', 2, 143, [1, 1, 0]],
+  [5, 'Bake sourdough', 'Sourdough', 'Food', 1, 2, [1, 0, 0], 'Sam'],
+  [6, 'Mini golf rematch', 'Mini golf', 'Day trips', 4, 61, [1, 1, 1], '', 'Sat, Nov 28', '28'],
+  [7, 'That new ramen place', 'Ramen', 'Food', 3, 12, [1, 1, 1]],
+  [8, 'Hot springs', 'Hot springs', 'Day trips', 2, 212, [2, 1, 0]],
+  [9, 'Dumpling crawl', 'Dumplings', 'Food', 4, 25, [1, 1, 1], '', 'Fri, Nov 27', '27']
+].map(a => ({ id: a[0], t: a[1], s: a[2], l: a[3], st: a[4], d: a[5], v: a[6], by: a[7], date: a[8], day: a[9] }));
+const KEY = 'sdGarden3dOpts';
+let opt = { layout: 'Meadow', time: 'Day', motion: 'Gentle', petals: 'List color', petalShape: 'Daisy', voteLeaves: true, names: true };
+try { Object.assign(opt, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) { }
+let ideas = seed(), sel = null, done = 3, added = 0, lastSel = null, toastK = 0, garden = null;
+
+const sub = d => { const w = N.filter((_, i) => d.v[i] === 0); return d.st === 1 ? 'Added by ' + (d.by || 'Sam') + (d.d ? '' : ' today') : d.st === 2 ? (w.length ? 'Waiting on ' + w.join(', ') : 'Not everyone is in yet') : d.st === 3 ? "Everyone's in" : d.date; };
+const say = m => { const k = ++toastK; $('#toastT').textContent = m; $('#toast').classList.add('on'); setTimeout(() => { if (k === toastK) $('#toast').classList.remove('on'); }, 3000); };
+const sync = () => { garden && garden.setIdeas(ideas); render(); };
+function render() {
+  [1, 2, 3, 4].forEach(st => { $('#n' + st).textContent = ideas.filter(d => d.st === st && !d.fly).length; });
+  $('#doneN').textContent = done;
+  $('#phone').classList.toggle('night', opt.time === 'Night');
+  const d = ideas.find(x => x.id === sel); if (d) lastSel = d; const L = d || lastSel;
+  $('#sheet').classList.toggle('open', !!d);
+  if (!L) return;
+  $('#sT').textContent = L.t; $('#sS').textContent = sub(L) + (L.st < 4 && L.d > 0 ? ' · Someday for ' + L.d + ' days' : '');
+  $('#sM').innerHTML = N.map((n, i) => `<div><i style="background:${L.v[i] ? MC[i] : 'transparent'};border:1.5px ${L.v[i] ? 'solid var(--ink)' : 'dashed var(--outline)'}"></i>${i === 2 ? 'Jo (you)' : n} <span>${["hasn't voted", "I'm in", 'Eh'][L.v[i]]}</span></div>`).join('');
+  const vote = L.st < 3 && L.v[2] !== 1;
+  $('#bIn').style.display = $('#bEh').style.display = vote ? '' : 'none'; $('#bPlan').style.display = L.st === 3 ? '' : 'none'; $('#bDone').style.display = L.st === 4 ? '' : 'none';
+}
+const upd = (id, fn) => { ideas = ideas.map(d => d.id === id ? fn(d) : d); sync(); };
+const select = id => { sel = id; garden && garden.select(id); render(); };
+$('#bIn').onclick = () => vote(1); $('#bEh').onclick = () => vote(2);
+function vote(val) { const d = ideas.find(x => x.id === sel); if (!d) return; const v = d.v.slice(); v[2] = val; upd(d.id, x => ({ ...x, v, st: v.every(q => q === 1) ? 3 : 2 })); }
+$('#bPlan').onclick = () => { if (sel != null) upd(sel, x => ({ ...x, st: 4, date: 'Sun, Nov 29', day: '29' })); };
+$('#bDone').onclick = () => { const id = sel; if (id == null) return; select(null); upd(id, x => ({ ...x, fly: true })); };
+$('#bClose').onclick = () => select(null);
+$('#addBtn').onclick = () => {
+  const pool = [['Pottery class', 'Pottery', 'Day trips'], ['Drive-in movie', 'Drive-in', 'Movies'], ['Farmers market', 'Market', 'Food']];
+  if (added >= pool.length || ideas.length >= 12) return say('The demo garden is full');
+  const a = pool[added]; ideas = [...ideas, { id: 100 + added, t: a[0], s: a[1], l: a[2], st: 1, d: 0, v: [0, 0, 0], by: 'Jo' }]; added++; sync(); say(a[0] + ' is planted');
+};
+$('#pickBtn').onclick = () => { const live = ideas.filter(d => !d.fly), ok = live.filter(d => d.st === 3), from = ok.length ? ok : live; if (!from.length || !garden) return; select(null); garden.pick(from[Math.floor(Math.random() * from.length)].id); };
+$('#resetBtn').onclick = () => { ideas = seed(); sel = null; lastSel = null; done = 3; added = 0; if (garden) { garden.select(null); garden.restart(); garden.setIdeas(ideas, true); } render(); };
+
+const OPTS = [['layout', 'Layout', ['Meadow', 'Path', 'Tall stems']], ['time', 'Time of day', ['Day', 'Dusk', 'Night']], ['motion', 'Motion', ['Still', 'Gentle', 'Lively']], ['petals', 'Petal color', ['List color', 'Accent', 'White']], ['petalShape', 'Petal shape', ['Daisy', 'Round', 'Slim']], ['voteLeaves', 'Vote leaves', [true, false]]];
+function drawOpts() {
+  $('#opts').innerHTML = OPTS.map(o => `<div class="opt"><label>${o[1]}</label><div class="seg">${o[2].map((v, i) => `<button data-k="${o[0]}" data-i="${i}" class="${opt[o[0]] === v ? 'on' : ''}">${v === true ? 'On' : v === false ? 'Off' : v}</button>`).join('')}</div></div>`).join('');
+}
+$('#opts').onclick = e => { const b = e.target.closest('button'); if (!b) return; const o = OPTS.find(x => x[0] === b.dataset.k); opt[o[0]] = o[2][+b.dataset.i]; try { localStorage.setItem(KEY, JSON.stringify(opt)); } catch (_) { } drawOpts(); garden && garden.setOptions(opt); render(); };
+drawOpts(); render();
+
+try { await Promise.race([document.fonts.load('900 84px Nunito'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { }
+try {
+  garden = createGarden($('#gl'), $('#labels'), {
+    onSelect: id => select(id),
+    onPressed: id => { ideas = ideas.filter(d => d.id !== id); done++; const b = $('#book'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); say('Pressed into Things we did'); sync(); },
+    onPickArrive: id => { const d = ideas.find(x => x.id === id); if (d) say('How about ' + d.t + '?'); }
+  });
+  garden.setOptions(opt); garden.setIdeas(ideas, true);
+} catch (e) {
+  console.error(e);
+  $('#gl').innerHTML = '<div class="err">This garden needs WebGL, and it did not start in this browser.</div>';
+}
+</script>
+</body>
+</html>
