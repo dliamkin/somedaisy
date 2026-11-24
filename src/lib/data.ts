@@ -17,7 +17,16 @@ export type Member = { user_id: string; name: string; color: string; photo: stri
  * the cover and needs supabase/updates/018-group-covers.sql; without it, it is simply absent. Read
  * the two together with `coverOf` in `src/lib/covers.ts`.
  */
-export type GroupSummary = { id: string; name: string; cover: string; cover_style?: unknown; members: Member[] };
+export type GroupSummary = {
+  id: string;
+  name: string;
+  cover: string;
+  cover_style?: unknown;
+  /** In the order they joined. */
+  members: Member[];
+  /** The member who can delete the group. See `ownerOf`. */
+  owner: string | null;
+};
 /**
  * `icon` and `color` need supabase/updates/012-list-looks.sql, and `dates`, `links` and `notes`
  * need 015-list-options.sql; without those updates they are simply absent. See `optionsOf` in
@@ -118,15 +127,21 @@ export async function fetchGroups(): Promise<GroupSummary[]> {
     .from('groups')
     // "*" takes whatever a group has, so this works before and after update 018 (group covers).
     .select('*, group_members(user_id, profiles(*))')
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    // Members in the order they joined, which is what says who the owner is once the person who started the group has gone.
+    .order('joined_at', { referencedTable: 'group_members', ascending: true });
   fail(error);
-  return (data ?? []).map((g) => ({
-    id: g.id as string,
-    name: g.name as string,
-    cover: g.cover as string,
-    cover_style: g.cover_style as unknown,
-    members: toMembers(g.group_members as unknown as MemberRow[]),
-  }));
+  return (data ?? []).map((g) => {
+    const members = toMembers(g.group_members as unknown as MemberRow[]);
+    return {
+      id: g.id as string,
+      name: g.name as string,
+      cover: g.cover as string,
+      cover_style: g.cover_style as unknown,
+      members,
+      owner: ownerOf(g.created_by as string | null | undefined, members),
+    };
+  });
 }
 
 export async function fetchGroup(id: string): Promise<GroupData | null> {

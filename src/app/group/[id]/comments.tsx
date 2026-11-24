@@ -1,18 +1,33 @@
+import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
 
+import { ActionIcon } from '@/components/action-icons';
+import { PhotoCredit } from '@/components/cover-credit';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
 import { addComment, cleanComment, COMMENT_MAX, fetchComments, removeComment, timeAgo, type Comment } from '@/lib/comments';
-import { fetchGroup, markChanged, type Idea, type Member } from '@/lib/data';
+import { fetchGroup, markChanged, type Idea, type List, type Member } from '@/lib/data';
+import { openLink, siteName } from '@/lib/links';
 import { gather } from '@/lib/live';
+import { PICTURE_SHAPE } from '@/lib/picture-crop';
+import { cardCredit, cardPicture } from '@/lib/pictures';
+import { formatPlan } from '@/lib/plans';
 import { useSession } from '@/lib/session';
+import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 
-type Thread = { idea: Idea | null; members: Member[]; comments: Comment[] };
+type Thread = { idea: Idea | null; members: Member[]; lists: List[]; comments: Comment[] };
 
-/** The conversation about one idea. */
+// The corners of the card the idea is shown on, which its picture is cut to.
+const RADIUS = 26;
+
+/**
+ * An idea's own page: what it is (its picture, its name, who added it, its note, its link and its
+ * date), then the conversation about it, with the box to add to that pinned at the bottom.
+ * Tapping an idea's card on the group's page opens this.
+ */
 export default function IdeaComments() {
   const { colors } = useTheme();
   const { id, idea: ideaId } = useLocalSearchParams<{ id: string; idea?: string }>();
@@ -22,18 +37,20 @@ export default function IdeaComments() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The picture that would not load, so the card is not left with an empty frame.
+  const [broken, setBroken] = useState<string | null>(null);
   const notifyRef = useRef<() => void>(() => {});
 
   const load = useCallback(async () => {
     if (!id || !ideaId) return;
     try {
       const [group, comments] = await Promise.all([fetchGroup(id), fetchComments(ideaId)]);
-      setThread({ idea: group?.ideas.find((i) => i.id === ideaId) ?? null, members: group?.members ?? [], comments });
+      setThread({ idea: group?.ideas.find((i) => i.id === ideaId) ?? null, members: group?.members ?? [], lists: group?.lists ?? [], comments });
       setNow(new Date());
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load the comments.');
-      setThread((current) => current ?? { idea: null, members: [], comments: [] });
+      setThread((current) => current ?? { idea: null, members: [], lists: [], comments: [] });
     }
   }, [id, ideaId]);
 
@@ -119,8 +136,18 @@ export default function IdeaComments() {
     );
   }
 
-  const { idea, members, comments } = thread;
+  const { idea, members, lists, comments } = thread;
   const who = (uid: string) => members.find((m) => m.user_id === uid);
+  const shown = cardPicture(idea);
+  const picture = shown && broken !== shown ? shown : null;
+  // Who to credit, when the picture is a photo found by search.
+  const credit = picture ? cardCredit(idea) : null;
+  const listName = lists.find((l) => l.id === idea.list_id)?.name ?? null;
+  const adder = idea.added_by === userId ? 'you' : (who(idea.added_by ?? '')?.name ?? 'someone');
+  // How long it has waited, until it has a date. Then the date is what matters.
+  const clock = idea.planned_for ? null : somedayLabel(idea.created_at, now);
+  const about = [listName, `Added by ${adder}`, clock].filter(Boolean).join(' · ');
+  const link = idea.link;
 
   return (
     <Screen
@@ -138,15 +165,42 @@ export default function IdeaComments() {
         </>
       }>
       <TopBar title="Comments" backTo={`/group/${id}`} />
-      <Card>
-        <T size={17} weight="extra">
-          {idea.title}
-        </T>
-        {idea.note ? (
-          <T size={14} weight="medium" color={colors.textMuted}>
-            {idea.note}
-          </T>
+      <Card style={{ padding: 0, gap: 0, borderRadius: RADIUS }}>
+        {picture ? (
+          <View style={{ aspectRatio: PICTURE_SHAPE, borderTopLeftRadius: RADIUS, borderTopRightRadius: RADIUS, overflow: 'hidden', backgroundColor: colors.background }}>
+            <Image source={{ uri: picture }} style={{ width: '100%', height: '100%' }} contentFit="cover" accessibilityLabel={`The picture for ${idea.title}`} onError={() => setBroken(picture)} />
+          </View>
         ) : null}
+        <View style={{ padding: 14, gap: 6 }}>
+          {credit ? <PhotoCredit photo={credit} size={11} lines={1} /> : null}
+          <T size={20} weight="black" style={{ lineHeight: 24, letterSpacing: -0.3 }}>
+            {idea.title}
+          </T>
+          <T size={13} color={colors.textMuted}>
+            {about}
+          </T>
+          {idea.planned_for ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ActionIcon name="date" size={16} color={colors.link} />
+              <T size={14} weight="extra" color={colors.link}>
+                {formatPlan(idea.planned_for, now)}
+              </T>
+            </View>
+          ) : null}
+          {idea.note ? (
+            <T size={15} weight="medium">
+              {idea.note}
+            </T>
+          ) : null}
+          {link ? (
+            <Pressable accessibilityRole="link" accessibilityLabel={`Open the link for ${idea.title}`} onPress={() => openLink(link)} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 }}>
+              <ActionIcon name="link" size={16} />
+              <T size={14} color={colors.link} lines={1} style={{ flexShrink: 1, textDecorationLine: 'underline' }}>
+                {siteName(link)}
+              </T>
+            </Pressable>
+          ) : null}
+        </View>
       </Card>
       <ErrorNote message={error} />
 

@@ -62,6 +62,11 @@ describe('the privacy policy', () => {
     expect(words).toContain('How your group has made its garden look');
   });
 
+  it('says that a group\'s owner can delete it, and what goes with it', () => {
+    expect(words).toContain('Delete a group you own, from the menu on its card');
+    expect(words).toContain('its ideas, comments, pictures and cover photo');
+  });
+
   it('says what the people who run the app can see, and what their page leaves out', () => {
     expect(words).toContain('The people who run SomeDaisy can open a page that lists the people and groups using it');
     expect(words).toContain('names, email addresses, when each person joined');

@@ -5,10 +5,11 @@ import { AppState, View } from 'react-native';
 import { ActionIcon } from '@/components/action-icons';
 import { AvatarStack } from '@/components/avatar-stack';
 import { ComingUpCard, ComingUpHeading, ComingUpRow, PlanSheet } from '@/components/coming-up';
+import { DidItCard } from '@/components/did-it-card';
 import { CoverPage } from '@/components/cover-page';
 import { Daisy } from '@/components/daisy';
 import { IdeaCard } from '@/components/idea-card';
-import { AgainChoice, EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
+import { EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
 import { SlideIn } from '@/components/celebrate';
 import { ListStrip } from '@/components/list-strip';
 import { ListIcon } from '@/components/list-tile';
@@ -55,6 +56,8 @@ export default function GroupScreen() {
   const [newTitle, setNewTitle] = useState<Level | null>(null);
   // Things the group did lately that this person has not said they would do again or not.
   const [prompts, setPrompts] = useState<AgainPrompt[]>([]);
+  // The "would you do it again?" questions put off on this visit. They are asked again the next time the page is opened.
+  const [later, setLater] = useState<string[]>([]);
   const pointsRef = useRef<number | null>(null);
   // True while a "mark as done" is being saved, so a second tap does nothing.
   const finishingRef = useRef(false);
@@ -280,8 +283,10 @@ export default function GroupScreen() {
       setError(e instanceof Error ? e.message : 'Could not save your answer.');
     }
   };
-  // One question at a time, and not the one already being asked on the "you did it" screen.
-  const prompt = prompts.find((p) => p.id !== didIt?.completion.idea_id) ?? null;
+  // One question at a time, and not the one already being asked on the "you did it" screen, nor one put off for now.
+  const prompt = prompts.find((p) => p.id !== didIt?.completion.idea_id && !later.includes(p.id)) ?? null;
+  const promptPlace = prompt ? group.lists.findIndex((l) => l.id === prompt.list_id) : -1;
+  const promptList = promptPlace === -1 ? null : group.lists[promptPlace];
 
   // Which side the ideas slide in from: the right when moving to a tab further along, else the left.
   const pickList = (next: string | null) => {
@@ -394,23 +399,6 @@ export default function GroupScreen() {
         </View>
         <ErrorNote message={error} />
 
-        {prompt && !didIt ? (
-          <Card style={{ padding: 16, gap: 10 }}>
-            <View style={{ gap: 2 }}>
-              <T size={13} weight="extra" color={colors.good}>
-                You did it
-              </T>
-              <T size={17} weight="extra">
-                {prompt.title}
-              </T>
-              <T size={14} weight="medium" color={colors.textMuted}>
-                Would you do it again?
-              </T>
-            </View>
-            <AgainChoice answer={null} onAnswer={(again) => void answerAgain(prompt.id, again)} />
-          </Card>
-        ) : null}
-
         {/* Every plan that is coming up. One plan is a card with its buttons on it. More than one go in a
             row that slides sideways, and tapping one opens it. With none, there is nothing here at all. */}
         {plans.length > 0 ? (
@@ -438,6 +426,19 @@ export default function GroupScreen() {
               />
             )}
           </View>
+        ) : null}
+
+        {/* Something the group did that this person has not said whether they would do again. It comes
+            after what is coming up, which is the more pressing, and can be put off until the next visit. */}
+        {prompt && !didIt ? (
+          <DidItCard
+            prompt={prompt}
+            listName={promptList?.name ?? null}
+            look={lookFor(promptList, Math.max(0, promptPlace))}
+            now={now}
+            onAnswer={(again) => void answerAgain(prompt.id, again)}
+            onLater={() => setLater((ids) => [...ids, prompt.id])}
+          />
         ) : null}
 
         <ListStrip

@@ -2,15 +2,20 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { ActionIcon } from '@/components/action-icons';
+import { Dialog } from '@/components/dialog';
 import { GroupCard } from '@/components/group-card';
 import { Logo } from '@/components/logo';
 import { NameForm } from '@/components/name-form';
 import { NotificationsCard } from '@/components/notifications-card';
 import { PrivacyLink } from '@/components/privacy-link';
+import { Sheet, SheetRow } from '@/components/sheet';
 import { Avatar, Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import { useCoverPhotos } from '@/lib/cover-addresses';
+import { uploadedPhoto } from '@/lib/cover-photos';
 import { coverOf } from '@/lib/covers';
-import { fetchGroups, fetchPlansByGroup, type GroupSummary, type PlanSummary } from '@/lib/data';
+import { fetchGroups, fetchPlansByGroup, leaveGroup, type GroupSummary, type PlanSummary } from '@/lib/data';
+import { deleteGroup, deleteOverview, fetchGroupContents, type GroupContents } from '@/lib/group-files';
 import { nextPlan, nextPlanLine } from '@/lib/plans';
 import { levelFor, TITLES } from '@/lib/points';
 import { useSession } from '@/lib/session';
@@ -75,9 +80,12 @@ function Welcome() {
   );
 }
 
+/** What someone has asked to do to a group from its menu, which they are asked about first. */
+type Asked = { group: GroupSummary; what: 'delete' | 'leave' };
+
 function Home() {
   const { colors } = useTheme();
-  const { profile, email } = useSession();
+  const { profile, email, userId } = useSession();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   // Each group's points, by group id. Null until loaded, and when points are not set up yet.
   const [points, setPoints] = useState<Record<string, number> | null>(null);
@@ -87,6 +95,44 @@ function Home() {
   const [error, setError] = useState<string | null>(null);
   // Where each group's cover photo loads from, asked for in one go for all of them.
   const photoOf = useCoverPhotos((groups ?? []).map(coverOf));
+  // The group whose menu is open, and the one being deleted or left, with what it holds once that is known.
+  const [menuFor, setMenuFor] = useState<GroupSummary | null>(null);
+  const [asked, setAsked] = useState<Asked | null>(null);
+  const [contents, setContents] = useState<Partial<GroupContents> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [refused, setRefused] = useState<string | null>(null);
+
+  // Ask before deleting or leaving. For a delete, what the group holds is counted, to say plainly what goes.
+  const ask = (group: GroupSummary, what: Asked['what']) => {
+    setMenuFor(null);
+    setRefused(null);
+    setContents(null);
+    setAsked({ group, what });
+    if (what !== 'delete') return;
+    fetchGroupContents(group.id).then(
+      (counted) => setContents({ ideas: counted.ideas ?? undefined, done: counted.done ?? undefined, pictures: counted.pictures ?? undefined }),
+      () => setContents({}),
+    );
+  };
+
+  const goAhead = async () => {
+    if (!asked || busy) return;
+    setBusy(true);
+    setRefused(null);
+    try {
+      if (asked.what === 'delete') await deleteGroup(asked.group.id);
+      else await leaveGroup(asked.group.id);
+      const gone = asked.group.id;
+      setGroups((current) => current?.filter((g) => g.id !== gone) ?? current);
+      setAsked(null);
+    } catch (e) {
+      setRefused(e instanceof Error && e.message ? e.message : asked.what === 'delete' ? 'Could not delete the group.' : 'Could not leave the group.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const putAway = useCallback(() => setAsked(null), []);
+  const closeMenu = useCallback(() => setMenuFor(null), []);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,7 +159,10 @@ function Home() {
     }, []),
   );
 
+  const overview = asked?.what === 'delete' ? deleteOverview(asked.group, contents, uploadedPhoto(coverOf(asked.group)) !== null, userId) : [];
+
   return (
+    <View style={{ flex: 1 }}>
     <Screen fade footer={<Button label="Start a new group" onPress={() => router.push('/new-group')} />}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Brand />
@@ -167,6 +216,7 @@ function Home() {
                 next={plans ? (next ? `Next: ${nextPlanLine(next.title, next.planned_for, now)}` : null) : undefined}
                 photo={photoOf(coverOf(g))}
                 onPress={() => router.push(`/group/${g.id}` as never)}
+                onMenu={() => setMenuFor(g)}
               />
             );
           })}
@@ -188,5 +238,66 @@ function Home() {
         </Card>
       ) : null}
     </Screen>
+
+      {/* What can be done with a group, behind the button at the top left of its card. Only its owner can
+          delete it. Anyone else can leave it. */}
+      {menuFor ? (
+        <Sheet title={menuFor.name} onClose={closeMenu}>
+          <View style={{ gap: 2 }}>
+            <SheetRow
+              icon={<ActionIcon name="share" />}
+              label="Share group"
+              onPress={() => {
+                const id = menuFor.id;
+                setMenuFor(null);
+                router.push(`/group/${id}/invite` as never);
+              }}
+            />
+            {menuFor.owner === userId ? (
+              <SheetRow icon={<ActionIcon name="trash" color={colors.danger} />} label="Delete group" onPress={() => ask(menuFor, 'delete')} />
+            ) : (
+              <SheetRow icon={<ActionIcon name="leave" />} label="Leave group" onPress={() => ask(menuFor, 'leave')} />
+            )}
+          </View>
+        </Sheet>
+      ) : null}
+
+      {asked?.what === 'delete' ? (
+        <Dialog title={`Delete ${asked.group.name}?`} onClose={putAway} locked={busy}>
+          <T size={15} weight="medium">
+            This deletes the group for everyone in it, and everything in it goes too:
+          </T>
+          <View style={{ gap: 6 }}>
+            {overview.map((line) => (
+              <View key={line} style={{ flexDirection: 'row', gap: 8 }}>
+                <T size={15} weight="extra" color={colors.danger}>
+                  •
+                </T>
+                <T size={15} weight="medium" style={{ flex: 1 }}>
+                  {line}
+                </T>
+              </View>
+            ))}
+          </View>
+          <T size={15} weight="extra" color={colors.danger}>
+            This cannot be undone.
+          </T>
+          <ErrorNote message={refused} />
+          <Button label="Yes, delete it" kind="danger" onPress={() => void goAhead()} busy={busy} />
+          <Button label="Cancel" kind="ghost" small onPress={putAway} disabled={busy} />
+        </Dialog>
+      ) : null}
+
+      {asked?.what === 'leave' ? (
+        <Dialog title={`Leave ${asked.group.name}?`} onClose={putAway} locked={busy}>
+          <T size={15} weight="medium">
+            You stop seeing this group and your reactions are removed. Ideas and comments you added stay for your friends. You can come back with an invite link.
+          </T>
+          <ErrorNote message={refused} />
+          <Button label="Leave group" kind="danger" onPress={() => void goAhead()} busy={busy} />
+          <Button label="Stay" kind="ghost" small onPress={putAway} disabled={busy} />
+        </Dialog>
+      ) : null}
+    </View>
   );
 }

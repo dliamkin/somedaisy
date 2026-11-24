@@ -1,12 +1,13 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import type { Comment } from '@/lib/comments';
 import type { Idea, Member, Reaction } from '@/lib/data';
 import { siteName } from '@/lib/links';
 import type { ListLook } from '@/lib/looks';
+import { PICTURE_SHAPE } from '@/lib/picture-crop';
 import { cardCredit, cardPicture } from '@/lib/pictures';
 import { countdown, formatPlan } from '@/lib/plans';
 import { somedayLabel } from '@/lib/someday';
@@ -19,9 +20,8 @@ import { Emoji } from './emoji';
 import { ListTile } from './list-tile';
 import { Avatar, Button, Card, Chip, T } from './ui';
 
-// The card's corners, and how tall the picture across the top of a card is.
+// The card's corners.
 const RADIUS = 26;
-const PICTURE = 170;
 // The space between the side of a card and what is on it.
 const SIDE = 14;
 
@@ -32,6 +32,10 @@ const SIDE = 14;
  * picture across the top with the name over it. An idea without one, or whose picture will not
  * load, gets a compact card: its list's icon, then the name. Both end the same way: the votes and
  * "Plan it", then a row that opens the comments and shows the latest one.
+ *
+ * Tapping anywhere on a card that is not a button of its own opens the idea's page, with its
+ * details and its comments: the name, the note, the space round the buttons. A picture that
+ * leads to a link still opens the link.
  *
  * A picture that is a photo found by search has who took it under it, as Unsplash asks.
  *
@@ -142,16 +146,22 @@ export function IdeaCard({
   ) : null;
 
   return (
+    // The whole card can be tapped. It is left out of what a keyboard and a screen reader step
+    // through, since the row at its foot is the button that says where a tap leads, and a button
+    // must not hold other buttons.
+    <Pressable accessible={false} focusable={false} onPress={onComments} style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : null}>
     <Card style={{ padding: 0, gap: 0, borderRadius: RADIUS }}>
       {picture ? (
         // Only the picture is cut to the card's top corners. The rest of the card is left open, so the
         // words that appear over an icon on a computer are not cut off at its edge.
-        <View style={{ height: PICTURE, borderTopLeftRadius: RADIUS, borderTopRightRadius: RADIUS, overflow: 'hidden', backgroundColor: colors.background }}>
+        // The picture is always the same shape, twice as wide as tall, whatever the width of the screen: it is the
+        // shape someone adding a photo of their own chose a part of it for (src/components/picture-crop.tsx).
+        <View style={{ aspectRatio: PICTURE_SHAPE, borderTopLeftRadius: RADIUS, borderTopRightRadius: RADIUS, overflow: 'hidden', backgroundColor: colors.background }}>
           <Pressable
             accessibilityRole={idea.link ? 'link' : 'image'}
             accessibilityLabel={idea.link ? `${idea.title}. ${about}. Open the link` : `${idea.title}. ${about}`}
-            disabled={!idea.link}
-            onPress={onOpenLink}
+            // A picture that came with a link opens the link. Any other opens the idea, like the rest of the card.
+            onPress={idea.link ? onOpenLink : onComments}
             style={{ flex: 1 }}>
             <Image source={{ uri: picture }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" onError={() => setBroken(picture)} />
             {/* The name is in white over the foot of the picture, which is darkened behind it. The same in both modes. */}
@@ -335,6 +345,7 @@ export function IdeaCard({
         )}
       </Pressable>
     </Card>
+    </Pressable>
   );
 }
 
