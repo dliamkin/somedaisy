@@ -131,7 +131,10 @@ export type Memory = {
   short: string;
   /** The colour of its pressed flower: its list's colour. */
   color: string;
-  /** The web address of the idea's own picture, which fills the frame in place of the flower. */
+  /**
+   * The web address of the picture that fills the frame in place of the flower: the one the idea's
+   * card showed. The flower hangs until it has loaded, and stays if it cannot be.
+   */
   picture: string | null;
 };
 
@@ -163,3 +166,29 @@ export function frameScale(count: number): number {
 /** Where the bench and the birdbath stand, as [x, z]. Wildflowers keep clear of both. */
 export const BENCH_AT: [number, number] = [2.45, -0.75];
 export const BATH_AT: [number, number] = [-2.5, -1.5];
+
+// ---------- Added with the third design handoff (design_handoff_garden_a_v3) ----------
+
+/** The four bigger things a group earns for its lawn. */
+export type LawnExtra = 'picnic' | 'wood' | 'fire' | 'pond';
+
+/** In the order the graphics card is told about them. */
+export const LAWN_EXTRAS: readonly LawnExtra[] = ['picnic', 'wood', 'fire', 'pond'];
+
+/**
+ * Where each stands, as [x, z], which way it is turned, and `flat`: the square of how far round it
+ * the grass lies flat. The spots are clear of every flower's place, the path, the bench and the
+ * birdbath, and wildflowers keep clear of them.
+ */
+export const LAWN_SPOTS: Record<LawnExtra, { at: [number, number]; flat: number; turn: number }> = {
+  picnic: { at: [-2.45, 1], flat: 0.5, turn: 0.35 },
+  wood: { at: [2.55, 1.5], flat: 0.3, turn: -0.3 },
+  fire: { at: [-2.1, 3.25], flat: 0.25, turn: 0 },
+  pond: { at: [2.15, 3.3], flat: 0.36, turn: 0.4 },
+};
+
+/** How many sizes the house comes in: a cottage, and five things added to it as the group's rank rises. */
+export const HOUSE_LEVELS = 6;
+
+/** The two shrubs right of the house, by their place in `SHRUBS`. They make way for the garage. */
+export const GARAGE_SHRUBS: readonly number[] = [2, 3];

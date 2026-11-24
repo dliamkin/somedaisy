@@ -2,7 +2,8 @@
 // daisy that is the sun, and the little house with its fence, pots and stepping stones. The sky,
 // the clouds and the wider valley are in sky.ts.
 //
-// Ported from the design handoffs (design_handoff_garden_a_v2/garden3d-v2.js is the newer).
+// Ported from the design handoffs (design_handoff_garden_a_v3/garden3d-v3.js is the newest). What
+// the house gains as the group's rank rises is in house.ts.
 
 import * as THREE from 'three';
 
@@ -297,6 +298,9 @@ export function buildLand(kit: Kit) {
     4,
   );
 
+  // The roof, the attic window and the chimney are one group, so a second story can lift them.
+  const top = new THREE.Group();
+  house.add(top);
   house.add(mesh(new THREE.BoxGeometry(3, 1.8, 2.2), wallPaint, 0, 0.9, 0));
   const gable = new THREE.Shape();
   gable.moveTo(-1.8, 0);
@@ -304,11 +308,11 @@ export function buildLand(kit: Kit) {
   gable.lineTo(0, 1.35);
   gable.closePath();
   // The two ends take the gable's boards and the slopes take the shingles.
-  house.add(mesh(new THREE.ExtrudeGeometry(gable, { depth: 2.6, bevelEnabled: false }), [gablePaint, roofPaint], 0, 1.8, -1.3));
+  top.add(mesh(new THREE.ExtrudeGeometry(gable, { depth: 2.6, bevelEnabled: false }), [gablePaint, roofPaint], 0, 1.8, -1.3));
   // A layer of snow that rises onto the roof in winter.
   const roofSnow = mesh(new THREE.ExtrudeGeometry(gable, { depth: 2.5, bevelEnabled: false }), lambert(PAINT.white), 0, 1.84, -1.25);
   roofSnow.visible = false;
-  house.add(roofSnow);
+  top.add(roofSnow);
 
   const doorPaint = lambert(HOUSE_PAINTS.door[0]);
   const trimPaint = lambert(PAINT.trim);
@@ -352,10 +356,10 @@ export function buildLand(kit: Kit) {
   [0.42, 0.62, 0.82, 1.02].forEach((x, i) => add(house, mesh(ball, plantPaint, x, 0.7, 1.22)).scale.setScalar(0.1 + (i % 2) * 0.02));
   // The round attic window, which finished flowers fly into.
   const atticPane = mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 28).rotateX(Math.PI / 2), panePaint, 0, 2.3, 1.31, false);
-  house.add(atticPane);
-  house.add(mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 32), white, 0, 2.3, 1.33));
-  house.add(mesh(new THREE.BoxGeometry(0.42, 0.95, 0.42), lambert(PAINT.chimney, { map: brick }), -0.95, 2.55, -0.2));
-  house.add(mesh(new THREE.BoxGeometry(0.54, 0.1, 0.54), white, -0.95, 3.06, -0.2));
+  top.add(atticPane);
+  top.add(mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 32), white, 0, 2.3, 1.33));
+  top.add(mesh(new THREE.BoxGeometry(0.42, 0.95, 0.42), lambert(PAINT.chimney, { map: brick }), -0.95, 2.55, -0.2));
+  top.add(mesh(new THREE.BoxGeometry(0.54, 0.1, 0.54), white, -0.95, 3.06, -0.2));
   const windowLight = new THREE.PointLight(PAINT.glow, 0, 11, 1.4);
   windowLight.position.set(0, 1.5, 2.4);
   house.add(windowLight);
@@ -369,28 +373,35 @@ export function buildLand(kit: Kit) {
   });
 
   // Two pots by the door, a white picket fence either side of the house, and the stepping stones.
+  // The pots are one group, so they can be lifted onto a lanai's deck, and each side of the fence
+  // is one, so the right-hand side can make way for a garage.
   const potPaint = lambert(PAINT.pot);
   const bloomPaint = lambert(PAINT.chimney);
   const potShape = new THREE.CylinderGeometry(0.2, 0.15, 0.3, 14);
+  const pots = new THREE.Group();
+  scene.add(pots);
   for (const [x, z] of POTS) {
     const y = groundY(x, z);
-    scene.add(mesh(potShape, potPaint, x, y + 0.15, z));
-    add(scene, mesh(ball, plantPaint, x, y + 0.44, z)).scale.setScalar(0.25);
+    pots.add(mesh(potShape, potPaint, x, y + 0.15, z));
+    add(pots, mesh(ball, plantPaint, x, y + 0.44, z)).scale.setScalar(0.25);
     for (const [dx, dy, dz] of [
       [0.12, 0.1, 0.14],
       [-0.14, 0.16, 0.1],
       [0, 0.24, -0.02],
     ]) {
-      add(scene, mesh(ball, bloomPaint, x + dx, y + 0.44 + dy, z + dz)).scale.setScalar(0.06);
+      add(pots, mesh(ball, bloomPaint, x + dx, y + 0.44 + dy, z + dz)).scale.setScalar(0.06);
     }
   }
   const postShape = new THREE.BoxGeometry(0.09, 0.5, 0.06);
-  for (const [x, z] of FENCE_POSTS) scene.add(mesh(postShape, white, x, groundY(x, z) + 0.25, z));
   const railShape = new THREE.BoxGeometry(1.8, 0.06, 0.04);
-  for (const side of [-1, 1]) {
+  const [fenceLeft, fenceRight] = [-1, 1].map((side) => {
+    const fence = new THREE.Group();
+    scene.add(fence);
+    for (const [x, z] of FENCE_POSTS) if (Math.sign(x) === side) fence.add(mesh(postShape, white, x, groundY(x, z) + 0.25, z));
     const x = side * 2.79;
-    scene.add(mesh(railShape, white, x, groundY(x, -4.75) + 0.36, -4.74));
-  }
+    fence.add(mesh(railShape, white, x, groundY(x, -4.75) + 0.36, -4.74));
+    return fence;
+  });
   const stoneShape = new THREE.CylinderGeometry(0.3, 0.3, 0.06, 16);
   const stones = steppingStones();
   stones.forEach(([x, z], i) => {
@@ -426,6 +437,12 @@ export function buildLand(kit: Kit) {
     doorPaint,
     doorFacePaint,
     roofSnow,
+    /** The house itself, the group that holds its roof, attic window and chimney, the two pots by the door, and each side of the fence. */
+    house,
+    top,
+    pots,
+    fenceLeft,
+    fenceRight,
     /** The door on its hinge, and the unseen box round it that a tap lands on. */
     door,
     doorHit,

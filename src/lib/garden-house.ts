@@ -2,6 +2,11 @@
 // decides which frames hang on which wall, and the words that go with them. The hallway itself is
 // drawn in src/garden/hallway.ts.
 //
+// A frame shows the idea's picture when it has one: the same picture its card showed, which is its
+// own if the group gave it one, otherwise a photo found by search, otherwise the picture of the
+// page it links to. With none, or with one that cannot be loaded, it shows a pressed flower.
+// Tapping a frame brings its picture up as a card to share (design_handoff_garden_a_v3/README.md).
+//
 // The rule for the walls is the design handoff's (design_handoff_garden_a_v2/README.md), built to
 // look right with three finished ideas and to stay usable with three hundred:
 //   1. Every finished idea gets one frame. Nothing is hidden or dropped.
@@ -13,8 +18,12 @@
 import { WALL, type Memory } from '../garden/plan';
 import type { DoneIdea, List } from './data';
 import { shortName } from './garden';
+import type { IdeaPhoto } from './idea-photos';
 import { lookFor } from './looks';
-import { pictureAddress } from './pictures';
+import { cardCredit, cardPicture, ownPicture, pictureAddress } from './pictures';
+
+/** Where the picture in a frame is from: the group's own, a photo found by search, or the page the idea links to. */
+export type PictureSource = 'own' | 'found' | 'link';
 
 /** A finished idea as the house needs it. */
 export type Finished = {
@@ -24,8 +33,14 @@ export type Finished = {
   list: string;
   /** Its list's colour. */
   color: string;
-  /** The web address of the idea's own picture, if the group gave it one. */
+  /** The web address of the picture its frame shows, if it has one: the one its card showed. */
   picture: string | null;
+  /** Where that picture is from. Null with no picture. */
+  source: PictureSource | null;
+  /** Who to credit, when the picture is a photo found by search. */
+  credit: IdeaPhoto | null;
+  /** Where the group's own picture is kept, if it has given the idea one. */
+  kept: string | null;
   /** The day it was done, in the device's own time, as "2026-11-23". */
   day: string;
 };
@@ -41,10 +56,10 @@ export function localDay(when: Date): string {
 }
 
 /**
- * The group's finished ideas as the house needs them, oldest first. Only a picture the group
- * added itself goes in a frame: a photo found by search has to carry its credit wherever it
- * shows, which a small frame cannot, and a link's preview is not the group's own. `base` is where
- * pictures are kept, which only a test needs to say.
+ * The group's finished ideas as the house needs them, oldest first. The picture is the one the
+ * idea's card showed. A photo found by search has to carry its credit: the frames on a wall are
+ * too small to, so the credit shows on the card that comes up when one is tapped, and on the
+ * picture that card shares. `base` is where pictures are kept, which only a test needs to say.
  */
 export function finishedIdeas(done: DoneIdea[], lists: List[], base?: string): Finished[] {
   return [...done]
@@ -57,7 +72,10 @@ export function finishedIdeas(done: DoneIdea[], lists: List[], base?: string): F
         title: idea.title,
         list: list?.name ?? '',
         color: lookFor(list, Math.max(0, place)).color,
-        picture: pictureAddress(idea.picture, base),
+        picture: cardPicture(idea, base),
+        source: pictureAddress(idea.picture, base) ? 'own' : cardCredit(idea, base) ? 'found' : cardPicture(idea, base) ? 'link' : null,
+        credit: cardCredit(idea, base),
+        kept: ownPicture(idea.picture),
         day: localDay(new Date(idea.done_at)),
       };
     });
@@ -109,9 +127,14 @@ export function buildWalls(list: Finished[]): HouseWall[] {
   return walls.map((wall) => ({ label: wallLabel(wall.months[0], wall.months[wall.months.length - 1], wall.part), items: wall.items }));
 }
 
-/** The walls as the hallway is told them: only what a frame shows. */
+/** A finished idea as the hallway is told it: only what a frame shows. */
+export function toMemory(idea: Finished): Memory {
+  return { title: idea.title, short: shortName(idea.title), color: idea.color, picture: idea.picture };
+}
+
+/** The walls as the hallway is told them. */
 export function toMemories(walls: HouseWall[]): Memory[][] {
-  return walls.map((wall) => wall.items.map((idea) => ({ title: idea.title, short: shortName(idea.title), color: idea.color, picture: idea.picture })));
+  return walls.map((wall) => wall.items.map(toMemory));
 }
 
 /** A day as the house writes it: "Nov 7" this year, and "Nov 7, 2025" in any other. */
@@ -140,6 +163,47 @@ export function wallCaption(walls: HouseWall[], wall: number, frame: number | nu
   const chosen = frame !== null ? here.items[frame] : undefined;
   if (chosen) return { title: chosen.title, line: finishedLine(chosen, now) };
   return { title: here.label, line: walls.length > 1 ? `${thingsWords(here.items.length)} · wall ${wall + 1} of ${walls.length}` : thingsWords(here.items.length) };
+}
+
+/**
+ * Where the picture on a finished idea's card is from, as the card says it. `shown` is whether the
+ * picture could be loaded: when it could not, the card shows the pressed flower instead. A found
+ * photo's own credit is said by the card itself, as links, so this is only what a screen reader hears.
+ */
+export function sourceWords(idea: Pick<Finished, 'source' | 'credit'>, shown: boolean): string {
+  if (!shown || !idea.source) return 'Pressed flower';
+  if (idea.source === 'own') return 'Your photo';
+  if (idea.source === 'link') return 'Photo from the link';
+  return creditWords(idea.credit) ?? 'Stock photo';
+}
+
+/**
+ * "Photo by Ada Lovelace on Unsplash", for the picture a card shares. That is how a found photo's
+ * credit is kept, so it is written as it is. Null without a photo found by search.
+ */
+export function creditWords(credit: IdeaPhoto | null): string | null {
+  return credit ? credit.credit.trim() : null;
+}
+
+/** The line under the title on the picture a card shares: "Weekend crew · Day trips · Nov 7". */
+export function sharedLine(group: string, idea: Pick<Finished, 'list' | 'day'>, now: Date): string {
+  return `${group} · ${finishedLine(idea, now)}`;
+}
+
+/** The words that go with a shared card: "Mini golf, with Weekend crew". */
+export function sharedWords(title: string, group: string): string {
+  return `${title}, with ${group}`;
+}
+
+/** The name of the file a card is shared or saved as: "somedaisy-mini-golf.jpg". A title with no plain letters or numbers gives "somedaisy-memory.jpg". */
+export function cardFile(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60)
+    .replace(/-$/, '');
+  return `somedaisy-${slug || 'memory'}.jpg`;
 }
 
 /** Where a finished idea hangs: which wall, and which place on it. Null if it is not on any. */

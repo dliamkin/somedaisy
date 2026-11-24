@@ -110,14 +110,15 @@ export type LawnStyle = 'soft' | 'mown' | 'meadow';
  * The sky at each time of day: four colours from the haze on the horizon up to straight overhead,
  * the glow round the daisy in the sky and how strong it is, the top and the base of a cloud and how
  * solid clouds are, and how much the high wisps show. The glow by day is weak on purpose, so the
- * sky behind the daisy stays blue and its white petals can be read.
+ * sky behind the daisy stays blue and its white petals can be read. At night a cloud is nearly
+ * solid, or the puffs it is made of show through each other as patches, and there are no wisps.
  */
 export type Sky = { haze: string; low: string; mid: string; zenith: string; glow: string; glowStrength: number; cloudTop: string; cloudBase: string; cloudOpacity: number; wisps: number };
 
 export const SKY: Record<TimeOfDay, Sky> = {
   day: { haze: '#DDE6FF', low: '#B9D7FF', mid: '#8CBCFF', zenith: '#5A97EE', glow: '#FFF3D6', glowStrength: 0.12, cloudTop: '#FFFFFF', cloudBase: '#C2D0EE', cloudOpacity: 0.97, wisps: 0.5 },
   dusk: { haze: '#FFC79E', low: '#FFB0A8', mid: '#C79BE8', zenith: '#6E78D6', glow: '#FF9A5C', glowStrength: 0.8, cloudTop: '#FFC2A8', cloudBase: '#F08A8A', cloudOpacity: 0.97, wisps: 0.7 },
-  night: { haze: '#2C2452', low: '#1F1840', mid: '#15102E', zenith: '#0B0820', glow: '#B79CFF', glowStrength: 0.15, cloudTop: '#403A7A', cloudBase: '#1D1838', cloudOpacity: 0.6, wisps: 0.25 },
+  night: { haze: '#2C2452', low: '#1F1840', mid: '#15102E', zenith: '#0B0820', glow: '#B79CFF', glowStrength: 0.15, cloudTop: '#3B3570', cloudBase: '#1F1A40', cloudOpacity: 0.95, wisps: 0 },
 };
 
 /** The stars: three sizes, each with its colour, its size in dots and how many there are. */
@@ -127,11 +128,31 @@ export const STARS: readonly (readonly [string, number, number])[] = [
   ['#FFFFFF', 3.3, 320],
 ];
 
-/** The colours a group can paint its house. The first of each is what every house starts with. */
+/** The colours a group can paint its house: twenty-four for each part. The first of each is what every house starts with. */
 export const HOUSE_PAINTS = {
-  roof: ['#8A4BE6', '#B8339A', '#2F7BE8', '#1FA98A', '#E8B923'],
-  walls: ['#FFFFFF', '#FFD9C7', '#CFE3FF', '#F7C9EA'],
-  door: ['#6D2FC4', '#B8339A', '#17806A', '#E8B923'],
+  // prettier-ignore
+  roof: ['#8A4BE6', '#6D2FC4', '#B8339A', '#E0489E', '#D9434E', '#B8402E', '#E2703A', '#C98A2B', '#E8B923', '#8FA83A', '#3E9A4E', '#1FA98A', '#17806A', '#2A9DB8', '#2F7BE8', '#3B5BC9', '#2C3E7A', '#5A6B8C', '#7A7F8E', '#4A4458', '#2C2040', '#8A6244', '#B98B63', '#C7B8D9'],
+  // prettier-ignore
+  walls: ['#FFFFFF', '#FFF7E8', '#FBEFD5', '#FFE9B8', '#FFD9C7', '#FFC9B0', '#F7C9EA', '#F4B8C8', '#E6D2FF', '#CDB8F0', '#CFE3FF', '#A9CBF5', '#C9EEF0', '#BFE8D6', '#CFE5B8', '#A9C99A', '#E9E4DC', '#D8D2C8', '#C9C4D4', '#B8A48C', '#E8B8A0', '#C9705A', '#6E7FA8', '#4A4458'],
+  // prettier-ignore
+  door: ['#6D2FC4', '#8A4BE6', '#B8339A', '#E0489E', '#D9434E', '#A8322C', '#E2703A', '#E8B923', '#F2D56B', '#8FA83A', '#3E9A4E', '#17806A', '#1FA98A', '#2A9DB8', '#2F7BE8', '#2C3E7A', '#2C2040', '#4A4458', '#7A7F8E', '#FFFFFF', '#FFF7E8', '#B98B63', '#8A6244', '#5B3E2B'],
+} as const;
+
+/**
+ * What the house gains as the group's rank rises (design_handoff_garden_a_v3). New walls and roofs
+ * take the group's own paint, so only the parts that are always one colour are here.
+ */
+export const HOUSE_PARTS = {
+  garageDoor: '#F6F0FB',
+  /** The boards of the lanai. */
+  deck: '#D9B08A',
+  /** The patio umbrella's eight stripes, and the pennant on the cupola. */
+  umbrella: ['#E0489E', '#FFFFFF'],
+  pennant: '#E0489E',
+  /** The ball on top of the umbrella and of the cupola. */
+  gold: '#E8B923',
+  /** The puff of warm specks when a new part arrives. */
+  arrive: '#FFE08A',
 } as const;
 
 /** What the seasons add: blossom and falling leaves in the air, and the far hills in autumn and under frost. */
@@ -152,6 +173,28 @@ export const EXTRAS = {
   bird: '#2F7BE8',
   bulbs: ['#FFE08A', '#F7C9EA', '#CFE3FF', '#FFD9C7'],
   can: '#8A4BE6',
+  // The picnic: the pink of its gingham blanket, its wicker basket, its fruit, bottle and cup.
+  gingham: 'rgba(224,72,158,.5)',
+  wicker: '#C99A5B',
+  wickerDark: '#A9783F',
+  apple: '#D9434E',
+  greenApple: '#8FA83A',
+  bottle: '#1FA98A',
+  cup: '#F7C9EA',
+  // The woodpile and the fire's logs: bark and cut ends, and the axe.
+  bark: '#8A6244',
+  cut: '#E9C6AA',
+  axeHead: '#7A7F8E',
+  axeHandle: '#B98B63',
+  // The fire pit: its ring of stones (the pond's too), the ash, the flames from the outside in, and its light.
+  rock: '#C9C4D4',
+  ash: '#4A4458',
+  flames: ['#FF7A2E', '#FFB23E', '#FFE9A8'],
+  fireLight: '#FF9A4A',
+  // The pond: its lily pads, the flower on one, and its reeds.
+  lilyPad: '#3E9A4E',
+  lily: '#F7C9EA',
+  reed: '#3E7F3A',
 } as const;
 
 /** The glow that fills the screen on the way through the door: its middle and its edge. */

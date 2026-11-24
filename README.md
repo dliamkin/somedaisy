@@ -745,8 +745,9 @@ tags chosen on the forms are simply not kept.
 Another way to look at a group's ideas, reached from the round tulip button on the group's page.
 Instead of a list, the group sees a little house on a hilltop, and every idea is a daisy in the
 yard. It sits beside the list and replaces nothing: the arrow at the top goes back to the list.
-The design came in two handoffs, `design_handoff_garden_a/` and `design_handoff_garden_a_v2/`
-(working prototypes and their notes), whose colours, sizes and timings are final.
+The design came in three handoffs, `design_handoff_garden_a/`, `design_handoff_garden_a_v2/` and
+`design_handoff_garden_a_v3/` (working prototypes and their notes), whose colours, sizes and
+timings are final.
 
 How to read a flower:
 
@@ -767,21 +768,48 @@ form: the new idea comes up as a bud in the front row.
 
 What else is in it:
 
+- **The house grows with the group's rank.** It starts as a cottage. Each of the next five ranks
+  adds to it: a garage (Dabblers), a second story (Weekenders), a lanai across the front
+  (Go-Getters), a patio with an umbrella (Thrill Seekers), and a room over the garage with a
+  cupola and a pennant (Trailblazers). Daredevils and Legends keep that mansion. New walls and
+  roofs take the group's paint. When a rank is reached with the garden open, the new part springs
+  up and the app says what the house gained. Nobody chooses this: it is `houseLevel` in
+  `src/lib/garden-look.ts`, and the parts are in `src/garden/house.ts`. From the garage on, the
+  fence and the two shrubs right of the house are away, to make room for it.
 - **The house can be walked into.** Tap the door, or the book at the top. Inside is a hallway
-  where every finished idea hangs in a frame: a pressed flower in its list's colour, or the idea's
-  own picture if the group gave it one. (A photo found by search is not framed: it has to carry its
-  credit wherever it shows, and a small frame cannot.) A wall holds twelve frames and covers whole
-  months. Quiet months share a wall and a busy month runs on to the next, and walls fill from the
-  oldest forward, so only the newest wall ever changes. Swipe sideways or use the arrows to walk
-  along, tap a frame to lean in, and use the list button to see everything and walk straight to
-  one. The link at the foot of that list opens the full "Things we did" page. The rule for the
-  walls is `buildWalls` in `src/lib/garden-house.ts`.
-- **"Our garden"**, the round button left of "Pick for us": paint the roof, walls and door, and
-  choose a soft, mown or meadow lawn. Everyone in the group sees the same garden, and any member
-  can change it. It needs `supabase/updates/023-garden-look.sql`. Without it the garden still
-  opens, as it first was, and a change says which update is missing.
-- **Things to earn.** A bench at 5 things done, a birdbath at 10 and string lights at 20
-  (`EXTRAS` in `src/lib/garden-look.ts`). Each can be switched off and on in "Our garden".
+  where every finished idea hangs in a frame. A frame shows the picture the idea's card showed:
+  its own if the group gave it one, otherwise a photo found by search, otherwise the picture of
+  the page it links to. With none of those, or with one that cannot be loaded, it shows a pressed
+  flower in its list's colour. A wall holds twelve frames and covers whole months. Quiet months
+  share a wall and a busy month runs on to the next, and walls fill from the oldest forward, so
+  only the newest wall ever changes. Swipe sideways or use the arrows to walk along, and use the
+  list button to see everything and walk straight to one. The link at the foot of that list opens
+  the full "Things we did" page. The rule for the walls is `buildWalls` in
+  `src/lib/garden-house.ts`.
+- **A card to share.** Tapping a frame leans in to it and brings its picture up as a card, with
+  the idea's name, its list and the day it was done. "Share" and "Save picture" make one picture
+  of that card, with the group's name on it, and hand it over as the postcard is (see below).
+  Under the buttons the card says where the picture is from. A photo found by search is credited
+  there, "Photo by <name> on Unsplash" with its links, and on the shared picture in small type:
+  that is what lets it hang in a frame with no caption. "Add our photo" lets anyone in the group
+  put their own photo on something already done. They choose the part of it the card shows, it
+  becomes the idea's own picture (`setIdeaPicture` in `src/lib/data.ts`), and the frame takes it
+  at once.
+- **Pictures from other websites may not load in the house.** A frame's picture is drawn into the
+  scene, and a browser only allows that for a picture whose website says other pages may read it.
+  The group's own pictures and Unsplash's photos do. The picture of a page an idea links to often
+  does not, and then the frame and the card show the pressed flower, though the idea's card on the
+  list shows the picture as usual.
+- **"Our garden"**, the round button left of "Pick for us", in three tabs. House: how far the
+  house has grown and what the next rank adds, and paint for the roof, walls and door, twenty-four
+  colours each. Lawn: soft, mown or meadow, and this device's sounds. Extras: the things the group
+  has earned. Everyone in the group sees the same garden, and any member can change it. It needs
+  `supabase/updates/023-garden-look.sql`. Without it the garden still opens, as it first was, and
+  a change says which update is missing.
+- **Things to earn.** A bench at 5 things done, a birdbath at 10, string lights at 20, a picnic
+  blanket at 30, a woodpile at 40, a fire pit at 60 and a pond at 80 (`EXTRAS` in
+  `src/lib/garden-look.ts`). Each can be switched off and on in "Our garden". The grass lies flat
+  under the last four, and the fire lights the lawn round it after dark.
 - **Seasons** follow the date: blossom in spring, turning leaves in autumn, snow in winter. The
   device's time zone decides which half of the world it is in, so December is summer in Sydney.
   Nothing about where anyone is gets kept.
@@ -818,22 +846,24 @@ How it is built:
 
 - **The scene** is in `src/garden/`, drawn with three.js: `scene.ts` (flowers, camera, taps and
   each frame), `land.ts` (hill, house), `sky.ts` (sky, stars, clouds, the valley round the hill),
-  `plants.ts` (trees, shrubs, grass, wildflowers), `extras.ts` (bench, birdbath, lights, snow),
-  `hallway.ts` (inside the house), `creatures.ts` (butterflies, the bee, fireflies, the watering
-  can), `sound.ts`, and three files with no drawing in them that the tests cover: `ground.ts`,
-  `plan.ts` and `palette.ts`. Nothing is loaded from an image file except a group's own pictures
-  in frames. Trees and grass are worked out from the same run of made-up numbers every time, so it
-  is always the same garden.
+  `house.ts` (what the house gains with rank), `plants.ts` (trees, shrubs, grass, wildflowers),
+  `extras.ts` (bench, birdbath, lights, picnic, woodpile, fire pit, pond, snow), `hallway.ts`
+  (inside the house), `creatures.ts` (butterflies, the bee, fireflies, the watering can),
+  `sound.ts`, and three files with no drawing in them that the tests cover: `ground.ts`, `plan.ts`
+  and `palette.ts`. Nothing is loaded from an image file except the pictures in the frames. Trees
+  and grass are worked out from the same run of made-up numbers every time, so it is always the
+  same garden.
 - **It is web code.** `src/components/garden-view.tsx` starts with `'use dom'`, which makes it an
   Expo DOM component: on the website it is drawn straight into the page, and in the phone app Expo
   puts it in a web view of its own. Nothing extra needs installing for that. The screen passes it
   plain values (the flowers, the walls of the house, the season) and hears back through functions.
-- **Everything over the garden** (header, sheets, the bar inside the house, the postcard) is the
-  app's own, in `src/components/garden-chrome.tsx`, put together by
+- **Everything over the garden** (header, sheets, the bar inside the house, the postcard and a
+  finished idea's card) is the app's own, in `src/components/garden-chrome.tsx`, put together by
   `src/app/group/[id]/garden.tsx`.
 - **The rules** are in `src/lib/garden.ts` (an idea's stage, who gets a leaf, who is nudged),
-  `src/lib/garden-look.ts` (paint, lawn, what is earned, the season) and
-  `src/lib/garden-house.ts` (which frames hang on which wall).
+  `src/lib/garden-look.ts` (paint, lawn, what is earned, how far the house has grown, the season)
+  and `src/lib/garden-house.ts` (which frames hang on which wall, which picture each shows, and
+  the words on a card).
 - **A phone draws less.** In the app, and on the website with a finger for a pointer, the garden
   has about half the leaves and grass, softer shadows and fewer dots to the screen (`QUALITY` in
   `src/garden/kit.ts`). It stops drawing while another screen is over it or the app is in the
@@ -845,8 +875,9 @@ colour, daisy-shaped petals and vote leaves on. The Path and Tall stems layouts 
 the side panel itself is a review tool, not part of the app.
 
 Checked against the prototypes in a browser on a computer, where they look alike and the garden
-holds 60 frames a second, in every season and time of day, and with 0, 1, 3, 12, 40 and 320 things
-done in the house. Not yet seen on a phone, and not yet timed on one.
+holds 60 frames a second, in every season and time of day, with 0, 1, 3, 12, 40 and 320 things
+done in the house, with the house at each of its six levels by day, at night and in winter, and
+with all seven extras out. Not yet seen on a phone, and not yet timed on one.
 
 ## Run it
 
@@ -896,9 +927,9 @@ private browser window or on another device.
 | `src/lib/search.ts` | Finding an idea in a group by typing part of it |
 | `src/garden/` | The garden's 3D scene, drawn with three.js. Web code, shown through `src/components/garden-view.tsx` |
 | `src/lib/garden.ts` | What each idea looks like as a flower, the words on its sheet, and who a watering nudges |
-| `src/lib/garden-look.ts` | A garden's paint and lawn, what a group has earned for its yard, and the season |
-| `src/lib/garden-house.ts` | Inside the house: which finished ideas hang on which wall |
-| `src/lib/postcard.ts`, `src/lib/garden-sound.ts` | Sharing a postcard of the garden, and whether its sounds are on |
+| `src/lib/garden-look.ts` | A garden's paint and lawn, what a group has earned for its yard, how far its house has grown, and the season |
+| `src/lib/garden-house.ts` | Inside the house: which finished ideas hang on which wall, the picture in each frame, and the words on a card |
+| `src/lib/postcard.ts`, `src/lib/garden-sound.ts` | Sharing a postcard of the garden or a finished idea's card, and whether the garden's sounds are on |
 | `supabase/schema.sql` | Tables, access rules and functions |
 | `supabase/functions/` | Server-side helpers that run on Supabase (link previews, photo search) |
 

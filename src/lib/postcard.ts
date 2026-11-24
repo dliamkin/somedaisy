@@ -1,5 +1,6 @@
-// Hands over a postcard of the garden: to the phone's share sheet in the app, and on the website
-// to the browser's own share sheet where it has one, or else as a download. The picture is made on
+// Hands over a postcard of the garden, or the card of one finished idea from the house: to the
+// phone's share sheet in the app, and on the website to the browser's own share sheet where it
+// has one, or else as a download. The picture is made on
 // the device (src/components/garden-view.tsx) and is not stored or sent anywhere by SomeDaisy.
 //
 // On a phone, "Save picture" opens the share sheet as well, which is where a phone offers to keep a
@@ -10,7 +11,7 @@ import { Platform } from 'react-native';
 
 import { bytesFromBase64 } from './pictures';
 
-/** The file's name wherever it lands. */
+/** A postcard's file name wherever it lands. A finished idea's card has its own (`cardFile` in garden-house.ts). */
 const FILE = 'somedaisy-garden.jpg';
 
 /**
@@ -19,20 +20,20 @@ const FILE = 'somedaisy-garden.jpg';
  */
 export type Sent = 'shared' | 'saved' | 'handed' | 'cancelled';
 
-function download(card: string): void {
+function download(card: string, name: string): void {
   const link = document.createElement('a');
   link.href = card;
-  link.download = FILE;
+  link.download = name;
   document.body.appendChild(link);
   link.click();
   link.remove();
 }
 
 /** On a phone: write the card to a file the share sheet can be given, and open the sheet. */
-async function hand(card: string, title: string): Promise<Sent> {
+async function hand(card: string, title: string, name: string): Promise<Sent> {
   const [{ File, Paths }, Sharing] = await Promise.all([import('expo-file-system'), import('expo-sharing')]);
   if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this phone.');
-  const file = new File(Paths.cache, FILE);
+  const file = new File(Paths.cache, name);
   if (file.exists) file.delete();
   file.create();
   await file.write(bytesFromBase64(card));
@@ -41,13 +42,13 @@ async function hand(card: string, title: string): Promise<Sent> {
 }
 
 /**
- * Share a postcard, given as a JPEG's data address. `title` is the group's name and `text` goes
- * with the picture where the share sheet takes words.
+ * Share a postcard, given as a JPEG's data address. `title` is the group's name, or the idea's for
+ * its card, and `text` goes with the picture where the share sheet takes words. `name` is the file's name.
  */
-export async function sharePostcard(card: string, title: string, text: string): Promise<Sent> {
-  if (Platform.OS !== 'web') return hand(card, title);
+export async function sharePostcard(card: string, title: string, text: string, name: string = FILE): Promise<Sent> {
+  if (Platform.OS !== 'web') return hand(card, title, name);
   const blob = new Blob([bytesFromBase64(card) as BlobPart], { type: 'image/jpeg' });
-  const file = new File([blob], FILE, { type: 'image/jpeg' });
+  const file = new File([blob], name, { type: 'image/jpeg' });
   // Phones' browsers can pass a picture to other apps. Most desktop browsers cannot, so they save it.
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
     try {
@@ -58,13 +59,13 @@ export async function sharePostcard(card: string, title: string, text: string): 
       // Anything else: fall through and save it instead.
     }
   }
-  download(card);
+  download(card, name);
   return 'saved';
 }
 
 /** Keep a postcard, given as a JPEG's data address. */
-export async function savePostcard(card: string, title: string): Promise<Sent> {
-  if (Platform.OS !== 'web') return hand(card, title);
-  download(card);
+export async function savePostcard(card: string, title: string, name: string = FILE): Promise<Sent> {
+  if (Platform.OS !== 'web') return hand(card, title, name);
+  download(card, name);
   return 'saved';
 }

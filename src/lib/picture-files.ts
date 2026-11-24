@@ -97,11 +97,12 @@ export async function pickPhoto(): Promise<PickedPhoto | null> {
 
 /**
  * Cut the chosen part out of a photo and make it small enough to keep: no more than 1280 dots
- * wide, as a JPEG. `part` is in the dots of the working copy `pickPhoto` gave.
+ * wide, as a JPEG. `part` is in the dots of the working copy `pickPhoto` gave. `most` is for a
+ * part that is taller than it is wide, to keep its height within the same bound.
  */
-export async function cropPicture(photo: PickedPhoto, part: CropRect): Promise<ChosenPicture> {
+export async function cropPicture(photo: PickedPhoto, part: CropRect, most?: number): Promise<ChosenPicture> {
   const cut = ImageManipulator.manipulate(photo.uri).crop(part);
-  const size = keptSize(part);
+  const size = keptSize(part, most);
   const image = await (size ? cut.resize(size) : cut).renderAsync();
   return squeeze(image, FOR_IDEA);
 }

@@ -70,7 +70,8 @@ export function buildSky(kit: Kit, land: Land, time: TimeOfDay) {
       vertexShader: `varying vec3 vD;
 void main() { vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`,
       // The colours by height, a glow round the daisy and along the horizon under it, faint high
-      // wisps, and at night a broad faint band of light that crosses the view on a diagonal.
+      // wisps, and at night one broad, smooth, faint band of light that crosses the view on a
+      // diagonal. Last, a very fine grain, so a dark sky's slow change of colour does not show as bands.
       fragmentShader: `uniform vec3 c0, c1, c2, c3, glowC, sunDir; uniform float glowK, wispK, night, uT; varying vec3 vD;
 float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float ns(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h21(i), h21(i + vec2(1., 0.)), f.x), mix(h21(i + vec2(0., 1.)), h21(i + vec2(1., 1.)), f.x), f.y); }
@@ -83,10 +84,11 @@ void main() {
   col += glowC * pow(sd, 6.) * (1. - smoothstep(-.2, .02, h)) * .3 * glowK;
   float w = fbm(d.xz * (3.2 / (h + .45)) + vec2(uT * .006, 0.)); w = smoothstep(.5, .8, w) * smoothstep(-.17, -.02, h) * (1. - smoothstep(.3, .7, h));
   col = mix(col, col + glowC * .35 + .08, w * wispK);
-  float m = dot(d, normalize(vec3(.45, .85, .1))) * 3.4; col += vec3(.04, .036, .09) * exp(-m * m) * (.45 + .55 * fbm(d.xy * 6. + d.z * 4.)) * night;
+  float m = dot(d, normalize(vec3(.45, .85, .1))) * 3.; col += vec3(.034, .03, .075) * exp(-m * m) * night;
   gl_FragColor = vec4(col, 1.);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
+  gl_FragColor.rgb += (h21(gl_FragCoord.xy) - .5) / 150.;
 }`,
     }),
   );

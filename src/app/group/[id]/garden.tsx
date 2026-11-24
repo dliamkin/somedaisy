@@ -4,12 +4,13 @@ import { AppState, BackHandler, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReducedMotion } from '@/components/celebrate';
-import { BedPager, CaptionBar, CountPills, DoneList, GardenBar, GardenHeader, IdeaSheet, LookSheet, Postcard, Toast, type SheetIdea } from '@/components/garden-chrome';
+import { BedPager, CaptionBar, CardSource, CountPills, DoneList, GardenBar, GardenHeader, IdeaSheet, LookSheet, Postcard, Toast, type SheetIdea } from '@/components/garden-chrome';
 import GardenView, { type Visit } from '@/components/garden-view';
+import { PictureCrop } from '@/components/picture-crop';
 import { YouDidIt } from '@/components/together';
 import { Button, Card, ErrorNote, Loading, Screen, T } from '@/components/ui';
 import type { Chime } from '@/garden/sound';
-import { countDone, fetchDone, fetchGroup, markDone, nudgeIdea, saveGardenLook, setReaction, takeChanged, type DoneIdea, type GroupData } from '@/lib/data';
+import { countDone, fetchDone, fetchGroup, markDone, nudgeIdea, saveGardenLook, setIdeaPicture, setReaction, takeChanged, type DoneIdea, type GroupData } from '@/lib/data';
 import {
   arrivals,
   bedCount,
@@ -37,10 +38,13 @@ import {
   type Arrival,
   type Flower,
 } from '@/lib/garden';
-import { buildWalls, finishedIdeas, toMemories, wallCaption } from '@/lib/garden-house';
-import { earnedWords, EXTRAS, extrasOut, gardenLook, lockedWords, newlyEarned, seasonFor, type Extra, type GardenLook } from '@/lib/garden-look';
+import { buildWalls, cardFile, creditWords, finishedIdeas, finishedLine, sharedLine, sharedWords, sourceWords, toMemories, toMemory, wallCaption, type Finished } from '@/lib/garden-house';
+import { earnedWords, EXTRAS, extrasOut, gardenLook, houseGrew, houseLevel, lockedWords, newlyEarned, seasonFor, type Extra, type GardenLook } from '@/lib/garden-look';
 import { readSound, saveSound } from '@/lib/garden-sound';
 import { gather, listenToGroup } from '@/lib/live';
+import type { CropRect } from '@/lib/picture-crop';
+import { cropPicture, pickPhoto, removePicture, uploadPicture, type PickedPhoto } from '@/lib/picture-files';
+import { PICTURE_SIDE } from '@/lib/pictures';
 import { levelFor, levelUp, TITLES, type Completion, type Level } from '@/lib/points';
 import { savePostcard, sharePostcard } from '@/lib/postcard';
 import { useSession } from '@/lib/session';
@@ -58,6 +62,11 @@ const MOST_VISITS = 3;
 const WATERING_MS = 2600;
 /** How long after a thing is done its unlocked extra is announced, so the two messages do not collide. */
 const EARNED_AFTER_MS = 1900;
+/** How long after a frame is tapped its card comes up, once the camera has leaned in. Longer from the list, where there is a walk to the wall first. */
+const CARD_AFTER_MS = 320;
+const CARD_AFTER_WALK_MS = 750;
+/** The picture on a card is four wide to five tall, and a photo added from a card is cut to that shape. */
+const CARD_SHAPE = 4 / 5;
 
 /** A friend's vote that is waiting for their butterfly to land. */
 type Held = Arrival & Visit;
@@ -121,9 +130,16 @@ export default function GardenScreen() {
   const [snap, setSnap] = useState(0);
   const [postcard, setPostcard] = useState<{ picture: string; line: string } | null>(null);
   const [flash, setFlash] = useState(0);
-  const [card, setCard] = useState<{ name: string; line: string; turn: number } | null>(null);
+  const [card, setCard] = useState<{ of: 'garden' | 'memory'; title: string; line: string; credit: string | null; turn: number } | null>(null);
   const [cardBusy, setCardBusy] = useState(false);
-  /** Extras that have just been earned and are waiting to be announced. */
+  // The card of a finished idea, from its frame in the house: the idea whose picture has been
+  // asked for, and the picture once it has come. `photo` is false when it is the pressed flower.
+  const [ask, setAsk] = useState<{ id: string; turn: number } | null>(null);
+  const [memCard, setMemCard] = useState<{ id: string; picture: string; photo: boolean } | null>(null);
+  // A photo being added to a finished idea from its card: the photo, whose it is, and the picture it takes the place of.
+  const [adding, setAdding] = useState<{ photo: PickedPhoto; ideaId: string; had: string | null } | null>(null);
+  const [addBusy, setAddBusy] = useState(false);
+  /** Extras that have just been earned, and anything the house has just gained, waiting to be announced. */
   const [earned, setEarned] = useState<{ words: string }[]>([]);
 
   // The ideas that were growing at the last load, to notice a new one.
@@ -131,14 +147,19 @@ export default function GardenScreen() {
   // The answers and the number of things done at the last load, to notice a friend's vote and an extra being earned.
   const votesRef = useRef<GroupData['reactions'] | null>(null);
   const doneRef = useRef<number | null>(null);
+  // How far the house had grown at the last load, to notice it growing.
+  const houseRef = useRef<number | null>(null);
   const turnRef = useRef(0);
+  // The card waiting to come up, and the count that numbers each asking for a card's picture.
+  const cardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const artTurnRef = useRef(0);
   const heldRef = useRef<Held[]>([]);
   const tellRef = useRef<() => void>(() => {});
   const finishingRef = useRef(false);
   // Who is waiting to hear that the flying flower has landed.
   const landingRef = useRef<{ id: string; arrived: () => void } | null>(null);
-  // What the finished postcard is wanted for, and the newest change to the garden's look being saved.
-  const cardForRef = useRef<'share' | 'save'>('share');
+  // What the finished card is wanted for and what goes with it, and the newest change to the garden's look being saved.
+  const cardForRef = useRef<{ what: 'share' | 'save'; title: string; text: string; file?: string }>({ what: 'share', title: '', text: '' });
   const lookSaveRef = useRef(0);
   const userRef = useRef(userId);
   useEffect(() => {
@@ -192,6 +213,11 @@ export default function GardenScreen() {
           heldRef.current = [...waiting, ...next];
           setHeld(heldRef.current);
         }
+        // A new rank adds to the house. It is said once the part has sprung up.
+        const level = houseLevel(g.points);
+        const grew = houseRef.current === null ? null : houseGrew(houseRef.current, level);
+        houseRef.current = level;
+        if (grew) setEarned((waiting) => [...waiting, { words: grew }]);
       }
       setGroup(g);
       if (count !== null) {
@@ -279,20 +305,39 @@ export default function GardenScreen() {
     return () => clearTimeout(timer);
   }, [announcing, say, ring]);
 
+  /** Put a finished idea's card away, or stop one that is on its way up. */
+  const dropCard = useCallback(() => {
+    if (cardTimerRef.current) clearTimeout(cardTimerRef.current);
+    cardTimerRef.current = null;
+    setAsk(null);
+    setMemCard(null);
+  }, []);
+  useEffect(
+    () => () => {
+      if (cardTimerRef.current) clearTimeout(cardTimerRef.current);
+    },
+    [],
+  );
+
   const leaveHouse = useCallback(() => {
     setHouse(false);
     setInside(false);
     setListOpen(false);
     setFrame(null);
-  }, []);
+    dropCard();
+  }, [dropCard]);
 
   // The phone's back button and the Escape key put away whatever is open before they leave the garden.
-  const somethingOpen = postcard !== null || listOpen || lookOpen || selected !== null || house;
+  const somethingOpen = postcard !== null || memCard !== null || listOpen || lookOpen || selected !== null || house;
   useEffect(() => {
     if (!somethingOpen) return;
     const putAway = () => {
       if (postcard) setPostcard(null);
-      else if (listOpen) setListOpen(false);
+      else if (memCard) {
+        // Closing a card lets its frame settle back on the wall.
+        dropCard();
+        setFrame(null);
+      } else if (listOpen) setListOpen(false);
       else if (lookOpen) setLookOpen(false);
       else if (selected) setSelected(null);
       else leaveHouse();
@@ -310,7 +355,7 @@ export default function GardenScreen() {
       back.remove();
       document.removeEventListener('keydown', onKey);
     };
-  }, [somethingOpen, postcard, listOpen, lookOpen, selected, leaveHouse]);
+  }, [somethingOpen, postcard, memCard, listOpen, lookOpen, selected, leaveHouse, dropCard]);
 
   const backToList = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
 
@@ -379,6 +424,9 @@ export default function GardenScreen() {
   const walls = buildWalls(finishedIdeas(finished.ideas, group.lists));
   const wallNow = Math.max(0, Math.min(wall ?? walls.length - 1, walls.length - 1));
   const caption = wallCaption(walls, wallNow, frame, now);
+  // The finished idea whose frame is chosen, and that idea again once the picture for its card has come.
+  const framed: Finished | null = house && frame !== null ? (walls[wallNow]?.items[frame] ?? null) : null;
+  const carded = framed && memCard && memCard.id === framed.id ? framed : null;
 
   // The sheet is for the chosen flower while it is one of those on show.
   const chosen = selected && onShow.some((f) => f.id === selected) ? (ideas.find((i) => i.id === selected) ?? null) : null;
@@ -552,12 +600,65 @@ export default function GardenScreen() {
     // The frames are read afresh, in case something was done, undone or renamed elsewhere.
     void loadFinished();
   };
+  // A finished idea's card comes up a moment after its frame is chosen: first its picture is asked for.
+  const cardSoon = (idea: Finished | undefined, after: number) => {
+    dropCard();
+    if (!idea) return;
+    cardTimerRef.current = setTimeout(() => setAsk({ id: idea.id, turn: ++artTurnRef.current }), after);
+  };
+  const closeCard = () => {
+    dropCard();
+    setFrame(null);
+  };
   const walkTo = (toWall: number, toFrame: number | null = null) => {
     if (!walls[toWall]) return;
     setListOpen(false);
     setWall(toWall);
     setFrame(toFrame);
     ring('tap');
+    cardSoon(toFrame === null ? undefined : walls[toWall].items[toFrame], CARD_AFTER_WALK_MS);
+  };
+
+  // "Add our photo" on a card: the person picks a photo and chooses the part of it the card shows.
+  // It becomes the idea's own picture, and takes the frame over at once.
+  const addPhoto = async () => {
+    if (!carded || addBusy) return;
+    try {
+      const photo = await pickPhoto();
+      if (photo) setAdding({ photo, ideaId: carded.id, had: carded.kept });
+    } catch {
+      say('That file is not a picture');
+    }
+  };
+  const keepPhoto = async (part: CropRect) => {
+    if (!adding || addBusy) return;
+    const { photo, ideaId, had } = adding;
+    setAddBusy(true);
+    try {
+      // Taller than wide, so it is the height that is kept within what the app keeps of any picture.
+      const chosen = await cropPicture(photo, part, Math.round(PICTURE_SIDE * CARD_SHAPE));
+      const kept = await uploadPicture(group.id, chosen);
+      try {
+        await setIdeaPicture(ideaId, kept);
+      } catch (e) {
+        void removePicture(kept);
+        throw e;
+      }
+      // Nothing shows the picture it had before any more.
+      if (had) void removePicture(had);
+      setAdding(null);
+      await loadFinished();
+      tellRef.current();
+      // The frames have been hung again with it. The card asks for it too.
+      setAsk({ id: ideaId, turn: ++artTurnRef.current });
+      say('Your photo is in the frame');
+    } catch (e) {
+      // The screen for choosing covers everything, so it goes before anything is said.
+      setAdding(null);
+      say(e instanceof Error ? e.message : 'Could not keep the picture.');
+    } finally {
+      setAddBusy(false);
+    }
   };
 
   // "Our garden": a choice shows at once and is saved for the whole group behind it.
@@ -590,28 +691,37 @@ export default function GardenScreen() {
     ring('tap');
   };
 
-  // The finished postcard has been made: hand it over.
+  // The finished card has been made, a postcard of the garden or one finished idea's: hand it over.
   const sendCard = async (picture: string | null) => {
+    const { what, title, text, file } = cardForRef.current;
     try {
       if (!picture) return say('Could not make the picture here');
-      if (cardForRef.current === 'save') {
-        if ((await savePostcard(picture, group.name)) === 'saved') say('Saved. Ready for the group chat');
+      if (what === 'save') {
+        if ((await savePostcard(picture, title, file)) === 'saved') say('Saved. Ready for the group chat');
       } else {
-        const outcome = await sharePostcard(picture, group.name, 'Our garden today');
+        const outcome = await sharePostcard(picture, title, text, file);
         if (outcome === 'shared') say('Sent');
         else if (outcome === 'saved') say('No share sheet in this browser, so the picture was saved');
       }
     } catch {
-      say(cardForRef.current === 'save' ? 'Could not save here' : 'Could not share here');
+      say(what === 'save' ? 'Could not save here' : 'Could not share here');
     } finally {
       setCardBusy(false);
     }
   };
   const makeCard = (what: 'share' | 'save') => {
-    if (!postcard || cardBusy) return;
-    cardForRef.current = what;
-    setCardBusy(true);
-    setCard({ name: group.name, line: postcard.line, turn: (card?.turn ?? 0) + 1 });
+    if (cardBusy) return;
+    const turn = (card?.turn ?? 0) + 1;
+    if (carded && memCard) {
+      // One finished idea: its title, then the group, its list and the day. A found photo carries its credit.
+      cardForRef.current = { what, title: carded.title, text: sharedWords(carded.title, group.name), file: cardFile(carded.title) };
+      setCardBusy(true);
+      setCard({ of: 'memory', title: carded.title, line: sharedLine(group.name, carded, now), credit: memCard.photo ? creditWords(carded.credit) : null, turn });
+    } else if (postcard) {
+      cardForRef.current = { what, title: group.name, text: 'Our garden today' };
+      setCardBusy(true);
+      setCard({ of: 'garden', title: group.name, line: postcard.line, credit: null, turn });
+    }
   };
 
   return (
@@ -637,6 +747,11 @@ export default function GardenScreen() {
             bench={out.bench}
             bath={out.bath}
             lights={out.lights}
+            picnic={out.picnic}
+            wood={out.wood}
+            fire={out.fire}
+            pond={out.pond}
+            level={houseLevel(group.points)}
             memories={toMemories(walls)}
             hung={finished.turn}
             house={house}
@@ -646,6 +761,7 @@ export default function GardenScreen() {
             water={water}
             visits={held}
             snap={snap}
+            art={ask && framed && framed.id === ask.id && inside ? { memory: toMemory(framed), turn: ask.turn } : null}
             card={card}
             sound={sound}
             chime={chime}
@@ -672,12 +788,14 @@ export default function GardenScreen() {
               if (index === wallNow) return;
               setWall(index);
               setFrame(null);
+              dropCard();
             }}
             onFrame={async (slot) => {
               // A second tap on the chosen frame, or a tap on the wallpaper, steps back from it.
               const next = slot === frame ? null : slot;
               setFrame(next);
               if (next !== null) ring('tap');
+              cardSoon(next === null ? undefined : walls[wallNow]?.items[next], CARD_AFTER_MS);
             }}
             onWatered={async (flowerId) => poured(flowerId)}
             onVisit={async (who, flowerId) => visited(who, flowerId)}
@@ -686,6 +804,12 @@ export default function GardenScreen() {
               setPostcard({ picture, line: postcardLine(new Date(), all.length) });
               setFlash((n) => n + 1);
               ring('snap');
+            }}
+            onArt={async (picture, photo, turn) => {
+              // Only the newest asking is answered, and only while its frame is still the chosen one.
+              if (!ask || turn !== ask.turn) return;
+              if (!picture) return say('Could not make the picture here');
+              setMemCard({ id: ask.id, picture, photo });
             }}
             onCard={async (picture) => sendCard(picture)}
             onFailed={async () => setFailed(true)}
@@ -750,7 +874,7 @@ export default function GardenScreen() {
           onWater={startWatering}
           onClose={() => setSelected(null)}
         />
-        <LookSheet open={lookOpen && !house} group={group.name} look={look} done={done} sound={sound} onChange={changeLook} onLocked={lockedExtra} onSound={changeSound} onClose={() => setLookOpen(false)} />
+        <LookSheet open={lookOpen && !house} group={group.name} look={look} level={houseLevel(group.points)} done={done} sound={sound} onChange={changeLook} onLocked={lockedExtra} onSound={changeSound} onClose={() => setLookOpen(false)} />
         <CaptionBar open={house && inside && !listOpen} title={caption.title} line={caption.line} walls={walls.length} wall={wallNow} onWall={(to) => walkTo(to)} onList={() => setListOpen(true)} />
         <DoneList
           open={house && inside && listOpen}
@@ -762,16 +886,21 @@ export default function GardenScreen() {
           onMore={() => go('done')}
           onClose={() => setListOpen(false)}
         />
+        {/* One overlay for both: a postcard of the garden, and the card of the finished idea whose frame was tapped. */}
         <Postcard
-          picture={postcard?.picture ?? null}
-          name={group.name}
-          line={postcard?.line ?? ''}
+          picture={carded && memCard ? memCard.picture : (postcard?.picture ?? null)}
+          title={carded ? carded.title : group.name}
+          line={carded ? finishedLine(carded, now) : (postcard?.line ?? '')}
+          alt={carded && memCard ? `${carded.title}. ${sourceWords(carded, memCard.photo)}` : 'Postcard of the garden'}
+          whole={carded !== null}
+          below={carded && memCard ? <CardSource idea={carded} shown={memCard.photo} busy={cardBusy || addBusy} onAdd={() => void addPhoto()} /> : null}
           flash={flash}
           busy={cardBusy}
           onShare={() => makeCard('share')}
           onSave={() => makeCard('save')}
-          onClose={() => setPostcard(null)}
+          onClose={() => (carded ? closeCard() : setPostcard(null))}
         />
+        {adding ? <PictureCrop photo={adding.photo} busy={addBusy} shape={CARD_SHAPE} shows="the card shows" onUse={(part) => void keepPhoto(part)} onCancel={() => setAdding(null)} /> : null}
         {/* After the postcard, so that what it says shows over it. */}
         <Toast words={toast?.words ?? null} turn={toast?.turn ?? 0} />
 

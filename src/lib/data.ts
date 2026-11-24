@@ -484,6 +484,17 @@ export async function updateIdea(
   fail(error);
 }
 
+/**
+ * Give an idea a picture of its own, and nothing else about it changed. For a finished idea, whose
+ * frame in the garden's house takes a photo the group adds afterwards. `picture` is where the
+ * picture has been kept (see `uploadPicture`).
+ */
+export async function setIdeaPicture(ideaId: string, picture: string): Promise<void> {
+  const { error } = await db().from('ideas').update({ picture }).eq('id', ideaId);
+  if (noSuchColumn(error)) throw new Error(NO_PICTURES);
+  fail(error);
+}
+
 /** One idea as the share screen needs it: with its group, and when it was done if it has been. */
 export type SharedIdea = Idea & { group_id: string; done_at: string | null };
 

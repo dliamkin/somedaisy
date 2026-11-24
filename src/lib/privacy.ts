@@ -6,7 +6,7 @@
 /** Where people write to about their information. This address has to reach a person. */
 export const CONTACT = 'hello@somedaisy.com';
 
-export const UPDATED = '23 November 2026';
+export const UPDATED = '24 November 2026';
 
 /** A paragraph is a string. A list of points is an array of strings. */
 export type Block = string | string[];
@@ -67,7 +67,7 @@ export const SECTIONS: Section[] = [
         'Expo passes notifications on to phones. It receives the address for your phone and the words of the notification, which can include a friend\'s name, the title of an idea and the words of a comment.',
       ],
       'These companies may keep information in countries other than yours, including the United States.',
-      'When an idea has a link, our server reads that page once to find its preview picture. The picture itself comes from the website it lives on each time someone in the group looks at the idea, so that website sees the internet address of whoever is looking, as it would for any picture on the web.',
+      'When an idea has a link, our server reads that page once to find its preview picture. The picture itself comes from the website it lives on each time it is shown to someone in the group, on the idea or in a frame in the garden\'s house, so that website sees the internet address of whoever is looking, as it would for any picture on the web.',
       'The same goes for photos from Unsplash. The photos in a search, and a cover or an idea\'s picture found by search, come from Unsplash each time they are shown, so Unsplash sees the internet address of whoever is looking.',
     ],
   },

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SomeDaisy Garden A v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": { "three": "https://unpkg.com/three@0.184.0/build/three.module.js" },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT"
+  }
+}
+</script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#EDE6F4;font-family:Nunito,system-ui,sans-serif;color:#2C2040}
+a{color:#5A25A6}a:hover{color:#2C2040}
+button{font-family:inherit}
+.wrap{display:flex;gap:36px;justify-content:center;align-items:flex-start;padding:20px 24px 72px}
+.stick{position:sticky;top:20px;flex:none;width:390px;height:844px}
+.phone{--card:#FFFFFF;--ink:#2C2040;--muted:#625475;--bg:#F6F0FB;--line:#E7DBF3;--btn:#6D2FC4;--link:#5A25A6;--outline:#B49FCF;--pink:#9C2580;width:390px;height:844px;position:relative;overflow:hidden;border-radius:40px;background:#CFE3FF;border:1px solid #E7DBF3;box-shadow:0 8px 12px rgba(90,40,140,.12);user-select:none;transform-origin:0 0}
+.phone.night{--card:#2A2038;--ink:#F4EEFB;--muted:#C4B5D4;--bg:#171124;--line:#3F3150;--btn:#8A4BE6;--link:#C9A6FF;--outline:#8A76A6;--pink:#F0A6DD;background:#171124}
+#gl,#labels{position:absolute;inset:0}
+#labels{pointer-events:none;overflow:hidden}
+.hdr{position:absolute;left:16px;right:16px;top:16px;display:flex;align-items:center;gap:10px;pointer-events:none}
+.round{width:44px;height:44px;flex:none;border-radius:22px;background:var(--card);display:grid;place-items:center;position:relative;transition:background .8s;border:none;padding:0}
+.round.btn{pointer-events:auto;cursor:pointer}
+.round.line{border:1.5px solid var(--outline)}
+.round svg{stroke:var(--ink)}
+.ttl{flex:1;min-width:0;color:var(--ink);transition:color .8s,opacity .3s}
+.phone:not(.in) #book .i2,.phone.in #book .i1{display:none}
+.capbar{position:absolute;left:16px;right:16px;bottom:20px;height:56px;border-radius:28px;background:var(--card);color:var(--ink);box-shadow:0 8px 12px rgba(90,40,140,.12);display:flex;align-items:center;gap:2px;padding:0 6px;transform:translateY(160%);transition:transform .38s cubic-bezier(.3,1.1,.4,1),background .8s}
+.capbar.open{transform:none}
+.capbar .mid{flex:1;min-width:0;height:48px;border:none;background:none;color:inherit;cursor:pointer;padding:0 4px;text-align:center}
+.capbar .mid b{display:block;font:900 15.5px/1.25 Nunito,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.capbar .mid span{display:block;font:700 12.5px/1.25 Nunito,sans-serif;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.capbar .arr{width:44px;height:44px;flex:none;border-radius:22px;border:none;background:transparent;display:grid;place-items:center;cursor:pointer}
+.capbar .arr svg{stroke:var(--ink)}
+.capbar .arr:disabled{opacity:.28;cursor:default}
+.capbar.one .arr{visibility:hidden}
+.alist{max-height:500px;overflow:auto;margin:0 -16px;padding:0 16px}
+.agrp{position:sticky;top:0;display:flex;align-items:center;gap:8px;width:100%;min-height:44px;border:none;background:var(--card);padding:6px 0 0;font:900 14px Nunito,sans-serif;color:var(--ink);cursor:pointer;text-align:left}
+.agrp span{font:700 12.5px Nunito,sans-serif;color:var(--muted)}
+.arow{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;border:none;background:none;padding:3px 0;color:var(--ink);cursor:pointer;text-align:left}
+.arow i{width:14px;height:14px;border-radius:7px;flex:none}
+.arow div{flex:1;min-width:0}
+.arow b{display:block;font:800 14.5px/1.25 Nunito,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow span{display:block;font:700 12.5px/1.25 Nunito,sans-serif;color:var(--muted)}
+.ttl b{display:block;font:900 20px/1.1 Nunito,sans-serif}
+.ttl span{font:800 12.5px Nunito,sans-serif}
+.badge{position:absolute;right:-4px;top:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#B8339A;color:#fff;font:900 11.5px/20px Nunito,sans-serif;text-align:center}
+.pop{animation:pop .6s ease-out}
+@keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.3)}100%{transform:scale(1)}}
+.pills{position:absolute;left:16px;right:16px;top:74px;display:flex;gap:6px;font:800 12.5px Nunito,sans-serif;color:var(--ink);pointer-events:none;transition:opacity .3s}
+.pills div{height:32px;padding:0 10px;border-radius:16px;background:var(--card);display:flex;align-items:center;gap:5px;transition:background .8s}
+.pills b{font-weight:900}
+.phone.in .pills,.phone.deco .pills{opacity:0}
+.toast{position:absolute;z-index:2;left:0;right:0;top:120px;display:flex;justify-content:center;pointer-events:none;opacity:0;transition:opacity .4s}
+.toast.on{opacity:1}
+.toast div{padding:9px 16px;border-radius:20px;background:#2C2040;color:#fff;font:800 13.5px Nunito,sans-serif;max-width:330px;text-align:center}
+.bar{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 20px;background:var(--bg);border-top:1px solid var(--line);display:flex;gap:10px;transition:background .8s,transform .4s}
+.phone.in .bar{transform:translateY(110%)}
+.pill{height:44px;padding:0 22px;border-radius:22px;border:none;background:var(--btn);color:#fff;font:800 15px Nunito,sans-serif;cursor:pointer}
+.pill:active{transform:scale(.96)}
+.pill.out{background:transparent;border:2px solid var(--btn);color:var(--link)}
+.pill.soft{background:transparent;border:1.5px solid var(--outline);color:var(--ink);padding:0 16px}
+.pill.text{background:transparent;color:var(--link);padding:0 14px}
+.bar .pill{flex:1}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);color:var(--ink);border-radius:30px 30px 0 0;box-shadow:0 -8px 12px rgba(90,40,140,.12);padding:20px 16px 22px;transform:translateY(110%);transition:transform .38s cubic-bezier(.3,1.1,.4,1)}
+.sheet.open{transform:none}
+.sheet h3{font:900 19px Nunito,sans-serif;margin:0}
+.sheet .sub{font:700 13px Nunito,sans-serif;color:var(--muted);margin:2px 0 12px}
+.mem{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.mem div{display:flex;align-items:center;gap:6px;font:800 13px Nunito,sans-serif}
+.mem i{width:16px;height:16px;border-radius:8px}
+.mem span{font-weight:700;color:var(--muted)}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.acts .text{margin-left:auto}
+.dh{display:flex;align-items:flex-start;gap:10px}
+.dh>div{flex:1}
+.dh .sub{margin-bottom:4px}
+.drow{display:flex;align-items:center;gap:8px;min-height:44px;margin-top:6px}
+.drow label{width:54px;flex:none;font:800 13px Nunito,sans-serif;color:var(--muted)}
+.sws{display:flex}
+.swb{width:44px;height:44px;border:none;background:none;padding:0;display:grid;place-items:center;cursor:pointer}
+.swb i{width:30px;height:30px;border-radius:15px;box-shadow:0 0 0 1.5px var(--outline)}
+.swb.on i{box-shadow:0 0 0 2.5px var(--card),0 0 0 5px var(--ink)}
+.segp{display:flex;gap:6px;flex-wrap:wrap}
+.segp button{height:44px;padding:0 14px;border-radius:22px;border:1.5px solid var(--outline);background:transparent;color:var(--ink);font:800 14px/1.15 Nunito,sans-serif;cursor:pointer}
+.segp button.on{background:var(--btn);border-color:var(--btn);color:#fff}
+.segp button.lock{border-style:dashed;color:var(--muted)}
+.segp small{display:block;font:700 11.5px Nunito,sans-serif}
+.tabs{display:flex;gap:6px;margin:8px 0 10px}
+.tabs button{flex:1;height:44px;border-radius:22px;border:none;background:var(--bg);color:var(--ink);font:800 14.5px Nunito,sans-serif;cursor:pointer}
+.tabs button.on{background:var(--ink);color:var(--card)}
+.pane{min-height:232px}
+.lvl{font:700 13px/1.4 Nunito,sans-serif;color:var(--muted);margin:0 0 8px;text-wrap:pretty}
+.lvl b{color:var(--ink);font-weight:900}
+.swg{display:grid;grid-template-columns:repeat(8,1fr);justify-items:center;margin-top:6px}
+.exg{display:grid;grid-template-columns:1fr 1fr}
+.pcx{display:flex;align-items:center;gap:4px;margin-top:-12px;color:#fff;font:700 13.5px Nunito,sans-serif}
+.pcx span{white-space:nowrap}
+.pcx .pill{color:#fff;text-decoration:underline;text-underline-offset:3px}
+.pc{position:absolute;inset:0;background:rgba(44,32,64,.62);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;opacity:0;pointer-events:none;transition:opacity .3s}
+.pc.on{opacity:1;pointer-events:auto}
+.pcard{width:292px;background:#fff;color:#2C2040;padding:12px 12px 14px;border-radius:6px;transform:rotate(-3deg) translateY(40px) scale(.88);transition:transform .5s cubic-bezier(.3,1.3,.4,1);box-shadow:0 8px 12px rgba(0,0,0,.25)}
+.pc.on .pcard{transform:rotate(-3deg)}
+.pcard img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;object-position:50% 60%;border-radius:3px;background:#CFE3FF}
+.pcard b{display:block;font:900 18px Nunito,sans-serif;margin-top:10px}
+.pcard span{font:700 12.5px Nunito,sans-serif;color:#625475}
+.pcb{display:flex;gap:8px}
+.pcb .pill{padding:0 18px}
+.pcb .out{border-color:#fff;color:#fff}
+.pcb .text{color:#fff}
+.flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.flash.go{animation:fl .5s ease-out}
+@keyframes fl{0%{opacity:.9}100%{opacity:0}}
+.side{flex:1 1 0;min-width:0;max-width:470px;padding-top:6px}
+.eyebrow{font:800 12px Nunito,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#9C2580}
+.side h1{font:900 32px/1.1 Nunito,sans-serif;margin:6px 0 10px}
+.side p{font:500 15.5px/1.5 Nunito,sans-serif;margin:0 0 14px;text-wrap:pretty}
+.side h2{font:900 16px Nunito,sans-serif;margin:24px 0 8px}
+.try{display:flex;flex-direction:column;gap:9px;font:500 15px/1.4 Nunito,sans-serif}
+.try b{font-weight:800}
+.card{background:#fff;border-radius:22px;padding:16px;box-shadow:0 8px 12px rgba(90,40,140,.1);display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opt label{font:800 12.5px Nunito,sans-serif;color:#625475;width:82px;flex:none}
+.seg{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0}
+.seg button{height:36px;padding:0 13px;border-radius:18px;border:none;background:#F6F0FB;color:#2C2040;font:800 13.5px Nunito,sans-serif;cursor:pointer}
+.seg button.on{background:#2C2040;color:#fff}
+.seg button.go{background:#6D2FC4;color:#fff}
+.note{font:700 12.5px/1.4 Nunito,sans-serif;color:#625475;margin:0}
+.reset{margin-top:6px;height:40px;padding:0 20px;border-radius:20px;background:transparent;border:2px solid #6D2FC4;color:#5A25A6;font:800 14px Nunito,sans-serif;cursor:pointer}
+.err{position:absolute;inset:0;display:grid;place-items:center;padding:40px;text-align:center;font:800 15px Nunito,sans-serif}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stick" id="stick">
+  <div class="phone" id="phone" data-screen-label="Garden A v3">
+    <div id="gl"></div>
+    <div id="labels"></div>
+    <div class="hdr">
+      <button class="round btn" id="back" aria-label="Back"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L6 10l6 6"></path></svg></button>
+      <div class="ttl"><b id="ttlB">Weekend crew</b><span id="ttlS">Thrill Seekers · 30 to go</span></div>
+      <button class="round btn" id="snap" title="Send a postcard" aria-label="Send a postcard"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h3l1.5-2.5h7L16 7.5h3v10H3z"></path><circle cx="11" cy="12" r="3.2"></circle></svg></button>
+      <button class="round btn" id="book" title="Things we did" aria-label="Things we did"><svg class="i1" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5v13M11 5C9 3.5 6 3.5 3 4v13c3-.5 6-.5 8 1M11 5c2-1.5 5-1.5 8-1v13c-3-.5-6-.5-8 1"></path></svg><svg class="i2" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h10M8 11h10M8 16h10M4 6h.01M4 11h.01M4 16h.01"></path></svg><div class="badge" id="doneN">3</div></button>
+    </div>
+    <div class="pills"><div>New <b id="n1">0</b></div><div>Waiting <b id="n2">0</b></div><div>Everyone's in <b id="n3">0</b></div><div>Planned <b id="n4">0</b></div></div>
+    <div class="toast" id="toast"><div id="toastT"></div></div>
+    <div class="bar">
+      <button class="round btn line" id="decoBtn" title="Our garden" aria-label="Our garden"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 6h14M4 11h14M4 16h14"></path><circle cx="8" cy="6" r="2.2" fill="var(--card)"></circle><circle cx="14" cy="11" r="2.2" fill="var(--card)"></circle><circle cx="9" cy="16" r="2.2" fill="var(--card)"></circle></svg></button>
+      <button class="pill out" id="pickBtn">Pick for us</button><button class="pill" id="addBtn">Add an idea</button>
+    </div>
+    <div class="sheet" id="sheet">
+      <h3 id="sT"></h3><div class="sub" id="sS"></div><div class="mem" id="sM"></div>
+      <div class="acts"><button class="pill" id="bIn">I'm in</button><button class="pill soft" id="bEh">Eh</button><button class="pill" id="bPlan">Plan it</button><button class="pill" id="bDone">We did it!</button><button class="pill text" id="bClose">Close</button><button class="pill soft" id="bWater">Water to nudge</button></div>
+    </div>
+    <div class="capbar" id="cap">
+      <button class="arr" id="capL" aria-label="Older wall"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L6 10l6 6"></path></svg></button><button class="mid" id="capM" aria-label="See everything"><b id="capT"></b><span id="capS"></span></button><button class="arr" id="capR" aria-label="Newer wall"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4l6 6-6 6"></path></svg></button>
+      
+    </div>
+    <div class="sheet" id="all">
+      <div class="dh"><div><h3>Things we did</h3><div class="sub" id="allS"></div></div><button class="pill text" id="allClose">Close</button></div>
+      <div class="alist" id="allL"></div>
+    </div>
+    <div class="sheet" id="deco">
+      <div class="dh"><div><h3>Our garden</h3><div class="sub">Everyone in Weekend crew sees these</div></div><button class="pill text" id="decoClose">Done</button></div>
+      <div class="tabs" id="decoTabs"></div>
+      <div class="pane" id="decoPane"></div>
+    </div>
+    <div class="pc" id="pc">
+      <div class="pcard"><img id="pcImg" alt=""><b id="pcT">Weekend crew</b><span id="pcSub"></span></div>
+      <div class="pcb"><button class="pill" id="pcShare">Share</button><button class="pill out" id="pcSave">Save picture</button><button class="pill text" id="pcClose">Close</button></div>
+      <div class="pcx" id="pcx"><span id="pcSrc"></span><button class="pill text" id="pcAdd">Add our photo</button><input type="file" id="pcFile" accept="image/*" hidden></div>
+    </div>
+    <div class="flash" id="flash"></div>
+  </div>
+  </div>
+  <div class="side">
+    <div class="eyebrow">SomeDaisy · Garden A v3</div>
+    <h1>The garden, round three</h1>
+    <p>New this round: a house that grows with the group's rank, far more paint, four more lawn extras, pictures in the frames with a card to share, and a smoother night sky. You are Jo.</p>
+    <h2>Try this</h2>
+    <div class="try">
+      <div><b>Grow the house.</b> Under Review controls, step Rank level from 1 up to 6. Each level adds something: a garage, a second story, a lanai, a patio, then a mansion.</div>
+      <div><b>Open Our garden</b>, the round button left of "Pick for us". The House tab has 24 paints each for the roof, walls and door.</div>
+      <div><b>Set Things done to 40</b>, then open the Extras tab. The picnic blanket, woodpile, fire pit and pond are new. Switch to Night to see the fire glow.</div>
+      <div><b>Tap the door</b>, then tap any frame. Its picture comes up as a card you can share or save. "Add our photo" puts your own picture in the frame in place of the stock one.</div>
+      <div><b>Set Time of day to Night</b> and drag sideways. The sky is one smooth piece, with a shooting star every 7 seconds.</div>
+      <div><b>Everything from before still works:</b> say "We did it!" on Mini golf, water Beach walk to nudge Alex, tap the camera for a postcard, send a friend over.</div>
+    </div>
+    <h2>Review controls</h2>
+    <div class="card"><div id="rev" style="display:flex;flex-direction:column;gap:10px"></div><p class="note">These are for review, not product UI. In the product the season follows the date, a friend dropping by is a live event, and the house follows the group's rank. The pictures in the frames are stand-ins for each idea's own photo.</p></div>
+    <h2>Reading a flower</h2>
+    <p>A closed bud is new. A half-open cup is waiting on votes. A full bloom is everyone's in. A date marker behind the bloom means planned. Each flower has three leaves for Sam, Alex and Jo: a full leaf is "I'm in", a small leaf is "Eh", a green nub has not voted.</p>
+    <button class="reset" id="resetBtn">Start over</button>
+  </div>
+</div>
+<script type="module">
+import { createGarden } from './garden3d-v3.js';
+const $ = s => document.querySelector(s), MC = ['#CFE3FF', '#FFD9C7', '#F7C9EA'], N = ['Sam', 'Alex', 'Jo'], LC = { Movies: '#7B3FE4', Places: '#2F7BE8', Food: '#E0489E', 'Day trips': '#1FA98A' };
+const seed = () => [
+  [1, 'Sunrise beach walk', 'Beach walk', 'Places', 2, 3, [1, 0, 0]],
+  [2, 'Paddington in Peru', 'Paddington', 'Movies', 1, 0, [0, 0, 0], 'Jo'],
+  [3, 'Botanic gardens at night', 'Botanic', 'Places', 3, 40, [1, 1, 1]],
+  [4, 'Dune: Part Two', 'Dune', 'Movies', 2, 143, [1, 1, 0]],
+  [5, 'Bake sourdough', 'Sourdough', 'Food', 1, 2, [1, 0, 0], 'Sam'],
+  [6, 'Mini golf rematch', 'Mini golf', 'Day trips', 4, 61, [1, 1, 1], '', 'Sat, Nov 28', '28'],
+  [7, 'That new ramen place', 'Ramen', 'Food', 3, 12, [1, 1, 1]],
+  [8, 'Hot springs', 'Hot springs', 'Day trips', 2, 212, [2, 1, 0]],
+  [9, 'Dumpling crawl', 'Dumplings', 'Food', 4, 25, [1, 1, 1], '', 'Fri, Nov 27', '27']
+].map(a => ({ id: a[0], t: a[1], s: a[2], l: a[3], st: a[4], d: a[5], v: a[6], by: a[7], date: a[8], day: a[9] }));
+// finished ideas, oldest first, each with the day it was done. The first three are done when the demo starts
+const SEEDS = [['Spirited Away in the park', 'Spirited Away', 'Movies', '2026-08-30'], ['Ferry to the island', 'Ferry', 'Day trips', '2026-09-26'], ['Night market', 'Night market', 'Food', '2026-10-17'], ['Pumpkin patch', 'Pumpkin patch', 'Day trips', '2026-10-24'], ['Rooftop sunset', 'Rooftop sunset', 'Places', '2026-10-31'], ['Jaws at the drive-in', 'Jaws', 'Movies', '2026-11-03'], ['Taco night', 'Taco night', 'Food', '2026-11-07'], ['Lighthouse hike', 'Lighthouse', 'Day trips', '2026-11-11'], ['Pancake breakfast', 'Pancakes', 'Food', '2026-11-15'], ['Stargazing on the hill', 'Stargazing', 'Places', '2026-11-20']].map(a => ({ t: a[0], s: a[1], l: a[2], d: a[3] }));
+// about 300 older finished ideas, invented so the hallway can be reviewed at scale: uneven months from mid 2023 to mid 2026, some quiet, some with more than one wall's worth
+const POOL = {
+  Food: ['Night market', 'Taco night', 'Pancake breakfast', 'Dumpling crawl', 'Ramen run', 'Pizza from scratch', 'Farmers market', 'Sushi train', 'Bake-off', 'Picnic in the park', 'Hot pot', 'Ice cream walk', 'Brunch club', 'Street food fair', 'Noodle bar'],
+  Places: ['Rooftop sunset', 'Stargazing', 'Botanic gardens', 'Old town walk', 'Art museum', 'Lookout point', 'River path', 'Night aquarium', 'Sculpture park', 'Harbor walk', 'Secondhand bookshop', 'Observatory', 'Flower market', 'City library', 'Tide pools'],
+  'Day trips': ['Ferry to the island', 'Pumpkin patch', 'Lighthouse hike', 'Hot springs', 'Mini golf', 'Apple picking', 'Kayak morning', 'Waterfall trail', 'Beach day', 'Bike the coast', 'Snow day', 'Lake swim', 'Cabin weekend', 'Go-karts', 'Berry farm'],
+  Movies: ['Outdoor movie night', 'Drive-in double bill', 'Scary movie marathon', 'Animated classics', 'Documentary night', 'Midnight screening', 'Musical sing-along', 'Short film festival', 'Silent film, live band', 'Holiday movie night', 'Sci-fi marathon', 'Film club pick', 'Matinee and shakes', 'Rom-com night', 'Kung fu classics']
+};
+const GEN = (() => {
+  const out = [], lists = Object.keys(POOL), per = [6, 9, 4, 13, 7, 15, 10, 8, 5, 12, 9, 3]; let s = 11, n = 0; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let y = 2023; y <= 2026; y++) for (let m = 0; m < 12; m++) {
+    if ((y === 2023 && m < 6) || (y === 2026 && m > 6)) continue;
+    Array.from({ length: per[(m + y * 5) % 12] }, () => 1 + Math.floor(r() * 28)).sort((a, b) => a - b).forEach(dd => { const l = lists[Math.floor(r() * 4)], t = POOL[l][n++ % 15]; out.push({ t, s: t, l, d: y + '-' + String(m + 1).padStart(2, '0') + '-' + String(dd).padStart(2, '0') }); });
+  }
+  return out;
+})();
+// Sample pictures. In the app every idea already has an image: its stock photo, or the one pulled from its link, and sometimes a photo someone uploaded. These stand in for the first two
+const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; }, stand = (k, m) => 'https://picsum.photos/seed/' + encodeURIComponent(k + m.t + m.d) + '/480/600';
+const withPics = m => { m.stockImg = stand('s', m); if (hash(m.t + m.d) % 3 === 0) m.linkImg = stand('l', m); return m; };
+SEEDS.forEach(withPics); GEN.forEach(withPics);
+// Which picture hangs in an idea's frame, in this order: a photo the group uploaded, then the image pulled from the idea's link, then its stock photo. With none of them (or if it will not load) the frame shows the pressed flower
+const pic = m => m.photo ? [m.photo, 'Your photo'] : m.linkImg ? [m.linkImg, 'Photo from the link'] : m.stockImg ? [m.stockImg, 'Stock photo'] : null;
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], MONF = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const fmtD = d => MON[+d.slice(5, 7) - 1] + ' ' + +d.slice(8) + (d.slice(0, 4) === String(new Date().getFullYear()) ? '' : ', ' + d.slice(0, 4));
+const today = () => { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0'); };
+// Which frames hang on which wall. A wall holds up to 12 and covers whole calendar months: quiet months share a wall so it never looks bare,
+// and a month with more than 12 runs on to a second wall. Walls are packed from the oldest month forward, so only the newest wall ever changes.
+function buildWalls(list) {
+  const months = [], out = []; let cur = null;
+  list.slice().sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0).forEach(m => { const k = m.d.slice(0, 7); let g = months[months.length - 1]; if (!g || g.k !== k) months.push(g = { k, items: [] }); g.items.push(m); });
+  months.forEach(g => {
+    if (g.items.length > 12) { cur = null; const n = Math.ceil(g.items.length / 12); for (let i = 0; i < n; i++) out.push({ ks: [g.k], items: g.items.slice(i * 12, i * 12 + 12), part: (i + 1) + ' of ' + n }); }
+    else if (cur && cur.items.length + g.items.length <= 12) { cur.ks.push(g.k); cur.items.push(...g.items); }
+    else out.push(cur = { ks: [g.k], items: g.items.slice() });
+  });
+  out.forEach(w => { const a = w.ks[0], b = w.ks[w.ks.length - 1], ya = a.slice(0, 4), yb = b.slice(0, 4), ma = +a.slice(5) - 1, mb = +b.slice(5) - 1; w.label = a === b ? MONF[ma] + ' ' + ya + (w.part ? ' · ' + w.part : '') : ya === yb ? MON[ma] + ' – ' + MON[mb] + ' ' + yb : MON[ma] + ' ' + ya + ' – ' + MON[mb] + ' ' + yb; });
+  return out;
+}
+const UNLOCK = [['bench', 3, 'Bench', 'Bench'], ['bath', 5, 'Birdbath', 'Birdbath'], ['lights', 10, 'Lights', 'String lights'], ['picnic', 15, 'Picnic', 'Picnic blanket'], ['wood', 20, 'Woodpile', 'Woodpile'], ['fire', 30, 'Fire pit', 'Fire pit'], ['pond', 40, 'Pond', 'Pond']];
+// 24 paints for each part of the house. The first in each row is the default
+const SW = {
+  roof: ['#8A4BE6', '#6D2FC4', '#B8339A', '#E0489E', '#D9434E', '#B8402E', '#E2703A', '#C98A2B', '#E8B923', '#8FA83A', '#3E9A4E', '#1FA98A', '#17806A', '#2A9DB8', '#2F7BE8', '#3B5BC9', '#2C3E7A', '#5A6B8C', '#7A7F8E', '#4A4458', '#2C2040', '#8A6244', '#B98B63', '#C7B8D9'],
+  walls: ['#FFFFFF', '#FFF7E8', '#FBEFD5', '#FFE9B8', '#FFD9C7', '#FFC9B0', '#F7C9EA', '#F4B8C8', '#E6D2FF', '#CDB8F0', '#CFE3FF', '#A9CBF5', '#C9EEF0', '#BFE8D6', '#CFE5B8', '#A9C99A', '#E9E4DC', '#D8D2C8', '#C9C4D4', '#B8A48C', '#E8B8A0', '#C9705A', '#6E7FA8', '#4A4458'],
+  door: ['#6D2FC4', '#8A4BE6', '#B8339A', '#E0489E', '#D9434E', '#A8322C', '#E2703A', '#E8B923', '#F2D56B', '#8FA83A', '#3E9A4E', '#17806A', '#1FA98A', '#2A9DB8', '#2F7BE8', '#2C3E7A', '#2C2040', '#4A4458', '#7A7F8E', '#FFFFFF', '#FFF7E8', '#B98B63', '#8A6244', '#5B3E2B']
+};
+// what the house is at each rank level, and what that level added
+const HOUSE = [['Cottage', 'a cottage'], ['Cottage with a garage', 'a garage'], ['Two-story home', 'a second story'], ['Home with a lanai', 'a lanai across the front'], ['Home with a patio', 'a patio with an umbrella'], ['Mansion', 'a room over the garage and a cupola with a pennant']];
+const KEY = 'sdGardenV3', RV0 = { layout: 'Meadow', time: 'Day', motion: 'Gentle', season: 'Auto', house: 1 }, PF0 = { roof: '#8A4BE6', walls: '#FFFFFF', door: '#6D2FC4', lawn: 'Soft', bench: true, bath: true, lights: true, picnic: true, wood: true, fire: true, pond: true };
+let rv = { ...RV0 }, pf = { ...PF0 };
+try { const s = JSON.parse(localStorage.getItem(KEY) || '{}'); Object.assign(rv, s.rv); Object.assign(pf, s.pf); } catch (e) { }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ rv, pf })); } catch (_) { } };
+let ideas = seed(), sel = null, baseN = 3, pressed = [], added = 0, lastSel = null, toastK = 0, garden = null, houseReq = false, inside = false, selFrame = null, decoOpen = false, soundOn = false, W = [], curWall = 0, listOpen = false, decoTab = 'House', decoPart = 'roof', pcMode = 'garden', pcMem = null;
+const ups = new Set();
+const live = d => !d.fly, waitOn = d => d.st < 3 ? [0, 1].filter(i => d.v[i] === 0).map(i => N[i]) : [];
+const base = n => n <= 10 ? SEEDS.slice(0, n) : GEN.slice(-(n - 10)).concat(SEEDS), mems = () => base(baseN).concat(pressed), done = () => mems().length;
+// hang the walls again from the current list and stand at the newest one
+// each idea goes to the scene with the one picture its frame should show
+const hangWalls = at => garden && garden.setMemories(W.map(w => w.items.map(m => ({ ...m, img: (pic(m) || [])[0] }))), at);
+function rehang() { W = buildWalls(mems()); curWall = W.length - 1; selFrame = null; hangWalls(); }
+const autoSeason = () => ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 'Summer', 'Summer', 'Summer', 'Autumn', 'Autumn', 'Autumn', 'Winter'][new Date().getMonth()];
+const eng = () => { const o = { ...rv, petals: 'List color', petalShape: 'Daisy', voteLeaves: true, names: true, season: rv.season === 'Auto' ? autoSeason() : rv.season, roof: pf.roof, walls: pf.walls, door: pf.door, lawn: pf.lawn, house: rv.house || 1 }; UNLOCK.forEach(u => { o[u[0]] = done() >= u[1] && pf[u[0]]; }); return o; };
+const apply = () => { garden && garden.setOptions(eng()); };
+
+// sound: a little synth, no audio files
+const snd = (() => {
+  let ctx, master, on = false, timer = 0;
+  const tone = (f0, f1, t0, dur, vol, type) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur); g.gain.setValueAtTime(.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + .012); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + .05); };
+  const chirp = () => { const t = ctx.currentTime, n = 2 + (Math.random() * 3 | 0), f = 2400 + Math.random() * 1400; for (let i = 0; i < n; i++) tone(f * (1 + .12 * Math.random()), f * (1.25 + .2 * Math.random()), t + i * .13, .09, .05); };
+  const cricket = () => { const t = ctx.currentTime; for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) tone(4300, 4250, t + i * .22 + j * .03, .022, .02); };
+  const tick = () => { clearTimeout(timer); if (!on) return; (rv.time === 'Night' ? cricket : chirp)(); timer = setTimeout(tick, rv.time === 'Night' ? 900 + Math.random() * 1500 : 1800 + Math.random() * 4200); };
+  const start = () => {
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); ctx.resume();
+    if (!master) {
+      master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+      const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0); let b = 0;
+      for (let i = 0; i < len; i++) { b = b * .985 + (Math.random() * 2 - 1) * .015; d[i] = b * 5 * Math.min(1, i / 4000, (len - i) / 4000); }
+      const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), wg = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+      src.buffer = buf; src.loop = true; lp.type = 'lowpass'; lp.frequency.value = 520; wg.gain.value = .5; lfo.frequency.value = .13; lg.gain.value = 260;
+      src.connect(lp); lp.connect(wg); wg.connect(master); lfo.connect(lg); lg.connect(lp.frequency); src.start(); lfo.start();
+    }
+    master.gain.cancelScheduledValues(ctx.currentTime); master.gain.linearRampToValueAtTime(.6, ctx.currentTime + .6); on = true; tick();
+  };
+  const NOTES = { tap: [0], in: [0, 4], bloom: [0, 4, 7, 12], plan: [7, 12], done: [0, 7, 12, 16, 19], add: [-5, 0], water: [12, 9, 7, 4], visit: [9, 12], snap: [19], door: [-5, 2, 7] };
+  return {
+    toggle(v) { try { if (v) start(); else if (master) { on = false; clearTimeout(timer); master.gain.cancelScheduledValues(ctx.currentTime); master.gain.linearRampToValueAtTime(0, ctx.currentTime + .3); } } catch (e) { console.warn(e); } },
+    play(name) { if (!on) return; try { (NOTES[name] || [0]).forEach((s, i) => { const f = 392 * Math.pow(2, s / 12), t = ctx.currentTime + i * .09; tone(f, f * .999, t, .5, .16, 'triangle'); tone(f * 2, f * 1.998, t, .18, .05); }); } catch (e) { } }
+  };
+})();
+
+const sub = d => { const w = N.filter((_, i) => d.v[i] === 0); return d.st === 1 ? 'Added by ' + (d.by || 'Sam') + (d.d ? '' : ' today') : d.st === 2 ? (w.length ? 'Waiting on ' + w.join(', ') : 'Not everyone is in yet') : d.st === 3 ? "Everyone's in" : d.date; };
+const say = m => { const k = ++toastK; $('#toastT').textContent = m; $('#toast').classList.add('on'); setTimeout(() => { if (k === toastK) $('#toast').classList.remove('on'); }, 3000); };
+const sync = () => { garden && garden.setIdeas(ideas); render(); };
+function render() {
+  [1, 2, 3, 4].forEach(st => { $('#n' + st).textContent = ideas.filter(d => d.st === st && live(d)).length; });
+  $('#doneN').textContent = done();
+  const ph = $('#phone'); ph.classList.toggle('night', rv.time === 'Night'); ph.classList.toggle('in', houseReq); ph.classList.toggle('deco', decoOpen);
+  const wl = W[curWall], m = selFrame != null && wl ? wl.items[selFrame] : null, cnt = wl ? wl.items.length : 0;
+  $('#ttlB').textContent = houseReq ? 'Things we did' : 'Weekend crew'; $('#ttlS').textContent = houseReq ? done() + ' so far' : 'Thrill Seekers · 30 to go';
+  $('#cap').classList.toggle('open', houseReq && inside && !listOpen); $('#cap').classList.toggle('one', W.length < 2); $('#capL').disabled = curWall <= 0; $('#capR').disabled = curWall >= W.length - 1;
+  $('#capT').textContent = m ? m.t : wl ? wl.label : ''; $('#capS').textContent = m ? m.l + ' · ' + fmtD(m.d) : cnt + (cnt === 1 ? ' thing' : ' things') + (W.length > 1 ? ' · wall ' + (curWall + 1) + ' of ' + W.length : '');
+  $('#all').classList.toggle('open', listOpen);
+  $('#deco').classList.toggle('open', decoOpen);
+  const d = ideas.find(x => x.id === sel); if (d) lastSel = d; const L = d || lastSel;
+  $('#sheet').classList.toggle('open', !!d && !houseReq && !decoOpen);
+  if (!L) return;
+  const w = waitOn(L);
+  $('#sT').textContent = L.t; $('#sS').textContent = sub(L) + (L.st < 4 && L.d > 0 ? ' · Someday for ' + L.d + ' days' : '');
+  $('#sM').innerHTML = N.map((n, i) => `<div><i style="background:${L.v[i] ? MC[i] : 'transparent'};border:1.5px ${L.v[i] ? 'solid var(--ink)' : 'dashed var(--outline)'}"></i>${i === 2 ? 'Jo (you)' : n} <span>${["hasn't voted", "I'm in", 'Eh'][L.v[i]]}</span></div>`).join('');
+  const vote = L.st < 3 && L.v[2] !== 1;
+  $('#bIn').style.display = $('#bEh').style.display = vote ? '' : 'none'; $('#bPlan').style.display = L.st === 3 ? '' : 'none'; $('#bDone').style.display = L.st === 4 ? '' : 'none';
+  $('#bWater').style.display = w.length ? '' : 'none'; $('#bWater').textContent = 'Water to nudge ' + w.join(' and ');
+}
+function drawDeco() {
+  const lv = rv.house || 1, d = done();
+  $('#decoTabs').innerHTML = ['House', 'Lawn', 'Extras'].map(t => `<button data-tab="${t}" class="${decoTab === t ? 'on' : ''}">${t}</button>`).join('');
+  $('#decoPane').innerHTML = decoTab === 'House'
+    ? `<div class="lvl"><b>${HOUSE[lv - 1][0]}</b> · rank level ${lv} of 6. ${lv < 6 ? 'The next rank adds ' + HOUSE[lv][1] + '.' : 'As grand as it gets.'}</div><div class="segp">${['roof', 'walls', 'door'].map(k => `<button data-part="${k}" class="${decoPart === k ? 'on' : ''}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div><div class="swg">${SW[decoPart].map(c => `<button class="swb ${pf[decoPart] === c ? 'on' : ''}" data-c="${c}" aria-label="${decoPart} ${c}"><i style="background:${c}"></i></button>`).join('')}</div>`
+    : decoTab === 'Lawn'
+      ? `<div class="drow"><label>Lawn</label><div class="segp">${['Soft', 'Mown', 'Meadow'].map(v => `<button data-lawn="${v}" class="${pf.lawn === v ? 'on' : ''}">${v}</button>`).join('')}</div></div><div class="drow"><label>Sounds</label><div class="segp"><button data-snd="0" class="${soundOn ? '' : 'on'}">Off</button><button data-snd="1" class="${soundOn ? 'on' : ''}">On</button></div></div>`
+      : `<div class="segp exg">${UNLOCK.map(u => d >= u[1] ? `<button data-ex="${u[0]}" class="${pf[u[0]] ? 'on' : ''}">${u[2]}</button>` : `<button data-ex="${u[0]}" class="lock">${u[2]}<small>at ${u[1]} done</small></button>`).join('')}</div>`;
+}
+const upd = (id, fn) => { ideas = ideas.map(d => d.id === id ? fn(d) : d); sync(); };
+function setDeco(v) { if (v === decoOpen) return; decoOpen = v; if (v && sel != null) select(null); garden && garden.setDecor(v); render(); }
+const select = id => { sel = id; garden && garden.select(id); if (id != null) { snd.play('tap'); if (decoOpen) setDeco(false); } render(); };
+function setHouse(v) {
+  if (v === houseReq || !garden) return; houseReq = v; selFrame = null; garden.selectFrame(null);
+  if (v) { if (sel != null) select(null); if (decoOpen) setDeco(false); $('#pc').classList.remove('on'); snd.play('door'); } else { inside = false; listOpen = false; $('#pc').classList.remove('on'); }
+  garden.setHouse(v); render();
+}
+// done count drives the frames on the wall and the extras
+function setDone(fn) {
+  const a = done(); fn(); const b = done();
+  UNLOCK.forEach(u => { if (a < u[1] && b >= u[1]) setTimeout(() => { say(b + ' things done. ' + u[3] + ' unlocked'); snd.play('bloom'); }, 1900); });
+  rehang(); apply(); drawDeco(); render();
+}
+$('#bIn').onclick = () => vote(1); $('#bEh').onclick = () => vote(2);
+function vote(val) { const d = ideas.find(x => x.id === sel); if (!d) return; const v = d.v.slice(); v[2] = val; const all = v.every(q => q === 1); snd.play(all ? 'bloom' : 'in'); upd(d.id, x => ({ ...x, v, st: all ? 3 : 2 })); }
+$('#bPlan').onclick = () => { if (sel != null) { snd.play('plan'); upd(sel, x => ({ ...x, st: 4, date: 'Sun, Nov 29', day: '29' })); } };
+$('#bDone').onclick = () => { const id = sel; if (id == null) return; select(null); upd(id, x => ({ ...x, fly: true })); };
+$('#bClose').onclick = () => select(null);
+$('#bWater').onclick = () => { if (sel != null && garden && garden.water(sel)) snd.play('water'); };
+$('#addBtn').onclick = () => {
+  const pool = [['Pottery class', 'Pottery', 'Day trips'], ['Drive-in movie', 'Drive-in', 'Movies'], ['Farmers market', 'Market', 'Food']];
+  if (added >= pool.length || ideas.length >= 12) return say('The demo garden is full');
+  if (decoOpen) setDeco(false);
+  const a = pool[added]; ideas = [...ideas, { id: 100 + added, t: a[0], s: a[1], l: a[2], st: 1, d: 0, v: [0, 0, 0], by: 'Jo' }]; added++; snd.play('add'); sync(); say(a[0] + ' is planted');
+};
+$('#pickBtn').onclick = () => { const ok = ideas.filter(d => live(d) && d.st === 3), from = ok.length ? ok : ideas.filter(live); if (!from.length || !garden) return; if (decoOpen) setDeco(false); select(null); garden.pick(from[Math.floor(Math.random() * from.length)].id); };
+$('#book').onclick = () => { if (!houseReq) return setHouse(true); if (inside) openList(!listOpen); };
+$('#back').onclick = () => { if (listOpen) return openList(false); if (houseReq) setHouse(false); };
+// inside the house: step along the hallway, or open the list of everything and jump
+function goWall(i, slot) { if (!W[i] || !garden) return; curWall = i; selFrame = slot == null ? null : slot; garden.setWall(i); garden.selectFrame(selFrame); snd.play('tap'); render(); if (slot != null) setTimeout(openMem, 750); }
+function openList(v) {
+  listOpen = v;
+  if (v) {
+    $('#allS').textContent = done() + ' so far. Tap one to walk to it.';
+    $('#allL').innerHTML = W.map((w, i) => [w, i]).reverse().map(([w, i]) => `<button class="agrp" data-w="${i}">${w.label}<span>${w.items.length}</span></button>` + w.items.map((m, k) => [m, k]).reverse().map(([m, k]) => `<button class="arow" data-w="${i}" data-k="${k}"><i style="background:${LC[m.l]}"></i><div><b>${m.t}</b><span>${m.l} · ${fmtD(m.d)}</span></div></button>`).join('')).join('');
+    $('#allL').scrollTop = 0;
+  }
+  render();
+}
+$('#capL').onclick = () => goWall(curWall - 1); $('#capR').onclick = () => goWall(curWall + 1); $('#capM').onclick = () => openList(true);
+$('#all').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.id === 'allClose') return openList(false); listOpen = false; goWall(+b.dataset.w, b.dataset.k == null ? null : +b.dataset.k); };
+$('#decoBtn').onclick = () => setDeco(!decoOpen);
+$('#deco').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return; const ds = b.dataset;
+  if (b.id === 'decoClose') return setDeco(false);
+  if (ds.tab) decoTab = ds.tab; else if (ds.part) decoPart = ds.part; else if (ds.c) pf[decoPart] = ds.c; else if (ds.lawn) pf.lawn = ds.lawn;
+  else if (ds.ex) { const u = UNLOCK.find(q => q[0] === ds.ex), left = u[1] - done(); if (left > 0) return say('Do ' + left + ' more ' + (left === 1 ? 'thing' : 'things') + ' together to unlock the ' + u[3].toLowerCase()); pf[ds.ex] = !pf[ds.ex]; }
+  else if (ds.snd != null) { soundOn = ds.snd === '1'; snd.toggle(soundOn); }
+  snd.play('tap'); save(); drawDeco(); apply();
+};
+
+// postcard of the garden, and the keepsake card of one finished idea: the same overlay, with Share and Save
+$('#pcImg').crossOrigin = 'anonymous';
+function showCard(mode, src, title, sub) {
+  pcMode = mode; const im = $('#pcImg'); im.style.objectPosition = mode === 'mem' ? '50% 50%' : '50% 60%'; im.src = src;
+  $('#pcT').textContent = title; $('#pcSub').textContent = sub; $('#pcx').style.display = mode === 'mem' ? 'flex' : 'none'; $('#pc').classList.add('on');
+}
+function postcard() {
+  if (!garden) return; let url; try { url = garden.snapshot(); } catch (e) { return say('The camera did not work here'); }
+  $('#pcImg').onerror = null; showCard('garden', url, 'Weekend crew', new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + ideas.filter(live).length + ' ideas growing');
+  const f = $('#flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); snd.play('snap');
+}
+// tap a frame: its picture comes up as a card you can share. If the picture cannot load, the card shows the pressed flower instead
+function openMem() {
+  const wl = W[curWall], m = selFrame != null && wl ? wl.items[selFrame] : null; if (!m || !inside || !houseReq) return;
+  pcMem = m; const p = pic(m), art = () => garden.flowerArt(m).toDataURL('image/png'), im = $('#pcImg');
+  im.onerror = () => { im.onerror = null; im.src = art(); $('#pcSrc').textContent = 'Pressed flower'; };
+  $('#pcSrc').textContent = p ? p[1] : 'Pressed flower'; $('#pcAdd').textContent = m.photo ? 'Change photo' : 'Add our photo';
+  showCard('mem', p ? p[0] : art(), m.t, m.l + ' · ' + fmtD(m.d));
+}
+function closeCard() { $('#pc').classList.remove('on'); if (pcMode === 'mem' && selFrame != null) { selFrame = null; garden && garden.selectFrame(null); render(); } }
+$('#snap').onclick = postcard; $('#pcClose').onclick = closeCard;
+// a photo the group adds takes the frame over from the stock or link picture
+$('#pcAdd').onclick = () => $('#pcFile').click();
+$('#pcFile').onchange = e => {
+  const file = e.target.files[0], m = pcMem; e.target.value = ''; if (!file || !m) return;
+  const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => {
+    const k = Math.min(1, 1200 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    m.photo = c.toDataURL('image/jpeg', .88); ups.add(m); const keep = selFrame; hangWalls(curWall); selFrame = keep; garden.selectFrame(keep); openMem(); say('Your photo is in the frame');
+  }; im.onerror = () => say('That file is not a picture'); im.src = rd.result; }; rd.readAsDataURL(file);
+};
+// the finished card (picture, title, sub-line) as one image, used by both Save and Share
+function card() {
+  const im = $('#pcImg'), c = document.createElement('canvas'), mem = pcMode === 'mem'; c.width = 1080; c.height = 1500; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, 1080, 1500); const k = Math.max(984 / im.naturalWidth, 1230 / im.naturalHeight), sw = 984 / k, sh = 1230 / k; x.drawImage(im, (im.naturalWidth - sw) / 2, (im.naturalHeight - sh) * (mem ? .5 : .6), sw, sh, 48, 48, 984, 1230);
+  const t = $('#pcT').textContent; let fs = 58; x.fillStyle = '#2C2040'; do { fs -= 2; x.font = '900 ' + fs + 'px Nunito, sans-serif'; } while (x.measureText(t).width > 984 && fs > 30); x.fillText(t, 48, 1372);
+  x.fillStyle = '#625475'; x.font = '700 34px Nunito, sans-serif'; x.fillText((mem ? 'Weekend crew · ' : '') + $('#pcSub').textContent, 48, 1428);
+  return c;
+}
+const fname = () => 'somedaisy-' + (pcMode === 'mem' ? pcMem.t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : 'garden') + '.jpg';
+const download = c => { const a = document.createElement('a'); a.download = fname(); a.href = c.toDataURL('image/jpeg', .92); a.click(); };
+$('#pcSave').onclick = () => { try { download(card()); say('Saved. Ready for the group chat'); } catch (e) { say('Could not save here'); } };
+// Share opens the device's own share sheet (Messages, Mail and so on) with the card attached. Where a browser has no share sheet, it saves the picture instead
+$('#pcShare').onclick = async () => {
+  try {
+    const c = card(), blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .92)), file = new File([blob], fname(), { type: 'image/jpeg' }), mem = pcMode === 'mem';
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: mem ? pcMem.t : 'Weekend crew', text: mem ? pcMem.t + ', with Weekend crew' : 'Our garden today' }); say('Sent'); }
+    else { download(c); say('No share sheet in this browser, so the picture was saved'); }
+  } catch (e) { if (e && e.name !== 'AbortError') say('Could not share here'); }
+};
+
+// review controls
+function friend() {
+  if (!garden) return; let c = null; ideas.forEach(d => { if (c || !live(d) || d.st > 2) return; [1, 0].forEach(m => { if (!c && d.v[m] === 0) c = [m, d.id]; }); });
+  if (!c) return say('Everyone has voted on everything'); setHouse(false); setDeco(false); select(null); if (!garden.visit(c[0], c[1], N[c[0]])) say('A friend is already on the way');
+}
+const REV = [['season', 'Season', ['Auto', 'Spring', 'Summer', 'Autumn', 'Winter']], ['time', 'Time of day', ['Day', 'Dusk', 'Night']], ['motion', 'Motion', ['Still', 'Gentle', 'Lively']], ['layout', 'Layout', ['Meadow', 'Path', 'Tall stems']]];
+function drawRev() {
+  $('#rev').innerHTML = `<div class="opt"><label>Rank level</label><div class="seg">${[1, 2, 3, 4, 5, 6].map(n => `<button data-h="${n}" class="${(rv.house || 1) === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>`
+    + REV.map(o => `<div class="opt"><label>${o[1]}</label><div class="seg">${o[2].map(v => `<button data-k="${o[0]}" data-v="${v}" class="${rv[o[0]] === v ? 'on' : ''}">${v === 'Auto' ? 'Auto: ' + autoSeason() : v}</button>`).join('')}</div></div>`).join('')
+    + `<div class="opt"><label>Things done</label><div class="seg">${[3, 5, 10, 20, 40, 9999].map(n => `<button data-n="${n}" class="${baseN === n ? 'on' : ''}">${n > 999 ? '300+' : n}</button>`).join('')}</div></div><div class="opt"><label>Live event</label><div class="seg"><button class="go" id="friendBtn">Send a friend over</button></div></div>`;
+}
+$('#rev').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return; if (b.id === 'friendBtn') return friend();
+  if (b.dataset.h) { const n = +b.dataset.h, grew = n > (rv.house || 1); rv.house = n; save(); apply(); drawDeco(); if (grew) { say('Level up! The house grew: ' + HOUSE[n - 1][1]); snd.play('bloom'); } }
+  else if (b.dataset.n) setDone(() => { baseN = +b.dataset.n; }); else { rv[b.dataset.k] = b.dataset.v; save(); apply(); render(); }
+  drawRev();
+};
+$('#resetBtn').onclick = () => {
+  ideas = seed(); sel = null; lastSel = null; baseN = 3; pressed = []; added = 0; rv = { ...RV0 }; pf = { ...PF0 }; ups.forEach(m => delete m.photo); ups.clear(); save(); houseReq = false; inside = false; selFrame = null; decoOpen = false; listOpen = false; $('#pc').classList.remove('on');
+  if (garden) { garden.select(null); garden.restart(); rehang(); garden.setOptions(eng()); garden.setIdeas(ideas, true); }
+  drawRev(); drawDeco(); render();
+};
+const fit = () => { const z = Math.max(.5, Math.min(1, (innerHeight - 40) / 844, (innerWidth * .54 - 40) / 390)), s = $('#stick'); s.style.width = 390 * z + 'px'; s.style.height = 844 * z + 'px'; $('#phone').style.transform = 'scale(' + z + ')'; };
+fit(); addEventListener('resize', fit);
+drawRev(); drawDeco(); render();
+
+try { await Promise.race([document.fonts.load('900 84px Nunito'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { }
+try {
+  garden = createGarden($('#gl'), $('#labels'), {
+    onSelect: id => { if (decoOpen && id == null) setDeco(false); select(id); },
+    onDoor: () => setHouse(true),
+    onInside: v => { inside = v; render(); },
+    onFrame: i => { selFrame = i === selFrame ? null : i; garden.selectFrame(selFrame); render(); if (selFrame != null) { snd.play('tap'); setTimeout(openMem, 320); } },
+    onWall: i => { if (i !== curWall) { curWall = i; selFrame = null; } render(); },
+    onPressed: id => { const d = ideas.find(x => x.id === id); ideas = ideas.filter(x => x.id !== id); const b = $('#book'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); snd.play('done'); say('Pressed and framed in the house'); if (d) setDone(() => { pressed.push(withPics({ t: d.t, s: d.s, l: d.l, d: today() })); }); sync(); },
+    onPickArrive: id => { const d = ideas.find(x => x.id === id); if (d) { snd.play('tap'); say('How about ' + d.t + '?'); } },
+    onWatered: id => { const d = ideas.find(x => x.id === id); if (!d) return; const w = waitOn(d); say(w.length ? w.join(' and ') + ' got a nudge' : d.s + ' is watered'); },
+    onVisit: (m, id) => { const d = ideas.find(x => x.id === id); if (!d) return; snd.play('visit'); upd(id, x => { const v = x.v.slice(); v[m] = 1; return { ...x, v, st: v.every(q => q === 1) ? 3 : 2 }; }); say(N[m] + ' is in on ' + d.s); }
+  });
+  garden.setOptions(eng()); rehang(); garden.setIdeas(ideas, true);
+} catch (e) {
+  console.error(e);
+  $('#gl').innerHTML = '<div class="err">This garden needs WebGL, and it did not start in this browser.</div>';
+}
+</script>
+</body>
+</html>

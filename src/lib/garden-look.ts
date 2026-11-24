@@ -3,21 +3,38 @@
 // the lawn and the switches are kept on the group (supabase/updates/023-garden-look.sql). The
 // season is not kept anywhere: it follows the date.
 //
-// This file is the rules, with nothing in it that draws. The colours and the lawn styles are the
-// design handoff's (design_handoff_garden_a_v2/README.md).
+// The house itself grows with the group's rank, which nobody chooses: a cottage to begin with,
+// and a mansion for a group that has reached the sixth rank or beyond.
+//
+// This file is the rules, with nothing in it that draws. The colours, the lawn styles and the
+// house's levels are the design handoffs' (design_handoff_garden_a_v3/README.md is the newest).
 
 import { HOUSE_PAINTS, type LawnStyle, type Season } from '../garden/palette';
+import { HOUSE_LEVELS } from '../garden/plan';
+import { levelFor } from './points';
 
 export type { LawnStyle, Season };
 
-/** The three things a group earns for its yard by finishing things together. */
-export type Extra = 'bench' | 'bath' | 'lights';
+/** The seven things a group earns for its yard by finishing things together. */
+export type Extra = 'bench' | 'bath' | 'lights' | 'picnic' | 'wood' | 'fire' | 'pond';
 
 /** A group's choices for its garden. An extra's switch only matters once the group has earned it. */
 export type GardenLook = { roof: string; walls: string; door: string; lawn: LawnStyle } & Record<Extra, boolean>;
 
 /** The garden as it first was, which is what a group has until it chooses otherwise. */
-export const DEFAULT_LOOK: GardenLook = { roof: HOUSE_PAINTS.roof[0], walls: HOUSE_PAINTS.walls[0], door: HOUSE_PAINTS.door[0], lawn: 'soft', bench: true, bath: true, lights: true };
+export const DEFAULT_LOOK: GardenLook = {
+  roof: HOUSE_PAINTS.roof[0],
+  walls: HOUSE_PAINTS.walls[0],
+  door: HOUSE_PAINTS.door[0],
+  lawn: 'soft',
+  bench: true,
+  bath: true,
+  lights: true,
+  picnic: true,
+  wood: true,
+  fire: true,
+  pond: true,
+};
 
 /** The lawns to choose from, in the order they are offered. */
 export const LAWNS: { key: LawnStyle; name: string }[] = [
@@ -52,6 +69,11 @@ export function gardenLook(value: unknown): GardenLook {
     bench: look.bench !== false,
     bath: look.bath !== false,
     lights: look.lights !== false,
+    // A garden saved before these four existed has no word on them, which means switched on.
+    picnic: look.picnic !== false,
+    wood: look.wood !== false,
+    fire: look.fire !== false,
+    pond: look.pond !== false,
   };
 }
 
@@ -63,11 +85,15 @@ export const EXTRAS: { key: Extra; at: number; name: string; full: string }[] = 
   { key: 'bench', at: 5, name: 'Bench', full: 'Bench' },
   { key: 'bath', at: 10, name: 'Birdbath', full: 'Birdbath' },
   { key: 'lights', at: 20, name: 'Lights', full: 'String lights' },
+  { key: 'picnic', at: 30, name: 'Picnic', full: 'Picnic blanket' },
+  { key: 'wood', at: 40, name: 'Woodpile', full: 'Woodpile' },
+  { key: 'fire', at: 60, name: 'Fire pit', full: 'Fire pit' },
+  { key: 'pond', at: 80, name: 'Pond', full: 'Pond' },
 ];
 
 /** Which extras stand in the yard: those the group has earned and has switched on. */
 export function extrasOut(look: GardenLook, done: number): Record<Extra, boolean> {
-  const out = { bench: false, bath: false, lights: false };
+  const out = { bench: false, bath: false, lights: false, picnic: false, wood: false, fire: false, pond: false };
   for (const extra of EXTRAS) out[extra.key] = done >= extra.at && look[extra.key];
   return out;
 }
@@ -150,17 +176,94 @@ export function seasonFor(now: Date, timeZone: string = deviceZone()): Season {
   return NORTH_SEASONS[(now.getMonth() + (southern(timeZone) ? 6 : 0)) % 12];
 }
 
+/**
+ * What the house is at each level, and what reaching that level added to it. The first is the
+ * cottage every group starts with.
+ */
+export const HOUSES: { name: string; adds: string }[] = [
+  { name: 'Cottage', adds: 'a cottage' },
+  { name: 'Cottage with a garage', adds: 'a garage' },
+  { name: 'Two-story home', adds: 'a second story' },
+  { name: 'Home with a lanai', adds: 'a lanai across the front' },
+  { name: 'Home with a patio', adds: 'a patio with an umbrella' },
+  { name: 'Mansion', adds: 'a room over the garage and a cupola with a pennant' },
+];
+
+/**
+ * How far a group's house has grown, from 1 (the cottage) to 6 (the mansion). Each of the first
+ * six ranks is one level: Homebodies have the cottage and Trailblazers the mansion, which
+ * Daredevils and Legends keep. A group whose points are not known has the cottage.
+ */
+export function houseLevel(points: number | null): number {
+  if (points === null) return 1;
+  return Math.min(HOUSE_LEVELS, levelFor(points).index + 1);
+}
+
+/**
+ * What "Our garden" says about the house: its name, then where it stands and what comes next.
+ * "Cottage" and " · rank level 1 of 6. The next rank adds a garage."
+ */
+export function houseWords(level: number): { name: string; rest: string } {
+  const at = Math.max(1, Math.min(HOUSE_LEVELS, Math.round(level)));
+  const next = HOUSES[at];
+  return { name: HOUSES[at - 1].name, rest: ` · rank level ${at} of ${HOUSE_LEVELS}. ${next ? `The next rank adds ${next.adds}.` : 'As grand as it gets.'}` };
+}
+
+/** Said when the house grows while the garden is open: "Level up! The house grew: a garage". Null when it has not grown. */
+export function houseGrew(before: number, after: number): string | null {
+  return after > before && HOUSES[after - 1] ? `Level up! The house grew: ${HOUSES[after - 1].adds}` : null;
+}
+
 /** What each paint colour is called, for a screen reader. */
 export const PAINT_NAMES: Record<string, string> = {
   '#8A4BE6': 'violet',
-  '#B8339A': 'pink',
-  '#2F7BE8': 'blue',
-  '#1FA98A': 'teal',
-  '#E8B923': 'gold',
-  '#FFFFFF': 'white',
-  '#FFD9C7': 'peach',
-  '#CFE3FF': 'sky blue',
-  '#F7C9EA': 'rose',
   '#6D2FC4': 'grape',
-  '#17806A': 'green',
+  '#B8339A': 'pink',
+  '#E0489E': 'bright pink',
+  '#D9434E': 'red',
+  '#B8402E': 'brick red',
+  '#A8322C': 'barn red',
+  '#E2703A': 'orange',
+  '#C98A2B': 'ochre',
+  '#E8B923': 'gold',
+  '#F2D56B': 'straw yellow',
+  '#8FA83A': 'olive green',
+  '#3E9A4E': 'leaf green',
+  '#1FA98A': 'teal',
+  '#17806A': 'pine green',
+  '#2A9DB8': 'sea blue',
+  '#2F7BE8': 'blue',
+  '#3B5BC9': 'cobalt blue',
+  '#2C3E7A': 'navy',
+  '#5A6B8C': 'slate blue',
+  '#6E7FA8': 'dusty blue',
+  '#7A7F8E': 'grey',
+  '#4A4458': 'charcoal',
+  '#2C2040': 'midnight',
+  '#5B3E2B': 'dark brown',
+  '#8A6244': 'brown',
+  '#B98B63': 'tan',
+  '#C7B8D9': 'pale lilac',
+  '#FFFFFF': 'white',
+  '#FFF7E8': 'cream',
+  '#FBEFD5': 'vanilla',
+  '#FFE9B8': 'butter yellow',
+  '#FFD9C7': 'peach',
+  '#FFC9B0': 'apricot',
+  '#F7C9EA': 'rose',
+  '#F4B8C8': 'blush pink',
+  '#E6D2FF': 'lavender',
+  '#CDB8F0': 'lilac',
+  '#CFE3FF': 'sky blue',
+  '#A9CBF5': 'powder blue',
+  '#C9EEF0': 'ice blue',
+  '#BFE8D6': 'mint',
+  '#CFE5B8': 'pale green',
+  '#A9C99A': 'sage',
+  '#E9E4DC': 'linen',
+  '#D8D2C8': 'stone',
+  '#C9C4D4': 'pale grey',
+  '#B8A48C': 'sand',
+  '#E8B8A0': 'clay pink',
+  '#C9705A': 'terracotta',
 };
