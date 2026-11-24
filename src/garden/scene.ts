@@ -7,7 +7,7 @@
 // (see src/components/garden-view.tsx). It is driven entirely by what it is handed: the whole list
 // of flowers after every change, the walls of finished ideas, and the options below.
 //
-// Ported from the design handoffs (design_handoff_garden_a_v2/garden3d-v2.js is the newer), whose
+// Ported from the design handoffs (design_handoff_garden_a_v3/garden3d-v3.js is the newest), whose
 // numbers are final. Of the handoffs' review options, this is the Meadow layout with daisy petals
 // in the list's colour and vote leaves on.
 
@@ -17,6 +17,7 @@ import { buildCreatures } from './creatures';
 import { buildExtras } from './extras';
 import { clamp, damp, groundY, wind } from './ground';
 import { buildHallway } from './hallway';
+import { buildHouseParts } from './house';
 import { makeKit, QUALITY } from './kit';
 import { buildLand } from './land';
 import { DAYLIGHT, DOOR_GLOW, PAINT, SEASONS, SOIL, type Daylight, type LawnStyle, type Season, type TimeOfDay } from './palette';
@@ -42,6 +43,12 @@ export type GardenOptions = {
   bench: boolean;
   bath: boolean;
   lights: boolean;
+  picnic: boolean;
+  wood: boolean;
+  fire: boolean;
+  pond: boolean;
+  /** How far the house has grown with the group's rank: 1 is the cottage, 6 the mansion (see house.ts). */
+  house: number;
 };
 
 export type GardenEvents = {
@@ -199,10 +206,12 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
   const kit = makeKit(world, quality);
   const { lambert, basic, mesh, ball } = kit;
   const land = buildLand(kit);
-  buildTrees(kit);
+  const trees = buildTrees(kit);
   buildGrass(kit, land.stones);
   const meadow = buildMeadow(kit);
   const extras = buildExtras(kit, land);
+  // The house's extra parts use none of the made-up numbers, so nothing after them moves.
+  const houseParts = buildHouseParts(kit, land);
   const skyParts = buildSky(kit, land, opt.time);
   land.setEarned(opt.earned);
 
@@ -861,6 +870,11 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
       land.roofSnow.visible = season.z > 0.03;
       land.roofSnow.position.y = 1.82 + 0.08 * season.z;
       extras.update(dt, t, opt, still, snap, lightNow.night, season.z);
+      // The house grows with the group's rank. What stands where its garage goes makes way for
+      // it, and the string lights are hung to suit. It is simply there for the first half second.
+      houseParts.update(dt, t, opt.house, still, still || t < 0.5, mode === GARDEN, season.z, creatures.burst);
+      trees.hideGarageShrubs(houseParts.garageUp());
+      extras.rehang(houseParts.lightsLevel());
       // In spring a pink petal drifts from the trees every half second, and in autumn a leaf every 0.28.
       nextDrift -= dt;
       if (!still && nextDrift < 0 && (season.y > 0.5 || season.x > 0.5)) {
@@ -1068,6 +1082,13 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
     /** The walls of the hallway, oldest first, each with up to twelve finished ideas, oldest first. Stands at the newest unless told which. */
     setMemories(walls: Memory[][], stand?: number) {
       hall.setMemories(walls, stand);
+    },
+    /**
+     * A finished idea's picture at a given size, for the card that comes up when its frame is
+     * tapped: its picture, or its pressed flower when it has none or it cannot be fetched.
+     */
+    memoryArt(memory: Memory, width: number, height: number): Promise<{ picture: HTMLCanvasElement; photo: boolean }> {
+      return hall.art(memory, width, height);
     },
     /** Go to a wall: a slide to the next one, a dip of the glow and a jump to one further off. */
     setWall(index: number) {

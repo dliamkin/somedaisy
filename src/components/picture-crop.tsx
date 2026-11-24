@@ -22,15 +22,24 @@ const KEY_STEP = 24;
  *
  * It opens over the whole screen, so that dragging the photo up and down never scrolls the form
  * underneath. With a keyboard, the arrow keys move the photo and plus and minus change its size.
+ *
+ * The frame is the shape of an idea's picture unless `shape` says otherwise, which is how the
+ * garden's house asks for the taller shape of its card. `shows` finishes the sentence "The part
+ * inside the frame is what".
  */
 export function PictureCrop({
   photo,
   start,
   busy,
+  shape = PICTURE_SHAPE,
+  shows = 'the idea shows',
   onUse,
   onCancel,
 }: {
   photo: PickedPhoto;
+  /** How much wider than tall the frame is. */
+  shape?: number;
+  shows?: string;
   /** Where the photo was left the last time, if this is a second look at it. */
   start?: CropView | null;
   /** True while the chosen part is being cut out. */
@@ -41,9 +50,12 @@ export function PictureCrop({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  // The frame is as wide as an idea's card, and the shape its picture is shown in.
-  const width = Math.max(200, Math.min(window.width, 480) - 32);
-  const frame = { width, height: Math.round(width / PICTURE_SHAPE) };
+  // The frame is as wide as an idea's card, and the shape its picture is shown in. A tall frame
+  // is made narrower on a short screen, so the buttons under it stay on the screen.
+  const widest = Math.max(200, Math.min(window.width, 480) - 32);
+  const tallest = Math.max(160, window.height - insets.top - insets.bottom - 350);
+  const height = Math.round(Math.min(widest / shape, tallest));
+  const frame = { width: Math.round(Math.min(widest, height * shape)), height };
   // Where the person has put the photo. Until they touch it, it is where it started.
   const [moved, setMoved] = useState<CropView | null>(start ?? null);
   const view = clampView(photo, frame, moved ?? startView(photo, frame));
@@ -138,10 +150,10 @@ export function PictureCrop({
               Choose what shows
             </T>
             <T size={15} weight="medium" color={colors.textMuted}>
-              Drag the picture to move it. {Platform.OS === 'web' ? 'Use the buttons to' : 'Pinch, or use the buttons, to'} make it bigger or smaller. The part inside the frame is what the idea shows.
+              Drag the picture to move it. {Platform.OS === 'web' ? 'Use the buttons to' : 'Pinch, or use the buttons, to'} make it bigger or smaller. The part inside the frame is what {shows}.
             </T>
           </View>
-          <View style={{ width: frame.width, height: frame.height }}>
+          <View style={{ width: frame.width, height: frame.height, alignSelf: 'center' }}>
             <View
               ref={box}
               onStartShouldSetResponder={() => true}

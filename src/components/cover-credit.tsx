@@ -11,15 +11,15 @@ function open(address: string) {
   Promise.resolve(Linking.openURL(address)).catch(() => {});
 }
 
-/** A few words inside a line of text that open a web page. */
-export function TextLink({ to, label, children }: { to: string; label?: string; children: string }) {
+/** A few words inside a line of text that open a web page. `color` is for when they sit on something that is not the page. */
+export function TextLink({ to, label, color, children }: { to: string; label?: string; color?: string; children: string }) {
   const { colors } = useTheme();
   return (
     <Text
       accessibilityRole="link"
       accessibilityLabel={label}
       onPress={() => open(to)}
-      style={{ fontFamily: fonts.extra, color: colors.link, textDecorationLine: 'underline' }}>
+      style={{ fontFamily: fonts.extra, color: color ?? colors.link, textDecorationLine: 'underline' }}>
       {children}
     </Text>
   );
@@ -39,22 +39,39 @@ export function CoverCredit({ cover, size = 12, lines, style }: { cover: Cover; 
  * Who took a photo found by search: "Photo by <name> on Unsplash", with the name leading to the
  * photographer's page and "Unsplash" to Unsplash. For a cover, and for a found photo on an idea.
  */
-export function PhotoCredit({ photo, size = 12, lines, style }: { photo: { credit: string; creditUrl: string }; size?: number; lines?: number; style?: StyleProp<TextStyle> }) {
+export function PhotoCredit({
+  photo,
+  size = 12,
+  lines,
+  style,
+  color,
+}: {
+  photo: { credit: string; creditUrl: string };
+  size?: number;
+  lines?: number;
+  style?: StyleProp<TextStyle>;
+  /** One colour for the words and the links, for a credit that sits on something dark. */
+  color?: string;
+}) {
   const { colors } = useTheme();
   const name = creditName(photo.credit);
   return (
-    <T size={size} weight="medium" color={colors.textMuted} lines={lines} style={style}>
+    <T size={size} weight={color ? 'bold' : 'medium'} color={color ?? colors.textMuted} lines={lines} style={style}>
       {name ? (
         <>
           Photo by{' '}
-          <TextLink to={photo.creditUrl} label={`${name} on Unsplash`}>
+          <TextLink to={photo.creditUrl} label={`${name} on Unsplash`} color={color}>
             {name}
           </TextLink>{' '}
           on{' '}
-          <TextLink to={UNSPLASH}>Unsplash</TextLink>
+          <TextLink to={UNSPLASH} color={color}>
+            Unsplash
+          </TextLink>
         </>
       ) : (
-        <TextLink to={photo.creditUrl}>{photo.credit}</TextLink>
+        <TextLink to={photo.creditUrl} color={color}>
+          {photo.credit}
+        </TextLink>
       )}
     </T>
   );

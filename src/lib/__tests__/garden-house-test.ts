@@ -1,12 +1,30 @@
 import type { DoneIdea, List } from '../data';
-import { buildWalls, dayWords, finishedIdeas, finishedLine, localDay, thingsWords, toMemories, wallCaption, wallLabel, whereHung, type Finished } from '../garden-house';
+import {
+  buildWalls,
+  cardFile,
+  creditWords,
+  dayWords,
+  finishedIdeas,
+  finishedLine,
+  localDay,
+  sharedLine,
+  sharedWords,
+  sourceWords,
+  thingsWords,
+  toMemories,
+  toMemory,
+  wallCaption,
+  wallLabel,
+  whereHung,
+  type Finished,
+} from '../garden-house';
 
 const NOW = new Date(2026, 10, 23, 12);
 
 let made = 0;
 /** `count` finished ideas on days of one month, such as "2026-11". */
 const month = (ym: string, count: number): Finished[] =>
-  Array.from({ length: count }, (_, i) => ({ id: `idea-${made++}`, title: `Thing ${made}`, list: 'Food', color: '#E0489E', picture: null, day: `${ym}-${String(1 + (i % 28)).padStart(2, '0')}` }));
+  Array.from({ length: count }, (_, i) => ({ id: `idea-${made++}`, title: `Thing ${made}`, list: 'Food', color: '#E0489E', picture: null, source: null, credit: null, kept: null, day: `${ym}-${String(1 + (i % 28)).padStart(2, '0')}` }));
 
 describe('hanging the walls', () => {
   it('hangs nothing when nothing is done', () => {
@@ -117,6 +135,41 @@ describe('the words under a wall', () => {
   });
 });
 
+describe("a finished idea's card", () => {
+  const credit = { url: 'https://images.unsplash.com/photo-1', credit: 'Photo by Ann Lee on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+
+  it('says where its picture is from', () => {
+    expect(sourceWords({ source: 'own', credit: null }, true)).toBe('Your photo');
+    expect(sourceWords({ source: 'link', credit: null }, true)).toBe('Photo from the link');
+    expect(sourceWords({ source: 'found', credit }, true)).toBe('Photo by Ann Lee on Unsplash');
+    expect(sourceWords({ source: null, credit: null }, false)).toBe('Pressed flower');
+  });
+
+  it('says it shows the pressed flower when the picture could not be loaded', () => {
+    expect(sourceWords({ source: 'link', credit: null }, false)).toBe('Pressed flower');
+    expect(sourceWords({ source: 'found', credit }, false)).toBe('Pressed flower');
+  });
+
+  it('credits a photo found by search on the picture it shares, and nothing else', () => {
+    expect(creditWords(credit)).toBe('Photo by Ann Lee on Unsplash');
+    expect(creditWords({ ...credit, credit: 'Ann Lee / Unsplash' })).toBe('Ann Lee / Unsplash');
+    expect(creditWords(null)).toBeNull();
+  });
+
+  it('writes the group, the list and the day under the title on the shared picture', () => {
+    expect(sharedLine('Weekend crew', { list: 'Day trips', day: '2026-11-07' }, NOW)).toBe('Weekend crew · Day trips · Nov 7');
+    expect(sharedLine('Weekend crew', { list: '', day: '2025-11-07' }, NOW)).toBe('Weekend crew · Nov 7, 2025');
+    expect(sharedWords('Mini golf', 'Weekend crew')).toBe('Mini golf, with Weekend crew');
+  });
+
+  it('names the file after the idea', () => {
+    expect(cardFile('Mini golf')).toBe('somedaisy-mini-golf.jpg');
+    expect(cardFile("  Ramen at Tom's!  ")).toBe('somedaisy-ramen-at-tom-s.jpg');
+    expect(cardFile('寿司')).toBe('somedaisy-memory.jpg');
+    expect(cardFile('a'.repeat(200))).toBe(`somedaisy-${'a'.repeat(60)}.jpg`);
+  });
+});
+
 describe('finished ideas as the house needs them', () => {
   const lists: List[] = [
     { id: 'l1', name: 'Movies', position: 0, color: '#7B3FE4' },
@@ -138,17 +191,43 @@ describe('finished ideas as the house needs them', () => {
     expect(localDay(when)).toBe('2026-11-07');
   });
 
-  it('frames only a picture the group added itself', () => {
-    const own = finishedIdeas([idea('a', '2026-11-07T12:00:00Z', { picture: `${GROUP}/${FILE}.jpg` })], lists, 'https://example.supabase.co')[0];
+  const BASE = 'https://example.supabase.co';
+  const PHOTO = { url: 'https://images.unsplash.com/photo-1', credit: 'Photo by Ann Lee on Unsplash', creditUrl: 'https://unsplash.com/@ann' };
+  const LINKED = { link: 'https://example.com', image_url: 'https://example.com/a.jpg' };
+
+  it("frames the group's own picture, and remembers where it is kept", () => {
+    const [own] = finishedIdeas([idea('a', '2026-11-07T12:00:00Z', { picture: `${GROUP}/${FILE}.jpg` })], lists, BASE);
     expect(own.picture).toMatch(new RegExp(`/storage/v1/object/public/idea-pictures/${GROUP}/${FILE}[.]jpg$`));
-    const found = finishedIdeas([idea('b', '2026-11-07T12:00:00Z', { photo: { url: 'https://images.unsplash.com/photo-1', credit: 'Ann', creditUrl: 'https://unsplash.com/@ann' } })], lists)[0];
-    expect(found.picture).toBeNull();
-    const linked = finishedIdeas([idea('c', '2026-11-07T12:00:00Z', { link: 'https://example.com', image_url: 'https://example.com/a.jpg' })], lists)[0];
-    expect(linked.picture).toBeNull();
+    expect(own).toMatchObject({ source: 'own', credit: null, kept: `${GROUP}/${FILE}.jpg` });
+  });
+
+  it('frames a photo found by search, with who to credit', () => {
+    const [found] = finishedIdeas([idea('b', '2026-11-07T12:00:00Z', { photo: PHOTO })], lists, BASE);
+    expect(found).toMatchObject({ picture: PHOTO.url, source: 'found', credit: PHOTO, kept: null });
+  });
+
+  it("frames the picture of the page the idea links to, when it has no other", () => {
+    const [linked] = finishedIdeas([idea('c', '2026-11-07T12:00:00Z', LINKED)], lists, BASE);
+    expect(linked).toMatchObject({ picture: LINKED.image_url, source: 'link', credit: null, kept: null });
+  });
+
+  it("frames what the idea's card showed when it has more than one: its own, then the found photo, then the link's", () => {
+    const all = { picture: `${GROUP}/${FILE}.jpg`, photo: PHOTO, ...LINKED };
+    expect(finishedIdeas([idea('a', '2026-11-07T12:00:00Z', all)], lists, BASE)[0]).toMatchObject({ source: 'own', credit: null });
+    expect(finishedIdeas([idea('a', '2026-11-07T12:00:00Z', { photo: PHOTO, ...LINKED })], lists, BASE)[0]).toMatchObject({ picture: PHOTO.url, source: 'found' });
+  });
+
+  it('has no picture to frame when the idea has none, or only one that cannot be shown', () => {
+    expect(finishedIdeas([idea('a', '2026-11-07T12:00:00Z')], lists, BASE)[0]).toMatchObject({ picture: null, source: null, credit: null, kept: null });
+    // A link's picture is only shown from a secure address.
+    expect(finishedIdeas([idea('a', '2026-11-07T12:00:00Z', { link: 'https://example.com', image_url: 'http://example.com/a.jpg' })], lists, BASE)[0]).toMatchObject({ picture: null, source: null });
   });
 
   it('tells the hallway only what a frame shows', () => {
     const walls = buildWalls(finishedIdeas([idea('a', '2026-11-07T12:00:00Z', { title: 'A very long name for a thing we once did together' })], lists));
     expect(toMemories(walls)).toEqual([[{ title: 'A very long name for a thing we once did together', short: 'A very long name…', color: '#E0489E', picture: null }]]);
+    // One frame's worth is the same, with its picture when it has one.
+    const [found] = finishedIdeas([idea('b', '2026-11-07T12:00:00Z', { photo: PHOTO })], lists, BASE);
+    expect(toMemory(found)).toEqual({ title: 'Idea b', short: 'Idea b', color: '#E0489E', picture: PHOTO.url });
   });
 });

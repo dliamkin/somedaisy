@@ -1,7 +1,8 @@
 import { dark, light, LIST_COLORS } from '../../lib/theme';
 import { groundY, HILL_Z, lawn, pathX, seeded, steppingStones, wind } from '../ground';
-import { DAYLIGHT, EXTRAS, HALL, HOUSE_PAINTS, PAINT, POSTCARD, SKY, STARS, WILDFLOWERS } from '../palette';
-import { BATH_AT, BED, BENCH_AT, FRAMES, frameScale, freePlace, FRONT, LEAVES, leafSize, MAX_LEAVES, placeOf, SHAPES, SLOTS, stemHeight, variety, WALL } from '../plan';
+import { DAYLIGHT, EXTRAS, HALL, HOUSE_PAINTS, HOUSE_PARTS, PAINT, POSTCARD, SKY, STARS, WILDFLOWERS } from '../palette';
+import { BATH_AT, BED, BENCH_AT, FRAMES, frameScale, freePlace, FRONT, GARAGE_SHRUBS, HOUSE_LEVELS, LAWN_EXTRAS, LAWN_SPOTS, LEAVES, leafSize, MAX_LEAVES, placeOf, SHAPES, SLOTS, stemHeight, variety, WALL } from '../plan';
+import { SHRUBS } from '../plants';
 
 describe('the ground', () => {
   it('is highest at the top of the hill and falls away all round', () => {
@@ -188,6 +189,53 @@ describe('the yard', () => {
   });
 });
 
+describe('what the third design added to the yard', () => {
+  const spots = LAWN_EXTRAS.map((key) => LAWN_SPOTS[key]);
+
+  it('has a spot for a picnic, a woodpile, a fire pit and a pond, in the order the grass is told them', () => {
+    expect(LAWN_EXTRAS).toEqual(['picnic', 'wood', 'fire', 'pond']);
+    expect(spots.map((s) => [...s.at, s.flat])).toEqual([
+      [-2.45, 1, 0.5],
+      [2.55, 1.5, 0.3],
+      [-2.1, 3.25, 0.25],
+      [2.15, 3.3, 0.36],
+    ]);
+  });
+
+  it('stands each clear of every flower, the path, the bench, the birdbath and each other', () => {
+    for (const { at, flat } of spots) {
+      const reach = Math.sqrt(flat);
+      for (const [x, z] of [...SLOTS, ...FRONT.map(([, spot]) => spot)]) expect(Math.hypot(x - at[0], z - at[1])).toBeGreaterThan(reach);
+      expect(Math.abs(at[0] - pathX(at[1]))).toBeGreaterThan(reach + 0.3);
+      expect(Math.hypot(BENCH_AT[0] - at[0], BENCH_AT[1] - at[1])).toBeGreaterThan(reach + 0.5);
+      expect(Math.hypot(BATH_AT[0] - at[0], BATH_AT[1] - at[1])).toBeGreaterThan(reach + 0.5);
+      for (const other of spots) if (other !== spots.find((s) => s.at === at)) expect(Math.hypot(other.at[0] - at[0], other.at[1] - at[1])).toBeGreaterThan(reach + Math.sqrt(other.flat));
+    }
+  });
+
+  it('grows the house through six levels, and clears the two shrubs right of it for the garage', () => {
+    expect(HOUSE_LEVELS).toBe(6);
+    expect(GARAGE_SHRUBS).toEqual([2, 3]);
+    // Both stand to the right of the house and in front of it, where the garage and its drive go.
+    for (const i of GARAGE_SHRUBS) {
+      expect(SHRUBS[i][0]).toBeGreaterThan(1.5);
+      expect(SHRUBS[i][0]).toBeLessThan(2.8);
+    }
+  });
+
+  it('paints the umbrella in the brand pink and white', () => {
+    expect(HOUSE_PARTS.umbrella).toEqual(['#E0489E', '#FFFFFF']);
+    expect(HOUSE_PARTS.gold).toBe(light.gold);
+  });
+
+  it('has no wisps at night, and clouds that are nearly solid', () => {
+    expect(SKY.night.wisps).toBe(0);
+    expect(SKY.night.cloudOpacity).toBe(0.95);
+    // Day and dusk are as they were.
+    expect([SKY.day.cloudOpacity, SKY.day.wisps, SKY.dusk.cloudOpacity, SKY.dusk.wisps]).toEqual([0.97, 0.5, 0.97, 0.7]);
+  });
+});
+
 describe('the colours added with the second design', () => {
   it('say the same things about the sky at every time of day', () => {
     expect(Object.keys(SKY.dusk).sort()).toEqual(Object.keys(SKY.day).sort());
@@ -208,9 +256,15 @@ describe('the colours added with the second design', () => {
     expect(HOUSE_PAINTS.roof[0]).toBe(PAINT.roof);
     expect(HOUSE_PAINTS.walls[0]).toBe(PAINT.white);
     expect(HOUSE_PAINTS.door[0]).toBe(PAINT.door);
-    expect(HOUSE_PAINTS.roof).toHaveLength(5);
-    expect(HOUSE_PAINTS.walls).toHaveLength(4);
-    expect(HOUSE_PAINTS.door).toHaveLength(4);
+    expect(HOUSE_PAINTS.roof).toHaveLength(24);
+    expect(HOUSE_PAINTS.walls).toHaveLength(24);
+    expect(HOUSE_PAINTS.door).toHaveLength(24);
+  });
+
+  it('keep every colour a house could be painted before the third design', () => {
+    for (const color of ['#8A4BE6', '#B8339A', '#2F7BE8', '#1FA98A', '#E8B923']) expect(HOUSE_PAINTS.roof).toContain(color);
+    for (const color of ['#FFFFFF', '#FFD9C7', '#CFE3FF', '#F7C9EA']) expect(HOUSE_PAINTS.walls).toContain(color);
+    for (const color of ['#6D2FC4', '#B8339A', '#17806A', '#E8B923']) expect(HOUSE_PAINTS.door).toContain(color);
   });
 
   it('take the brand\'s colours where they share them', () => {

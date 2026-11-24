@@ -7,7 +7,8 @@
 //
 // Everything over the garden (the header, the sheets, the buttons) is the app's own and is drawn by
 // the screen, not here. What is here is what needs the web page itself: the names that follow the
-// picture, the garden's sounds, and the postcard, which is put together from the picture.
+// picture, the garden's sounds, and the two cards that are put together from pictures: the
+// postcard of the garden, and the card of one finished idea from a frame in the house.
 
 import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
 import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
@@ -49,6 +50,12 @@ type Props = {
   bench: boolean;
   bath: boolean;
   lights: boolean;
+  picnic: boolean;
+  wood: boolean;
+  fire: boolean;
+  pond: boolean;
+  /** How far the house has grown with the group's rank, from 1 (the cottage) to 6 (the mansion). */
+  level: number;
   /** The walls of the hallway in the house, oldest first, each with up to twelve finished ideas. */
   memories: Memory[][];
   /** Goes up by one whenever `memories` has changed, which is when the walls are hung again. */
@@ -66,8 +73,17 @@ type Props = {
   visits: Visit[];
   /** Goes up by one to take a picture of the garden for a postcard. `onSnapshot` answers. */
   snap: number;
-  /** The words for the finished postcard. A new `turn` makes one from the last picture taken, and `onCard` answers. */
-  card: { name: string; line: string; turn: number } | null;
+  /**
+   * A finished idea whose picture is wanted for its card: its own picture, or its pressed flower
+   * when it has none or it cannot be loaded. A new `turn` asks again, and `onArt` answers.
+   */
+  art: { memory: Memory; turn: number } | null;
+  /**
+   * The words for a finished card, to share or save. `of` says which picture it is made from: the
+   * last one taken of the garden, or the last one asked for with `art`. `credit` is a small third
+   * line, for a photo that has to carry one. A new `turn` makes the card, and `onCard` answers.
+   */
+  card: { of: 'garden' | 'memory'; title: string; line: string; credit: string | null; turn: number } | null;
   /** Whether the garden's sounds are on, and a run of notes to play. A new `turn` plays again. */
   sound: boolean;
   chime: { name: Chime; turn: number } | null;
@@ -94,7 +110,12 @@ type Props = {
   onVisit: (who: string, id: string, landed: boolean) => Promise<void>;
   /** The picture for a postcard, cut to its shape, as a JPEG's data address. Null if it could not be taken. */
   onSnapshot: (picture: string | null) => Promise<void>;
-  /** The finished postcard, as a JPEG's data address. Null if it could not be made. */
+  /**
+   * A finished idea's picture for its card, cut to the card's shape, as a JPEG's data address.
+   * `photo` is false when it is the pressed flower. `turn` is the one it was asked with. Null if it could not be made.
+   */
+  onArt: (picture: string | null, photo: boolean, turn: number) => Promise<void>;
+  /** The finished card, as a JPEG's data address. Null if it could not be made. */
   onCard: (card: string | null) => Promise<void>;
   /** The garden could not be drawn at all: this browser has no WebGL. */
   onFailed: () => Promise<void>;
@@ -146,8 +167,11 @@ function cutForPostcard(image: HTMLImageElement): HTMLCanvasElement {
   return cut;
 }
 
-/** The finished postcard, 1080 by 1500: a white card with the picture, the group's name and a line under it. */
-function drawPostcard(picture: HTMLCanvasElement, name: string, line: string): string {
+/**
+ * A finished card, 1080 by 1500: a white card with the picture, a title and a line under it, and
+ * under that, in small type, the credit of a photo that has to carry one.
+ */
+function drawCard(picture: HTMLCanvasElement, title: string, line: string, credit: string | null): string {
   const card = document.createElement('canvas');
   card.width = 1080;
   card.height = 1500;
@@ -163,12 +187,21 @@ function drawPostcard(picture: HTMLCanvasElement, name: string, line: string): s
     while (cut.length > 1 && pen.measureText(`${cut}…`).width > PICTURE.width) cut = cut.slice(0, -1);
     return `${cut.trimEnd()}…`;
   };
+  // The title is made smaller until it fits across the card, and is only cut short at its smallest.
   pen.fillStyle = POSTCARD.ink;
-  pen.font = '56px Nunito_900Black, sans-serif';
-  pen.fillText(fitted(name), 48, 1372);
+  let size = 58;
+  do {
+    size -= 2;
+    pen.font = `${size}px Nunito_900Black, sans-serif`;
+  } while (pen.measureText(title).width > PICTURE.width && size > 30);
+  pen.fillText(fitted(title), 48, 1372);
   pen.fillStyle = POSTCARD.muted;
   pen.font = '34px Nunito_700Bold, sans-serif';
   pen.fillText(fitted(line), 48, 1428);
+  if (credit) {
+    pen.font = '24px Nunito_700Bold, sans-serif';
+    pen.fillText(fitted(credit), 48, 1472);
+  }
   return card.toDataURL('image/jpeg', 0.92);
 }
 
@@ -178,7 +211,7 @@ export default function GardenView(props: Props) {
   const garden = useRef<Garden | null>(null);
   const sound = useRef<GardenSound | null>(null);
   // What the garden was last told, so each change is sent once.
-  const told = useRef({ bed: props.bed, pick: null as number | null, water: null as number | null, visit: 0, hung: props.hung, snap: props.snap, card: null as number | null, chime: null as number | null });
+  const told = useRef({ bed: props.bed, pick: null as number | null, water: null as number | null, visit: 0, hung: props.hung, snap: props.snap, art: null as number | null, card: null as number | null, chime: null as number | null });
   // The newest of what the screen passed in, for the garden to call back with.
   const latest = useRef(props);
   useEffect(() => {
@@ -186,6 +219,8 @@ export default function GardenView(props: Props) {
   });
   // The last picture taken for a postcard, cut to shape, which the finished card is made from.
   const picture = useRef<HTMLCanvasElement | null>(null);
+  // The same for a finished idea's card: the last picture asked for.
+  const memoryPicture = useRef<HTMLCanvasElement | null>(null);
   // Friends' butterflies waiting their turn: only one flies at a time.
   const waiting = useRef<(Visit & { since: number })[]>([]);
 
@@ -237,6 +272,11 @@ export default function GardenView(props: Props) {
             bench: now.bench,
             bath: now.bath,
             lights: now.lights,
+            picnic: now.picnic,
+            wood: now.wood,
+            fire: now.fire,
+            pond: now.pond,
+            house: now.level,
           },
           fonts: FONTS,
         },
@@ -292,7 +332,7 @@ export default function GardenView(props: Props) {
     };
   }, []);
 
-  const { flowers, bed, selected, pick, time, still, earned, leaves, season, lawn, roof, walls, door, bench, bath, lights, hung, house, wall, frame, overview, water, visits, snap, card, chime, paused } = props;
+  const { flowers, bed, selected, pick, time, still, earned, leaves, season, lawn, roof, walls, door, bench, bath, lights, picnic, wood, fire, pond, level, hung, house, wall, frame, overview, water, visits, snap, art, card, chime, paused } = props;
   useEffect(() => {
     if (!garden.current) return;
     if (told.current.bed !== bed) {
@@ -311,8 +351,8 @@ export default function GardenView(props: Props) {
     garden.current.pick(pick.id);
   }, [pick]);
   useEffect(() => {
-    garden.current?.setOptions({ time, still, earned, leaves, season, lawn, roof, walls, door, bench, bath, lights });
-  }, [time, still, earned, leaves, season, lawn, roof, walls, door, bench, bath, lights]);
+    garden.current?.setOptions({ time, still, earned, leaves, season, lawn, roof, walls, door, bench, bath, lights, picnic, wood, fire, pond, house: level });
+  }, [time, still, earned, leaves, season, lawn, roof, walls, door, bench, bath, lights, picnic, wood, fire, pond, level]);
   // The walls are hung before the wall to stand at is given, so a new set of walls is stood at the right one.
   useEffect(() => {
     if (!garden.current) return;
@@ -369,12 +409,34 @@ export default function GardenView(props: Props) {
       () => void latest.current.onSnapshot(null),
     );
   }, [snap]);
+  // A finished idea's card: its picture at the card's size, or its pressed flower. Only the answer
+  // to the newest asking is passed on.
+  useEffect(() => {
+    if (!garden.current || !art || told.current.art === art.turn) return;
+    const turn = art.turn;
+    told.current.art = turn;
+    garden.current.memoryArt(art.memory, PICTURE.width, PICTURE.height).then(
+      (made) => {
+        if (told.current.art !== turn) return;
+        try {
+          memoryPicture.current = made.picture;
+          void latest.current.onArt(made.picture.toDataURL('image/jpeg', 0.9), made.photo, turn);
+        } catch {
+          void latest.current.onArt(null, false, turn);
+        }
+      },
+      () => {
+        if (told.current.art === turn) void latest.current.onArt(null, false, turn);
+      },
+    );
+  }, [art]);
   useEffect(() => {
     if (!card || told.current.card === card.turn) return;
     told.current.card = card.turn;
     try {
-      if (!picture.current) throw new Error('No picture has been taken.');
-      void latest.current.onCard(drawPostcard(picture.current, card.name, card.line));
+      const from = card.of === 'memory' ? memoryPicture.current : picture.current;
+      if (!from) throw new Error('No picture has been taken.');
+      void latest.current.onCard(drawCard(from, card.title, card.line, card.credit));
     } catch {
       void latest.current.onCard(null);
     }

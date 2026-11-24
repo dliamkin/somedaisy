@@ -2,7 +2,7 @@
 // painted bark, and leaves and blades of grass are one small shape drawn tens of thousands of
 // times. It is built from the same run of made-up numbers every time, so it is always the same garden.
 //
-// Ported from the design handoffs (design_handoff_garden_a_v2/garden3d-v2.js is the newer). The
+// Ported from the design handoffs (design_handoff_garden_a_v3/garden3d-v3.js is the newest). The
 // order things are built in matters: change it and every tree after the change grows differently.
 //
 // The seasons are done on the graphics card. Each leaf knows whether it is evergreen: the leaves of
@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { clamp, groundY, lawn, mix3, pathX, type Rgb } from './ground';
 import type { Kit, Shader } from './kit';
 import { BARK_STREAKS, BLADES, GREENS, PAINT, WILDFLOWERS, type Greens } from './palette';
-import { BATH_AT, BENCH_AT, FRONT, SLOTS } from './plan';
+import { BATH_AT, BENCH_AT, FRONT, GARAGE_SHRUBS, LAWN_SPOTS, SLOTS } from './plan';
 
 /** How each kind of bark tints the one painted bark picture. */
 const BARK_PLAIN: Rgb = [0.96, 0.93, 0.9];
@@ -101,8 +101,12 @@ const shadesOf = (g: Greens): Shades => ({ dark: new THREE.Color(g.dark), light:
 const TURN = 6.2832;
 const floats = (values: number[], size: number) => new THREE.Float32BufferAttribute(values, size);
 
-/** Grows every tree, conifer and shrub, and adds them to the scene as three shapes: the bark, the dark hearts of the clumps, and the leaves. */
-export function buildTrees(kit: Kit): void {
+/**
+ * Grows every tree, conifer and shrub, and adds them to the scene as three shapes: the bark, the
+ * dark hearts of the clumps, and the leaves. What it hands back puts away the two shrubs right of
+ * the house, which make way for the garage, and brings them back.
+ */
+export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => void } {
   const { rand, between, quality } = kit;
   // Everything is gathered into these lists first, then handed over in one go.
   const bark = { at: [] as number[], facing: [] as number[], uv: [] as number[], tint: [] as number[], corners: [] as number[] };
@@ -347,7 +351,13 @@ export function buildTrees(kit: Kit): void {
 
   TREES.forEach(([x, z, spec]) => tree(x, z, spec));
   CONIFERS.forEach(([x, z, height]) => conifer(x, z, height));
-  SHRUBS.forEach(([x, z, r, greens, leafSize]) => shrub(x, z, r, greens, leafSize));
+  // Where each shrub's leaves and dark hearts fall in the lists, so that two of them can be put away.
+  const shrubParts = SHRUBS.map(([x, z, r, greens, leafSize]) => {
+    const leafFrom = leaves.placed.length;
+    const coreFrom = cores.at.length;
+    shrub(x, z, r, greens, leafSize);
+    return { leafFrom, leafTo: leaves.placed.length, coreFrom, coreTo: cores.at.length };
+  });
 
   // Bark: one small painted picture of streaks, wrapped round every limb.
   const barkPicture = document.createElement('canvas');
@@ -439,13 +449,46 @@ export function buildTrees(kit: Kit): void {
   };
 
   kit.tinted.push(leafPaint, corePaint, barkPaint);
+
+  // The two shrubs right of the house: their leaves and dark hearts collapse to nothing, and what
+  // they were is kept, to put back if the house is ever smaller again. A heart's winter anchor
+  // goes too, or a shrub that is away would come back as a dark ball when the season turned.
+  const kept = GARAGE_SHRUBS.map((i) => {
+    const { leafFrom, leafTo, coreFrom, coreTo } = shrubParts[i];
+    return { leafFrom, leaves: leaves.placed.slice(leafFrom, leafTo), coreFrom, at: cores.at.slice(coreFrom, coreTo), anchor: cores.anchor.slice(coreFrom, coreTo) };
+  });
+  let away = false;
+  return {
+    hideGarageShrubs(hidden: boolean) {
+      if (hidden === away) return;
+      away = hidden;
+      const placed = leafMesh.instanceMatrix.array;
+      const at = coreShape.attributes.position.array;
+      const anchor = coreShape.attributes.aC.array;
+      for (const shrubKept of kept) {
+        if (hidden) {
+          placed.fill(0, shrubKept.leafFrom, shrubKept.leafFrom + shrubKept.leaves.length);
+          at.fill(0, shrubKept.coreFrom, shrubKept.coreFrom + shrubKept.at.length);
+          anchor.fill(0, shrubKept.coreFrom, shrubKept.coreFrom + shrubKept.anchor.length);
+        } else {
+          placed.set(shrubKept.leaves, shrubKept.leafFrom);
+          at.set(shrubKept.at, shrubKept.coreFrom);
+          anchor.set(shrubKept.anchor, shrubKept.coreFrom);
+        }
+      }
+      leafMesh.instanceMatrix.needsUpdate = true;
+      coreShape.attributes.position.needsUpdate = true;
+      coreShape.attributes.aC.needsUpdate = true;
+    },
+  };
 }
 
 /**
  * The lawn's blades: tufts of three, standing everywhere but under the house, the pots, the
  * stepping stones and the shrubs. Shorter and thinner along the path, taller and drier outside the
  * garden, and extra tall against fence posts, trunks, shrubs and the house walls. The graphics
- * card bends each blade in the wind and lays it flat round every flower.
+ * card bends each blade in the wind and lays it flat round every flower, and under each of the
+ * bigger lawn extras that is out.
  */
 export function buildGrass(kit: Kit, stones: [number, number][]): void {
   const { rand, between, quality } = kit;
@@ -490,7 +533,7 @@ export function buildGrass(kit: Kit, stones: [number, number][]): void {
   const grassPaint = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   kit.sway(
     grassPaint,
-    'uniform float uT, uA; uniform vec3 uF[16]; uniform vec4 uSe; uniform vec3 uLawn;\n',
+    'uniform float uT, uA; uniform vec3 uF[16]; uniform vec4 uX[4]; uniform vec4 uSe; uniform vec3 uLawn;\n',
     // A blade brightens a little as a gust passes over it. A mown lawn has light and dark stripes
     // running toward the house. Autumn warms and dries the grass, spring brightens it, winter frosts it.
     [
@@ -500,8 +543,8 @@ export function buildGrass(kit: Kit, stones: [number, number][]): void {
       ],
     ],
     // Blades right beside a flower lie flat and are back to full height a little further out, so the lawn parts round each flower and follows it when it moves.
-    // Their height also follows how the lawn is kept.
-    'float gK = 1.; for (int i = 0; i < 16; i++) { vec2 gd = gR.xz - uF[i].xy; gK = min(gK, 1. - uF[i].z * (1. - smoothstep(.01, .12, dot(gd, gd)))); }\nmvPosition.xyz = gR + (mvPosition.xyz - gR) * gK * vec3(1., uLawn.x, 1.);\nfloat gS = length(instanceMatrix[1].xyz) * gH * gH * gK * uLawn.x;\nmvPosition.x += gW * gS * .085 + sin(uT * 4.7 + gR.x * 9. + gR.z * 7.) * .012 * gS * uA; mvPosition.z += gW * gS * .035; mvPosition.y -= abs(gW) * gS * .02;',
+    // The same under a picnic, a woodpile, a fire pit or a pond, as each springs in. Their height also follows how the lawn is kept.
+    'float gK = 1.; for (int i = 0; i < 16; i++) { vec2 gd = gR.xz - uF[i].xy; gK = min(gK, 1. - uF[i].z * (1. - smoothstep(.01, .12, dot(gd, gd)))); } for (int i = 0; i < 4; i++) { vec2 gd = gR.xz - uX[i].xy; gK = min(gK, 1. - uX[i].w * (1. - smoothstep(uX[i].z * .5, uX[i].z, dot(gd, gd)))); }\nmvPosition.xyz = gR + (mvPosition.xyz - gR) * gK * vec3(1., uLawn.x, 1.);\nfloat gS = length(instanceMatrix[1].xyz) * gH * gH * gK * uLawn.x;\nmvPosition.x += gW * gS * .085 + sin(uT * 4.7 + gR.x * 9. + gR.z * 7.) * .012 * gS * uA; mvPosition.z += gW * gS * .035; mvPosition.y -= abs(gW) * gS * .02;',
   );
 
   // Where each tuft stands, how tall and wide it is, and its colour, which follows the same blotches as the painted lawn.
@@ -581,7 +624,7 @@ export function buildGrass(kit: Kit, stones: [number, number][]): void {
 
 /**
  * A meadow lawn's wildflowers: up to 340 small ones in four colours, standing clear of the path,
- * the idea flowers, the shrubs, the bench and the birdbath. They sway with the grass, and rise and
+ * the idea flowers, the shrubs, the bench, the birdbath and the bigger lawn extras. They sway with the grass, and rise and
  * sink with `lawnStyle.z`. Built straight after the grass, from the same run of made-up numbers.
  */
 export function buildMeadow(kit: Kit): THREE.InstancedMesh {
@@ -621,6 +664,7 @@ export function buildMeadow(kit: Kit): THREE.InstancedMesh {
   );
 
   const places = [...SLOTS, ...FRONT.map(([, place]) => place)];
+  const extras = Object.values(LAWN_SPOTS);
   const spots: [number, number][] = [];
   for (let i = 0; i < 2600 && spots.length < 340; i++) {
     const x = between(-5.5, 5.5);
@@ -631,7 +675,8 @@ export function buildMeadow(kit: Kit): THREE.InstancedMesh {
       places.some(([px, pz]) => (x - px) ** 2 + (z - pz) ** 2 < 0.2) ||
       SHRUBS.some(([bx, bz, r]) => (x - bx) ** 2 + (z - bz) ** 2 < r * r) ||
       (x - BENCH_AT[0]) ** 2 + (z - BENCH_AT[1]) ** 2 < 0.7 ||
-      (x - BATH_AT[0]) ** 2 + (z - BATH_AT[1]) ** 2 < 0.3
+      (x - BATH_AT[0]) ** 2 + (z - BATH_AT[1]) ** 2 < 0.3 ||
+      extras.some(({ at: [px, pz], flat }) => (x - px) ** 2 + (z - pz) ** 2 < flat + 0.1)
     ) {
       continue;
     }

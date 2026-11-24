@@ -65,6 +65,20 @@ for (const before of [[], ['001-push-notifications.sql', '002-account-transfer.s
     eq(await lookOf(), null);
   });
 
+  await test('takes the four newer extras and any of the newer colours, with no change to the database', async () => {
+    // As the app writes it since the third design: seven switches, and paint from twenty-four colours a part.
+    const grand = { roof: '#17806A', walls: '#BFE8D6', door: '#5B3E2B', lawn: 'meadow', bench: true, bath: true, lights: false, picnic: true, wood: false, fire: true, pond: false };
+    await setLook(bo, grand);
+    // The database keeps the same things, in an order of its own.
+    const kept = await lookOf();
+    eq(Object.keys(kept).sort().join(), Object.keys(grand).sort().join());
+    for (const [key, value] of Object.entries(grand)) eq(kept[key], value, key);
+    // A switch among the new ones is not checked by the database, only by the app. A look saved by an older app, without them, is still taken.
+    await setLook(ann, teal);
+    eq((await lookOf()).picnic, undefined);
+    await setLook(ann, null);
+  });
+
   await test('running the update a second time changes nothing and does not fail', async () => {
     await setLook(ann, teal);
     await db.exec(fs.readFileSync(path.join(REPO, 'supabase/updates', LOOK), 'utf8'));

@@ -1,10 +1,10 @@
 // What floats over the garden: the header, the count pills, the toast, the bar of buttons at the
 // bottom, the sheet for the flower that was tapped, the "Our garden" sheet, the postcard, and,
-// inside the house, the bar under the wall and the list of everything the group has done. The
-// garden itself is drawn underneath, in src/components/garden-view.tsx.
+// inside the house, the bar under the wall, the list of everything the group has done and the card
+// of one finished idea. The garden itself is drawn underneath, in src/components/garden-view.tsx.
 //
-// Sizes, spacing and timings are the design handoffs' (design_handoff_garden_a_v2/README.md is
-// the newer) and are final, which is why the buttons here are their own and not the ones in ui.tsx.
+// Sizes, spacing and timings are the design handoffs' (design_handoff_garden_a_v3/README.md is
+// the newest) and are final, which is why the buttons here are their own and not the ones in ui.tsx.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Image, Platform, Pressable, ScrollView, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -13,11 +13,12 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { HOUSE_PAINTS, POSTCARD } from '@/garden/palette';
 import { STAGE_NAMES, voteWords, type Stage, type Vote } from '@/lib/garden';
-import { finishedLine, thingsWords, type HouseWall } from '@/lib/garden-house';
-import { EXTRAS, LAWNS, PAINT_NAMES, type Extra, type GardenLook } from '@/lib/garden-look';
+import { finishedLine, sourceWords, thingsWords, type Finished, type HouseWall } from '@/lib/garden-house';
+import { EXTRAS, houseWords, LAWNS, PAINT_NAMES, type Extra, type GardenLook } from '@/lib/garden-look';
 import { light, useTheme } from '@/lib/theme';
 
 import { useReducedMotion } from './celebrate';
+import { PhotoCredit } from './cover-credit';
 import { BackIcon } from './daisy';
 import { T } from './ui';
 
@@ -673,18 +674,18 @@ function LookRow({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** A colour to paint with: a dot with a faint ring, and a dark ring round the one that is chosen. */
+/** A colour to paint with: a dot with a faint ring, and a dark ring round the one that is chosen. Eight sit across the sheet. */
 function Swatch({ color, on, label, onPress }: { color: string; on: boolean; label: string; onPress: () => void }) {
   const { colors } = useTheme();
   return (
-    <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: on }} onPress={onPress} style={{ width: 44, height: 44, marginRight: -6, alignItems: 'center', justifyContent: 'center' }}>
+    <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected: on }} onPress={onPress} style={{ width: '12.5%', height: 44, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: color, boxShadow: on ? `0 0 0 2.5px ${colors.card}, 0 0 0 5px ${colors.text}` : `0 0 0 1.5px ${colors.outline}` }} />
     </Pressable>
   );
 }
 
-/** A choice in words. `locked` is for something not earned yet, which says when it will be. */
-function Choice({ label, on, locked, onPress }: { label: string; on: boolean; locked?: string; onPress: () => void }) {
+/** A choice in words. `locked` is for something not earned yet, which says when it will be. `wide` makes it fill its share of a row. */
+function Choice({ label, on, locked, wide, onPress }: { label: string; on: boolean; locked?: string; wide?: boolean; onPress: () => void }) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -694,6 +695,7 @@ function Choice({ label, on, locked, onPress }: { label: string; on: boolean; lo
       onPress={onPress}
       style={{
         height: 44,
+        flex: wide ? 1 : undefined,
         paddingHorizontal: 14,
         borderRadius: 22,
         borderWidth: 1.5,
@@ -715,16 +717,39 @@ function Choice({ label, on, locked, onPress }: { label: string; on: boolean; lo
   );
 }
 
+type LookTab = 'house' | 'lawn' | 'extras';
+type PaintPart = 'roof' | 'walls' | 'door';
+
+const LOOK_TABS: { key: LookTab; name: string }[] = [
+  { key: 'house', name: 'House' },
+  { key: 'lawn', name: 'Lawn' },
+  { key: 'extras', name: 'Extras' },
+];
+const PAINT_PARTS: { part: PaintPart; label: string }[] = [
+  { part: 'roof', label: 'Roof' },
+  { part: 'walls', label: 'Walls' },
+  { part: 'door', label: 'Door' },
+];
+/** The extras two to a row, so they sit in two equal columns. */
+const EXTRA_ROWS = EXTRAS.reduce<(typeof EXTRAS)[]>((rows, extra, i) => {
+  if (i % 2 === 0) rows.push([extra]);
+  else rows[rows.length - 1].push(extra);
+  return rows;
+}, []);
+
 /**
- * "Our garden": the group's paint for the roof, walls and door, how its lawn is kept, the things it
- * has earned for the yard, and this device's sounds. While it is open the camera pulls back to show
- * the whole yard above it. Everyone in the group sees the same garden, but the sounds are this
- * device's own.
+ * "Our garden", in three tabs. House: how far the house has grown with the group's rank, and the
+ * group's paint for its roof, walls and door, twenty-four colours each. Lawn: how the lawn is
+ * kept, and this device's sounds. Extras: the things the group has earned for the yard. While it
+ * is open the camera pulls back to show the whole yard above it. Everyone in the group sees the
+ * same garden, but the sounds are this device's own. Which tab and which part of the house are
+ * showing is not kept.
  */
 export function LookSheet({
   open,
   group,
   look,
+  level,
   done,
   sound,
   onChange,
@@ -735,6 +760,8 @@ export function LookSheet({
   open: boolean;
   group: string;
   look: GardenLook;
+  /** How far the house has grown, from 1 (the cottage) to 6 (the mansion). It follows the group's rank and is not chosen. */
+  level: number;
   /** How many things the group has done, which is what earns the extras. */
   done: number;
   sound: boolean;
@@ -744,62 +771,144 @@ export function LookSheet({
   onSound: (on: boolean) => void;
   onClose: () => void;
 }) {
-  const paints: { part: 'roof' | 'walls' | 'door'; label: string }[] = [
-    { part: 'roof', label: 'Roof' },
-    { part: 'walls', label: 'Walls' },
-    { part: 'door', label: 'Door' },
-  ];
+  const { colors } = useTheme();
+  const [tab, setTab] = useState<LookTab>('house');
+  const [part, setPart] = useState<PaintPart>('roof');
+  const house = houseWords(level);
+  const painting = PAINT_PARTS.find((p) => p.part === part) ?? PAINT_PARTS[0];
   return (
     <SlideSheet open={open}>
       <SheetHead title="Our garden" line={`Everyone in ${group} sees these`} action="Done" onAction={onClose} />
-      {paints.map(({ part, label }) => (
-        <LookRow key={part} label={label}>
-          {HOUSE_PAINTS[part].map((color) => (
-            <Swatch key={color} color={color} on={look[part] === color} label={`${label}: ${PAINT_NAMES[color] ?? color}`} onPress={() => onChange({ ...look, [part]: color })} />
-          ))}
-        </LookRow>
-      ))}
-      <LookRow label="Lawn">
-        {LAWNS.map((lawn) => (
-          <Choice key={lawn.key} label={lawn.name} on={look.lawn === lawn.key} onPress={() => onChange({ ...look, lawn: lawn.key })} />
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', gap: 6, marginTop: 8, marginBottom: 10 }}>
+        {LOOK_TABS.map(({ key, name }) => (
+          <Pressable
+            key={key}
+            accessibilityRole="tab"
+            accessibilityLabel={name}
+            accessibilityState={{ selected: tab === key }}
+            onPress={() => setTab(key)}
+            style={{ flex: 1, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: tab === key ? colors.text : colors.background }}>
+            <T size={14.5} weight="extra" color={tab === key ? colors.card : colors.text}>
+              {name}
+            </T>
+          </Pressable>
         ))}
-      </LookRow>
-      <LookRow label="Extras">
-        {EXTRAS.map((extra) =>
-          done >= extra.at ? (
-            <Choice key={extra.key} label={extra.name} on={look[extra.key]} onPress={() => onChange({ ...look, [extra.key]: !look[extra.key] })} />
-          ) : (
-            <Choice key={extra.key} label={extra.name} on={false} locked={`at ${extra.at} done`} onPress={() => onLocked(extra.key)} />
-          ),
+      </View>
+      {/* As tall as its tallest tab, so the sheet does not change height between them. */}
+      <View style={{ minHeight: 232 }}>
+        {tab === 'house' ? (
+          <>
+            <T size={13} color={colors.textMuted} style={{ lineHeight: 18.2, marginBottom: 8 }}>
+              <T size={13} weight="black">
+                {house.name}
+              </T>
+              {house.rest}
+            </T>
+            <View accessibilityRole="radiogroup" accessibilityLabel="The part of the house to paint" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {PAINT_PARTS.map((p) => (
+                <Choice key={p.part} label={p.label} on={part === p.part} onPress={() => setPart(p.part)} />
+              ))}
+            </View>
+            <View accessibilityRole="radiogroup" accessibilityLabel={`${painting.label} colour`} style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 6 }}>
+              {HOUSE_PAINTS[part].map((color) => (
+                <Swatch key={color} color={color} on={look[part] === color} label={`${painting.label}: ${PAINT_NAMES[color] ?? color}`} onPress={() => onChange({ ...look, [part]: color })} />
+              ))}
+            </View>
+          </>
+        ) : tab === 'lawn' ? (
+          <>
+            <LookRow label="Lawn">
+              {LAWNS.map((lawn) => (
+                <Choice key={lawn.key} label={lawn.name} on={look.lawn === lawn.key} onPress={() => onChange({ ...look, lawn: lawn.key })} />
+              ))}
+            </LookRow>
+            <LookRow label="Sounds">
+              <Choice label="Off" on={!sound} onPress={() => onSound(false)} />
+              <Choice label="On" on={sound} onPress={() => onSound(true)} />
+            </LookRow>
+          </>
+        ) : (
+          <View accessibilityLabel="Extras" style={{ gap: 6 }}>
+            {EXTRA_ROWS.map((row) => (
+              <View key={row[0].key} style={{ flexDirection: 'row', gap: 6 }}>
+                {row.map((extra) =>
+                  done >= extra.at ? (
+                    <Choice key={extra.key} wide label={extra.name} on={look[extra.key]} onPress={() => onChange({ ...look, [extra.key]: !look[extra.key] })} />
+                  ) : (
+                    <Choice key={extra.key} wide label={extra.name} on={false} locked={`at ${extra.at} done`} onPress={() => onLocked(extra.key)} />
+                  ),
+                )}
+                {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
+              </View>
+            ))}
+          </View>
         )}
-      </LookRow>
-      <LookRow label="Sounds">
-        <Choice label="Off" on={!sound} onPress={() => onSound(false)} />
-        <Choice label="On" on={sound} onPress={() => onSound(true)} />
-      </LookRow>
+      </View>
     </SlideSheet>
   );
 }
 
 /**
- * A postcard of the garden as it looks now: the picture on a white card, tilted a little, over the
- * dimmed garden, with the buttons that send it or keep it. Null puts it away. `flash` goes up by
- * one each time a picture is taken, and the screen flashes white like a camera.
+ * Under the buttons of a finished idea's card: where its picture is from, and the way to give it
+ * a photo of the group's own. A photo found by search is credited here, with its links, which is
+ * what lets it hang in a frame without a caption. `shown` is false when the picture could not be
+ * loaded and the card shows the pressed flower instead.
+ */
+export function CardSource({ idea, shown, busy, onAdd }: { idea: Pick<Finished, 'source' | 'credit'>; shown: boolean; busy: boolean; onAdd: () => void }) {
+  const { colors } = useTheme();
+  const label = idea.source === 'own' ? 'Change photo' : 'Add our photo';
+  return (
+    <>
+      {shown && idea.source === 'found' && idea.credit ? (
+        <PhotoCredit photo={idea.credit} size={13.5} color={colors.white} />
+      ) : (
+        <T size={13.5} color={colors.white} lines={1}>
+          {sourceWords(idea, shown)}
+        </T>
+      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: busy }}
+        disabled={busy}
+        onPress={onAdd}
+        style={({ pressed }) => ({ height: 44, paddingHorizontal: 14, justifyContent: 'center', opacity: busy ? 0.45 : 1, transform: [{ scale: pressed ? 0.96 : 1 }] })}>
+        <T size={15} weight="extra" color={colors.white} style={{ textDecorationLine: 'underline' }}>
+          {label}
+        </T>
+      </Pressable>
+    </>
+  );
+}
+
+/**
+ * A postcard of the garden as it looks now, or the card of one finished idea from a frame in the
+ * house: the picture on a white card, tilted a little, over the dimmed garden, with the buttons
+ * that send it or keep it. Null puts it away. `flash` goes up by one each time a picture of the
+ * garden is taken, and the screen flashes white like a camera. `below` goes under the buttons.
  */
 export function Postcard({
   picture,
-  name,
+  title,
   line,
+  alt,
+  whole,
   flash,
   busy,
+  below,
   onShare,
   onSave,
   onClose,
 }: {
-  /** The picture, as a data address. Null when there is no postcard. */
+  /** The picture, as a data address. Null when there is no card. */
   picture: string | null;
-  name: string;
+  title: string;
   line: string;
+  /** What the picture is, for a screen reader. */
+  alt: string;
+  /** Show the whole title, on as many lines as it needs. Otherwise it is kept to one. */
+  whole?: boolean;
+  below?: ReactNode;
   flash: number;
   /** True while the card is being made to share or save. */
   busy: boolean;
@@ -812,9 +921,9 @@ export function Postcard({
   const open = picture !== null;
   const { shown: dim, away } = useOpening(open, 300);
   const { shown: rise } = useOpening(open, 500, CARD_EASE);
-  // The picture last shown, kept while the card fades away.
-  const [last, setLast] = useState(picture);
-  if (picture && picture !== last) setLast(picture);
+  // What was last shown, kept while the card fades away.
+  const [last, setLast] = useState({ picture, title, line, alt, whole });
+  if (picture && (picture !== last.picture || title !== last.title || line !== last.line || alt !== last.alt || whole !== last.whole)) setLast({ picture, title, line, alt, whole });
   const [white] = useState(() => new Animated.Value(0));
   useEffect(() => {
     if (flash === 0 || reduced !== false) return;
@@ -823,7 +932,7 @@ export function Postcard({
     run.start();
     return () => run.stop();
   }, [flash, reduced, white]);
-  const shown = picture ?? last;
+  const shown = last.picture;
   return (
     <>
       <Animated.View
@@ -844,15 +953,15 @@ export function Postcard({
             transform: [{ rotate: '-3deg' }, { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }, { scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }) }],
           }}>
           {shown ? (
-            <Image source={{ uri: shown }} accessibilityLabel="Postcard of the garden" resizeMode="cover" style={{ width: '100%', aspectRatio: 4 / 5, borderRadius: 3, backgroundColor: POSTCARD.blank }} />
+            <Image source={{ uri: shown }} accessibilityLabel={last.alt} resizeMode="cover" style={{ width: '100%', aspectRatio: 4 / 5, borderRadius: 3, backgroundColor: POSTCARD.blank }} />
           ) : (
             <View style={{ width: '100%', aspectRatio: 4 / 5, borderRadius: 3, backgroundColor: POSTCARD.blank }} />
           )}
-          <T size={18} weight="black" color={POSTCARD.ink} lines={1} style={{ marginTop: 10 }}>
-            {name}
+          <T size={18} weight="black" color={POSTCARD.ink} lines={last.whole ? undefined : 1} style={{ marginTop: 10 }}>
+            {last.title}
           </T>
           <T size={12.5} color={POSTCARD.muted} lines={1}>
-            {line}
+            {last.line}
           </T>
         </Animated.View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -860,6 +969,8 @@ export function Postcard({
           <Pill label="Save picture" kind="outline" pad={18} ink={colors.white} disabled={busy} onPress={onSave} />
           <Pill label="Close" kind="text" pad={18} ink={colors.white} onPress={onClose} />
         </View>
+        {/* Close up under the buttons. A long credit takes a line of its own. */}
+        {open && below ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', columnGap: 4, marginTop: -12, paddingHorizontal: EDGE }}>{below}</View> : null}
       </Animated.View>
       <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.white, opacity: white }} />
     </>

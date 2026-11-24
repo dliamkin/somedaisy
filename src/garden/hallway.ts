@@ -6,7 +6,7 @@
 // The hallway is a set of its own, placed far below the garden. A warm glow over the whole screen
 // covers the cut as the camera goes through the door (see scene.ts).
 //
-// Ported from the design handoff (design_handoff_garden_a_v2/garden3d-v2.js).
+// Ported from the design handoffs (design_handoff_garden_a_v3/garden3d-v3.js is the newest).
 
 import * as THREE from 'three';
 
@@ -25,6 +25,8 @@ const HANG = 0.4;
 /** How high the camera looks, and how far back it stands from a wall. */
 const EYE = 1.62;
 const STAND = 4.6;
+/** The most pictures kept once fetched, so going back to a wall does not fetch them again. */
+const MOST_PICTURES = 90;
 
 type Hung = {
   group: THREE.Group;
@@ -292,86 +294,114 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
   kit.world.add(lamp);
 
   /**
-   * What hangs in a frame when the idea has no picture of its own: its pressed flower, a daisy in
-   * its list's colour with a stem and a leaf, on cream paper washed with a little of that colour.
-   * `named` writes the idea's short name under it.
+   * What hangs in a frame when the idea has no picture: its pressed flower, a daisy in its list's
+   * colour with a stem and a leaf, on cream paper washed with a little of that colour. `named`
+   * writes the idea's short name under it.
    */
-  const pressed = (memory: Memory, shape: number, named: boolean) =>
-    picture(256, Math.round(256 / shape), (x, W, H) => {
-      const cy = H * (named ? 0.4 : 0.47);
-      const r = Math.min(W, H) * (named ? 0.2 : 0.25);
-      x.fillStyle = HALL.paper;
-      x.fillRect(0, 0, W, H);
-      x.globalAlpha = 0.17;
-      x.fillStyle = memory.color;
-      x.fillRect(0, 0, W, H);
-      x.globalAlpha = 1;
-      x.strokeStyle = HALL.stalk;
-      x.lineWidth = 5;
-      x.lineCap = 'round';
+  const paintFlower = (x: CanvasRenderingContext2D, W: number, H: number, memory: Memory, named: boolean) => {
+    const cy = H * (named ? 0.4 : 0.47);
+    const r = Math.min(W, H) * (named ? 0.2 : 0.25);
+    x.fillStyle = HALL.paper;
+    x.fillRect(0, 0, W, H);
+    x.globalAlpha = 0.17;
+    x.fillStyle = memory.color;
+    x.fillRect(0, 0, W, H);
+    x.globalAlpha = 1;
+    x.strokeStyle = HALL.stalk;
+    x.lineWidth = W / 51;
+    x.lineCap = 'round';
+    x.beginPath();
+    x.moveTo(W / 2, cy + r * 0.4);
+    x.quadraticCurveTo(W / 2 + r * 0.3, cy + r * 1.2, W / 2 - r * 0.1, cy + r * 1.8);
+    x.stroke();
+    x.fillStyle = HALL.stalk;
+    x.beginPath();
+    x.ellipse(W / 2 + r * 0.55, cy + r * 1.3, r * 0.4, r * 0.15, -0.5, 0, 6.3);
+    x.fill();
+    x.fillStyle = memory.color;
+    for (let i = 0; i < 8; i++) {
+      x.save();
+      x.translate(W / 2, cy);
+      x.rotate((i * Math.PI) / 4 + Math.sin(i * 2.3 + memory.title.length) * 0.09);
       x.beginPath();
-      x.moveTo(W / 2, cy + r * 0.4);
-      x.quadraticCurveTo(W / 2 + r * 0.3, cy + r * 1.2, W / 2 - r * 0.1, cy + r * 1.8);
-      x.stroke();
-      x.fillStyle = HALL.stalk;
-      x.beginPath();
-      x.ellipse(W / 2 + r * 0.55, cy + r * 1.3, r * 0.4, r * 0.15, -0.5, 0, 6.3);
+      x.ellipse(0, -r * 0.82, r * 0.27, r * 0.56, 0, 0, 6.3);
       x.fill();
-      x.fillStyle = memory.color;
-      for (let i = 0; i < 8; i++) {
-        x.save();
-        x.translate(W / 2, cy);
-        x.rotate((i * Math.PI) / 4 + Math.sin(i * 2.3 + memory.title.length) * 0.09);
-        x.beginPath();
-        x.ellipse(0, -r * 0.82, r * 0.27, r * 0.56, 0, 0, 6.3);
-        x.fill();
-        x.restore();
-      }
-      x.fillStyle = PAINT.center;
-      x.beginPath();
-      x.arc(W / 2, cy, r * 0.36, 0, 6.3);
-      x.fill();
-      if (named) {
-        // The name is made smaller until it fits across the paper.
-        const words = memory.short || memory.title;
-        let size = 34;
-        x.textAlign = 'center';
-        x.fillStyle = PAINT.ink;
-        do {
-          size -= 2;
-          x.font = `${size}px ${captionFont}`;
-        } while (x.measureText(words).width > W - 24 && size > 14);
-        x.fillText(words, W / 2, H - 20);
-      }
-    });
+      x.restore();
+    }
+    x.fillStyle = PAINT.center;
+    x.beginPath();
+    x.arc(W / 2, cy, r * 0.36, 0, 6.3);
+    x.fill();
+    if (named) {
+      // The name is made smaller until it fits across the paper.
+      const words = memory.short || memory.title;
+      let size = 34;
+      x.textAlign = 'center';
+      x.fillStyle = PAINT.ink;
+      do {
+        size -= 2;
+        x.font = `${size}px ${captionFont}`;
+      } while (x.measureText(words).width > W - 24 && size > 14);
+      x.fillText(words, W / 2, H - 20);
+    }
+  };
+  const pressed = (memory: Memory, shape: number, named: boolean) => picture(256, Math.round(256 / shape), (x, W, H) => paintFlower(x, W, H, memory, named));
 
   /**
-   * Fetch an idea's own picture and put it in its frame in place of the pressed flower. It is drawn
+   * Fetch a picture so it can be drawn. It is asked for in the way that lets a page read what it
+   * is sent, which a picture from another site only allows if that site says so. The newest
+   * ninety are kept. One that could not be fetched is forgotten, to be tried again another time.
+   */
+  const fetched = new Map<string, Promise<HTMLImageElement>>();
+  const fetchPicture = (address: string): Promise<HTMLImageElement> => {
+    const kept = fetched.get(address);
+    if (kept) return kept;
+    const asked = new Promise<HTMLImageElement>((loaded, failed) => {
+      const image = new Image();
+      image.crossOrigin = 'anonymous';
+      image.onload = () => (image.naturalWidth && image.naturalHeight ? loaded(image) : failed(new Error('An empty picture.')));
+      image.onerror = () => failed(new Error('The picture could not be fetched.'));
+      image.src = address;
+    });
+    fetched.set(address, asked);
+    asked.catch(() => fetched.delete(address));
+    if (fetched.size > MOST_PICTURES) {
+      const oldest = fetched.keys().next().value;
+      if (oldest !== undefined) fetched.delete(oldest);
+    }
+    return asked;
+  };
+  /** Draw a picture so it fills a space of this size, cut from its middle. */
+  const paintPhoto = (x: CanvasRenderingContext2D, W: number, H: number, image: HTMLImageElement) => {
+    const k = Math.max(W / image.naturalWidth, H / image.naturalHeight);
+    const w = image.naturalWidth * k;
+    const h = image.naturalHeight * k;
+    x.drawImage(image, (W - w) / 2, (H - h) / 2, w, h);
+  };
+
+  /**
+   * Fetch an idea's picture and put it in its frame in place of the pressed flower. It is drawn
    * small, cut to the frame's shape, so a wall of photos stays light on memory. If it cannot be
    * fetched, the pressed flower stays.
    */
-  const hangPhoto = (frame: Hung, address: string, shape: number, shown: number) => {
-    const image = new Image();
-    image.crossOrigin = 'anonymous';
-    image.onload = () => {
-      if (!frame.up || !image.width || !image.height) return;
-      try {
-        const next = picture(256, Math.round(256 / shape), (x, W, H) => {
-          // Cut from the middle of the photo, as much as fills the frame.
-          const has = image.width / image.height;
-          const sw = has > shown ? image.height * shown : image.width;
-          const sh = has > shown ? image.height : image.width / shown;
-          x.drawImage(image, (image.width - sw) / 2, (image.height - sh) / 2, sw, sh, 0, 0, W, H);
-        });
-        frame.picture.dispose();
-        frame.picture = next;
-        frame.picturePaint.map = next;
-        frame.picturePaint.needsUpdate = true;
-      } catch {
-        // A photo the browser will not let the garden read: the pressed flower stays.
-      }
-    };
-    image.src = address;
+  const hangPhoto = (frame: Hung, address: string, shape: number) => {
+    fetchPicture(address).then(
+      (image) => {
+        if (!frame.up) return;
+        try {
+          const next = picture(256, Math.round(256 / shape), (x, W, H) => paintPhoto(x, W, H, image));
+          frame.picture.dispose();
+          frame.picture = next;
+          frame.picturePaint.map = next;
+          frame.picturePaint.needsUpdate = true;
+        } catch {
+          // A photo the browser will not let the garden read: the pressed flower stays.
+        }
+      },
+      () => {
+        // It could not be fetched: the pressed flower stays.
+      },
+    );
   };
 
   /** The frames for one wall: bars, a cream mat on the larger ones, the picture, the sheen of glass, and a soft shadow on the wallpaper. */
@@ -396,7 +426,8 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
       };
       const framePaint = lambert(color);
       const mat = Math.min(w, h) >= 0.36 ? Math.min(w, h) * 0.1 : 0;
-      const named = !round && w >= 0.4 && !memory.picture;
+      // The pressed flower hangs until a picture has loaded, and stays if it cannot be. It has its name either way.
+      const named = !round && w >= 0.4;
       const inW = w - 2 * bar - 2 * mat;
       const inH = h - 2 * bar - 2 * mat;
       const shape = round ? 1 : inW / inH;
@@ -427,7 +458,7 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
       group.userData.slot = i;
       parent.add(group);
       const frame: Hung = { group, slot: i, x: fx, y: fy, k, picture: flower, framePaint, picturePaint, shapes, size: 1, stretch: round ? h / w : 1, tip: Math.sin(i * 2.1 + 0.5) * 0.028, up: true };
-      if (memory.picture) hangPhoto(frame, memory.picture, shape, round ? w / h : inW / inH);
+      if (memory.picture) hangPhoto(frame, memory.picture, shape);
       return frame;
     });
   };
@@ -464,6 +495,31 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
   };
 
   return {
+    /**
+     * A finished idea's picture at a given size, for its card: the picture cut from its middle to
+     * fill the space, or its pressed flower when it has none or it cannot be fetched. `photo` says which.
+     */
+    art(memory: Memory, width: number, height: number): Promise<{ picture: HTMLCanvasElement; photo: boolean }> {
+      const sheet = () => {
+        const made = document.createElement('canvas');
+        made.width = width;
+        made.height = height;
+        const pen = made.getContext('2d');
+        if (!pen) throw new Error('No drawing surface.');
+        return { made, pen };
+      };
+      const flower = () => {
+        const { made, pen } = sheet();
+        paintFlower(pen, width, height, memory, false);
+        return { picture: made, photo: false };
+      };
+      if (!memory.picture) return Promise.resolve().then(flower);
+      return fetchPicture(memory.picture).then((image) => {
+        const { made, pen } = sheet();
+        paintPhoto(pen, width, height, image);
+        return { picture: made, photo: true };
+      }, flower);
+    },
     /** How many walls there are, which one is in view, and whether a far jump is under way. */
     count: () => walls.length,
     wall: () => at,

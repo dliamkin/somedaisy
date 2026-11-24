@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 
 import { seeded } from './ground';
+import { LAWN_EXTRAS, LAWN_SPOTS } from './plan';
 
 /**
  * How much the garden draws. A computer gets all of it. A phone gets about half the leaves and
@@ -51,6 +52,11 @@ export function makeKit(world: THREE.Scene, quality: Quality) {
   const season = { value: new THREE.Vector4() };
   /** The lawn: how tall its blades stand (x), how much the mowing stripes show (y) and how far the wildflowers are up (z). */
   const lawnStyle = { value: new THREE.Vector3(1, 0, 0) };
+  /**
+   * The four bigger lawn extras, as the grass is told them: where each stands (x, y), the square of
+   * how far round it the grass lies flat (z), and how far out it is, from 0 to 1 (w).
+   */
+  const lawnSpots = { value: LAWN_EXTRAS.map((key) => new THREE.Vector4(LAWN_SPOTS[key].at[0], LAWN_SPOTS[key].at[1], LAWN_SPOTS[key].flat, 0)) };
 
   const lambert = (color: string, more?: THREE.MeshLambertMaterialParameters) => new THREE.MeshLambertMaterial({ color, ...more });
   const basic = (color: string, more?: THREE.MeshBasicMaterialParameters) => new THREE.MeshBasicMaterial({ color, ...more });
@@ -69,6 +75,7 @@ export function makeKit(world: THREE.Scene, quality: Quality) {
     flowerSpots,
     season,
     lawnStyle,
+    lawnSpots,
     /** A flat-coloured material that takes light and shade. Nothing is glossy, so brand colours stay true. */
     lambert,
     /** A material that is its colour whatever the light. */
@@ -115,6 +122,7 @@ export function makeKit(world: THREE.Scene, quality: Quality) {
         shader.uniforms.uF = flowerSpots;
         shader.uniforms.uSe = season;
         shader.uniforms.uLawn = lawnStyle;
+        shader.uniforms.uX = lawnSpots;
         let vertex = shader.vertexShader;
         for (const [from, to] of swaps) vertex = vertex.replace(from, to);
         vertex = vertex.replace(
