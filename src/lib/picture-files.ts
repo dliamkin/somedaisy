@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { COVER_BUCKET, COVER_ENOUGH, COVER_MAX_BYTES, COVER_TRIES, fitWidth, NO_COVER_PHOTOS, PHOTO_NOT_SAVED } from './cover-photos';
 import { coverPath } from './covers';
+import { keptSize, type CropRect } from './picture-crop';
 import { base64Size, bytesFromBase64, fitWithin, NO_PICTURES, ownPicture, PICTURE_BUCKET, PICTURE_MAX_BYTES, picturePath, TOO_BIG } from './pictures';
 import { db } from './supabase';
 
@@ -29,6 +30,20 @@ type Shrink = {
 
 // A picture on an idea: first as a good-looking JPEG. If that is still too big for the place it is kept, once more, squeezed harder.
 const FOR_IDEA: Shrink = { fit: (width, height) => fitWithin(width, height), tries: [0.72, 0.5], enough: PICTURE_MAX_BYTES, most: PICTURE_MAX_BYTES };
+
+/** A picture as the picture tools hold it once it is drawn. */
+type Drawn = Awaited<ReturnType<ReturnType<typeof ImageManipulator.manipulate>['renderAsync']>>;
+
+/** Save a drawn picture as a JPEG small enough to keep, squeezing harder if the first try is too big. */
+async function squeeze(image: Drawn, how: Pick<Shrink, 'tries' | 'enough' | 'most'>): Promise<ChosenPicture> {
+  for (const [i, compress] of how.tries.entries()) {
+    // Saving it afresh as a JPEG also leaves out where and with what the photo was taken.
+    const saved = await image.saveAsync({ compress, format: SaveFormat.JPEG, base64: true });
+    const limit = i === how.tries.length - 1 ? how.most : how.enough;
+    if (saved.base64 && base64Size(saved.base64) <= limit) return { uri: saved.uri, base64: saved.base64 };
+  }
+  throw new Error(TOO_BIG);
+}
 // A cover photo is kept smaller, since every member loads it on Home.
 const FOR_COVER: Shrink = { fit: (width, height) => fitWidth(width, height), tries: COVER_TRIES, enough: COVER_ENOUGH, most: COVER_MAX_BYTES };
 
@@ -47,22 +62,48 @@ async function choose(how: Shrink): Promise<ChosenPicture | null> {
     const work = ImageManipulator.manipulate(asset.uri);
     image = await (size ? work.resize(size) : work).renderAsync();
   }
-  for (const [i, compress] of how.tries.entries()) {
-    // Saving it afresh as a JPEG also leaves out where and with what the photo was taken.
-    const saved = await image.saveAsync({ compress, format: SaveFormat.JPEG, base64: true });
-    const limit = i === how.tries.length - 1 ? how.most : how.enough;
-    if (saved.base64 && base64Size(saved.base64) <= limit) return { uri: saved.uri, base64: saved.base64 };
-  }
-  throw new Error(TOO_BIG);
+  return squeeze(image, how);
 }
 
 /**
- * Let the person choose a photo for an idea, and make it small: no more than 1280 dots along its
- * longer side, as a JPEG. Null when they back out without choosing. Only photos are offered, and
- * the phone's own chooser is used, so the app never sees any photo but the one chosen.
+ * A photo someone has chosen for an idea, before they have said which part of it to show.
+ * `uri` is a working copy the right way up, and the sizes are that copy's.
  */
-export function choosePicture(): Promise<ChosenPicture | null> {
-  return choose(FOR_IDEA);
+export type PickedPhoto = { uri: string; width: number; height: number };
+
+/** The longest a working copy's longer side can be: enough to cut a sharp picture from, and light to move about. */
+const WORKING_SIDE = 2400;
+
+/**
+ * Let the person choose a photo for an idea. Null when they back out without choosing. Only photos
+ * are offered, and the phone's own chooser is used, so the app never sees any photo but the one
+ * chosen.
+ *
+ * What comes back is a working copy, not the picture to keep: the person still chooses which part
+ * of it shows (src/components/picture-crop.tsx), and `cropPicture` then cuts that part out. The
+ * copy is drawn afresh, so it is the right way up whichever way the phone was held, and its size
+ * is the size the cut is measured in.
+ */
+export async function pickPhoto(): Promise<PickedPhoto | null> {
+  const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+  const asset = picked.canceled ? null : picked.assets?.[0];
+  if (!asset) return null;
+  let image = await ImageManipulator.manipulate(asset.uri).renderAsync();
+  const size = fitWithin(image.width, image.height, WORKING_SIDE);
+  if (size) image = await ImageManipulator.manipulate(asset.uri).resize(size).renderAsync();
+  const saved = await image.saveAsync({ compress: 0.92, format: SaveFormat.JPEG });
+  return { uri: saved.uri, width: saved.width, height: saved.height };
+}
+
+/**
+ * Cut the chosen part out of a photo and make it small enough to keep: no more than 1280 dots
+ * wide, as a JPEG. `part` is in the dots of the working copy `pickPhoto` gave.
+ */
+export async function cropPicture(photo: PickedPhoto, part: CropRect): Promise<ChosenPicture> {
+  const cut = ImageManipulator.manipulate(photo.uri).crop(part);
+  const size = keptSize(part);
+  const image = await (size ? cut.resize(size) : cut).renderAsync();
+  return squeeze(image, FOR_IDEA);
 }
 
 /**

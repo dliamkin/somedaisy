@@ -144,11 +144,17 @@ describe('doItAgain', () => {
 });
 
 describe('fetchAgainPrompts', () => {
-  const done = [{ id: 'i1', title: 'Picnic', done_at: 'x' }, { id: 'i2', title: 'Tacos', done_at: 'y' }];
+  const done = [
+    { id: 'i1', title: 'Picnic', list_id: 'l1', done_at: 'x' },
+    { id: 'i2', title: 'Tacos', list_id: 'l2', link: 'https://example.com', image_url: 'https://example.com/a.jpg', picture: 'g1/p.jpg', photo: null, done_at: 'y', note: 'not needed' },
+  ];
+  // What the question needs of each: enough to show its picture and its list, and nothing else.
+  const picnic = { id: 'i1', title: 'Picnic', list_id: 'l1', link: null, image_url: undefined, picture: undefined, photo: undefined, done_at: 'x' };
+  const tacos = { id: 'i2', title: 'Tacos', list_id: 'l2', link: 'https://example.com', image_url: 'https://example.com/a.jpg', picture: 'g1/p.jpg', photo: null, done_at: 'y' };
 
   it('lists recent done ideas this person has not answered for', async () => {
     const calls = fakeClient({ ideas: [{ data: done }], do_again_votes: [{ data: [{ idea_id: 'i1' }] }] });
-    expect(await fetchAgainPrompts('g1', 'ann', now)).toEqual([{ id: 'i2', title: 'Tacos' }]);
+    expect(await fetchAgainPrompts('g1', 'ann', now)).toStrictEqual([tacos]);
     const [ideas] = stepsFor(calls, 'ideas');
     expect(argsOf(ideas, 'eq')).toEqual(['group_id', 'g1']);
     expect(argsOf(ideas, 'gte')).toEqual(['done_at', '2026-10-15T12:00:00.000Z']);
@@ -157,7 +163,7 @@ describe('fetchAgainPrompts', () => {
 
   it('asks about everything when nothing has been answered', async () => {
     fakeClient({ ideas: [{ data: done }] });
-    expect(await fetchAgainPrompts('g1', 'ann', now)).toEqual([{ id: 'i1', title: 'Picnic' }, { id: 'i2', title: 'Tacos' }]);
+    expect(await fetchAgainPrompts('g1', 'ann', now)).toStrictEqual([picnic, tacos]);
   });
 
   it('asks nothing when answers are not set up, rather than asking what cannot be saved', async () => {

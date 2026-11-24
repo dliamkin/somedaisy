@@ -84,6 +84,7 @@ export const SECTIONS: Section[] = [
         'Change your name or colour, or hide your Google picture, from your account.',
         'Turn notifications off in the app, or in your phone\'s settings.',
         'Sign out on a device from your account.',
+        'Delete a group you own, from the menu on its card. Everything in it is removed straight away, for everyone in it: its ideas, comments, pictures and cover photo, and the record of what the group did.',
         'Delete your account, from your account in the app or at somedaisy.com/account. If you use SomeDaisy without an email, the same place lets you delete your data.',
         'Ask for a copy of your information, or ask us to correct it.',
       ],

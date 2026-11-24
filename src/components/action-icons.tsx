@@ -33,6 +33,12 @@ const DRAWINGS = {
   more: [dot(5.5, 12, 0.9), dot(12, 12, 0.9), dot(18.5, 12, 0.9)],
   // A link in a chain: the page an idea points to.
   link: ['M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2', 'M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2'],
+  // Three lines, one under the other: a menu of things to do with this.
+  menu: ['M4.5 7h15M4.5 12h15M4.5 17h15'],
+  // A bin with its lid.
+  trash: ['M4 7h16', 'M9.5 7V4.5h5V7', 'M6.5 7l.9 12a2 2 0 0 0 2 1.85h5.2a2 2 0 0 0 2-1.85l.9-12', 'M10 11v5.5M14 11v5.5'],
+  // An arrow going out through a doorway.
+  leave: ['M14 4.5h3.5a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H14', 'M10 8l-4 4 4 4', 'M6 12h9.5'],
   // A smiling face with a plus beside it.
   emoji: [dot(10.5, 13.5, 7.5), dot(8, 12, 0.4), dot(13, 12, 0.4), 'M7.5 15.5a3.6 3.6 0 0 0 6 0', 'M20 2.5v5M17.5 5h5'],
 } as const;

@@ -5,13 +5,15 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import { photoForIdea, type IdeaPhoto } from '@/lib/idea-photos';
 import { openLink } from '@/lib/links';
 import type { FoundPhoto } from '@/lib/photo-search';
-import { choosePicture, type ChosenPicture } from '@/lib/picture-files';
+import { PICTURE_SHAPE, type CropRect, type CropView } from '@/lib/picture-crop';
+import { cropPicture, pickPhoto, type ChosenPicture, type PickedPhoto } from '@/lib/picture-files';
 import { pictureAddress, pictureSearch } from '@/lib/pictures';
 import { useTheme } from '@/lib/theme';
 
 import { ActionIcon } from './action-icons';
 import { PhotoCredit } from './cover-credit';
 import { PhotoSearch } from './photo-search';
+import { PictureCrop } from './picture-crop';
 import { Button, Chip, T } from './ui';
 
 /**
@@ -30,9 +32,11 @@ export type PictureChoice =
 
 /**
  * On the forms for an idea: its picture, and the two ways to get one. "Add a picture" opens the
- * phone's photos. "Search free photos" opens a search under the buttons, starting from the idea's
- * name, and tapping a result makes it the picture. With a picture it is shown, with the same two
- * ways to change it and a way to take it off.
+ * phone's photos, and then a screen for choosing which part of the photo shows, since an idea's
+ * picture is a wide strip and a photo rarely is. "Search free photos" opens a search under the
+ * buttons, starting from the idea's name, and tapping a result makes it the picture. With a
+ * picture it is shown, with the same two ways to change it and a way to take it off. One of the
+ * person's own that has not been sent yet can also be adjusted: the same photo, a different part.
  *
  * A found photo has who took it under it, as Unsplash asks wherever one of its photos shows.
  */
@@ -44,22 +48,45 @@ export function IdeaPicture({ value, onChange, name }: { value: PictureChoice; o
   // What to say under the buttons: how looking on the web works, or what went wrong.
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null);
 
+  // The photo whose part is being chosen: the frame is open while `open` is true. The photo and
+  // where it was left are kept afterwards, so "Adjust" can go back to the same photo.
+  const [source, setSource] = useState<{ photo: PickedPhoto; view: CropView | null; open: boolean } | null>(null);
+  const [cutting, setCutting] = useState(false);
+
   const choose = async () => {
     if (busy) return;
     setBusy(true);
     setNote(null);
     try {
-      const chosen = await choosePicture();
-      if (chosen) {
-        onChange({ kind: 'new', chosen });
-        setSearching(false);
-      }
+      const photo = await pickPhoto();
+      if (photo) setSource({ photo, view: null, open: true });
     } catch (e) {
       setNote({ text: e instanceof Error && e.message ? e.message : 'Could not open that picture. Try another one.', bad: true });
     } finally {
       setBusy(false);
     }
   };
+
+  // The part inside the frame is cut out and made small. Only then is it the idea's picture.
+  const use = async (part: CropRect, view: CropView) => {
+    if (!source || cutting) return;
+    setCutting(true);
+    try {
+      const chosen = await cropPicture(source.photo, part);
+      onChange({ kind: 'new', chosen });
+      setSearching(false);
+      setSource({ photo: source.photo, view, open: false });
+    } catch (e) {
+      setSource({ ...source, open: false });
+      setNote({ text: e instanceof Error && e.message ? e.message : 'Could not use that picture. Try another one.', bad: true });
+    } finally {
+      setCutting(false);
+    }
+  };
+
+  const frame = source?.open ? <PictureCrop photo={source.photo} start={source.view} busy={cutting} onUse={(part, view) => void use(part, view)} onCancel={() => setSource({ ...source, open: false })} /> : null;
+  // Only a picture chosen on this visit to the form can be adjusted: its photo is still at hand.
+  const canAdjust = value?.kind === 'new' && source !== null;
 
   // For what a search of free photos does not have, such as a film's poster: a picture search for
   // the idea's name in the person's own browser, to save one from and add here.
@@ -100,12 +127,14 @@ export function IdeaPicture({ value, onChange, name }: { value: PictureChoice; o
         </T>
         <Image
           source={{ uri: shown }}
-          style={{ width: '100%', aspectRatio: 1.91, borderRadius: 16, backgroundColor: colors.card, borderWidth: dark ? 1 : 0, borderColor: colors.line }}
+          // The shape it has on the idea's card.
+          style={{ width: '100%', aspectRatio: PICTURE_SHAPE, borderRadius: 16, backgroundColor: colors.card, borderWidth: dark ? 1 : 0, borderColor: colors.line }}
           contentFit="cover"
           accessibilityLabel={`The picture for ${name.trim() || 'this idea'}`}
         />
         {value.kind === 'found' ? <PhotoCredit photo={value.photo} size={12} /> : null}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          {canAdjust ? <Button label="Adjust" kind="outline" small disabled={busy} onPress={() => source && setSource({ ...source, open: true })} /> : null}
           <Button label="Change" kind="outline" small busy={busy} onPress={() => void choose()} />
           <Button label={searching ? 'Close search' : 'Search photos'} kind="outline" small disabled={busy} onPress={() => setSearching(!searching)} />
           <Button
@@ -121,6 +150,7 @@ export function IdeaPicture({ value, onChange, name }: { value: PictureChoice; o
         </View>
         {said}
         {search}
+        {frame}
       </View>
     );
   }
@@ -139,6 +169,7 @@ export function IdeaPicture({ value, onChange, name }: { value: PictureChoice; o
       </View>
       {said}
       {search}
+      {frame}
     </View>
   );
 }

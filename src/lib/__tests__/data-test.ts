@@ -794,14 +794,34 @@ describe('fetchGroups', () => {
       ],
     });
     expect(await fetchGroups()).toEqual([
-      { id: 'g1', name: 'Friends', cover: '🌼', members: [{ user_id: 'ann', name: 'Ann', color: '#111', photo: null }] },
+      { id: 'g1', name: 'Friends', cover: '🌼', members: [{ user_id: 'ann', name: 'Ann', color: '#111', photo: null }], owner: 'ann' },
     ]);
+  });
+
+  it('says who owns each group: whoever started it, or the member who has been in it longest', async () => {
+    const members = [
+      { user_id: 'ann', profiles: { name: 'Ann', color: '#111' } },
+      { user_id: 'bo', profiles: { name: 'Bo', color: '#222' } },
+    ];
+    const { calls } = fakeClient({
+      groups: [
+        {
+          data: [
+            { id: 'g1', name: 'Started by Bo', cover: 'sky', created_by: 'bo', group_members: members },
+            { id: 'g2', name: 'Its starter has left', cover: 'sky', created_by: 'cy', group_members: members },
+          ],
+        },
+      ],
+    });
+    expect((await fetchGroups()).map((g) => g.owner)).toEqual(['bo', 'ann']);
+    // Members are asked for in the order they joined, which is what "longest" goes by.
+    expect(stepsFor(calls, 'groups')[0].filter(([method]) => method === 'order').map((step) => step.slice(1))).toContainEqual(['joined_at', { referencedTable: 'group_members', ascending: true }]);
   });
 
   it('brings the details of the cover along when the database has them', async () => {
     const grape = { kind: 'look', background: '#4B2A8C', shape1: '#6D2FC4', shape2: '#B8339A', pattern: true };
     const { calls } = fakeClient({ groups: [{ data: [{ id: 'g1', name: 'Friends', cover: 'sky', cover_style: grape, group_members: [] }] }] });
-    expect(await fetchGroups()).toEqual([{ id: 'g1', name: 'Friends', cover: 'sky', cover_style: grape, members: [] }]);
+    expect(await fetchGroups()).toEqual([{ id: 'g1', name: 'Friends', cover: 'sky', cover_style: grape, members: [], owner: null }]);
     // "*" asks for whatever a group has, so the same request works before update 018.
     expect(argsOf(stepsFor(calls, 'groups')[0], 'select')).toEqual(['*, group_members(user_id, profiles(*))']);
   });

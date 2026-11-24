@@ -1,4 +1,4 @@
-import { removeGroupPictures } from '../group-files';
+import { deleteGroup, deleteOverview, NO_DELETE_GROUP, removeGroupPictures } from '../group-files';
 import { db } from '../supabase';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
@@ -87,5 +87,96 @@ describe('removeGroupPictures', () => {
     await expect(removeGroupPictures(GROUP)).resolves.toBeUndefined();
     jest.mocked(db).mockReturnValue({ storage: { from: () => ({ list: () => Promise.reject(new Error('offline')) }) } } as never);
     await expect(removeGroupPictures(GROUP)).resolves.toBeUndefined();
+  });
+});
+
+describe('deleteGroup', () => {
+  /** A stand-in for the database and the place files are kept, which writes down what was asked of it, in order. */
+  function backend(answers: ({ code?: string; message: string } | null)[] = []) {
+    const asked: string[] = [];
+    let call = 0;
+    const bucket = (name: string) => ({
+      list: jest.fn(async () => ({ data: asked.includes(`remove ${name}`) || name !== 'idea-pictures' ? [] : [{ name: file(1) }], error: null })),
+      remove: jest.fn(async (places: string[]) => {
+        asked.push(`remove ${name}`);
+        return { data: places.map((n) => ({ name: n })), error: null };
+      }),
+    });
+    const rpc = jest.fn(async (name: string, args: { p_check_only: boolean }) => {
+      asked.push(`${name} ${args.p_check_only ? 'check' : 'for real'}`);
+      return { error: answers[call++] ?? null };
+    });
+    jest.mocked(db).mockReturnValue({ rpc, storage: { from: (name: string) => bucket(name) } } as never);
+    return { asked, rpc };
+  }
+
+  it('asks whether it may, then removes the files, and only then deletes the group', async () => {
+    const { asked, rpc } = backend();
+    await deleteGroup(GROUP);
+    expect(asked[0]).toBe('delete_group check');
+    expect(asked[asked.length - 1]).toBe('delete_group for real');
+    expect(asked.slice(1, -1).sort()).toEqual(['remove group-covers', 'remove idea-pictures']);
+    expect(rpc).toHaveBeenCalledWith('delete_group', { p_group: GROUP, p_check_only: true });
+  });
+
+  it('removes no file when the database says no', async () => {
+    const { asked } = backend([{ message: "Only the group's owner can delete it" }]);
+    await expect(deleteGroup(GROUP)).rejects.toThrow("Only the group's owner can delete it");
+    expect(asked).toEqual(['delete_group check']);
+  });
+
+  it('says which update is missing when the database cannot delete groups yet, and removes no file', async () => {
+    const { asked } = backend([{ code: 'PGRST202', message: 'Could not find the function' }]);
+    await expect(deleteGroup(GROUP)).rejects.toThrow(NO_DELETE_GROUP);
+    expect(asked).toEqual(['delete_group check']);
+  });
+
+  it('refuses anything that is not a group, without asking the database', async () => {
+    const { asked } = backend();
+    await expect(deleteGroup('../somewhere')).rejects.toThrow('not a group');
+    expect(asked).toEqual([]);
+  });
+});
+
+describe('what deleting a group takes away', () => {
+  const ann = { user_id: 'ann', name: 'Ann' };
+  const bo = { user_id: 'bo', name: 'Bo' };
+  const cy = { user_id: 'cy', name: 'Cy' };
+
+  it('counts what the group holds and names who else loses it', () => {
+    expect(deleteOverview({ members: [ann, bo, cy] }, { ideas: 14, done: 9, pictures: 3 }, true, 'ann')).toEqual([
+      '14 ideas, with their votes, comments and plans',
+      '3 pictures your group added, and its cover photo',
+      'The record of the 9 things you did together, with your points and stamps',
+      'Bo and Cy lose the group too',
+    ]);
+  });
+
+  it('says one of a thing as one', () => {
+    expect(deleteOverview({ members: [ann, bo] }, { ideas: 1, done: 1, pictures: 1 }, false, 'ann')).toEqual([
+      '1 idea, with its votes, comments and plans',
+      '1 picture your group added',
+      'The record of the 1 thing you did together, with your points and stamps',
+      'Bo loses the group too',
+    ]);
+  });
+
+  it('leaves out what the group does not have', () => {
+    expect(deleteOverview({ members: [ann] }, { ideas: 0, done: 0, pictures: 0 }, false, 'ann')).toEqual(['Its lists']);
+    expect(deleteOverview({ members: [ann] }, { ideas: 2, done: 0, pictures: 0 }, true, 'ann')).toEqual(['2 ideas, with their votes, comments and plans', 'Its cover photo']);
+  });
+
+  it('still says what goes before anything has been counted', () => {
+    expect(deleteOverview({ members: [ann, bo] }, null, true, 'ann')).toEqual([
+      'Every idea, with its votes, comments and plans',
+      'Every picture your group added, and its cover photo',
+      'The record of what you did together, with your points and stamps',
+      'Bo loses the group too',
+    ]);
+  });
+
+  it('counts a crowd instead of naming everyone', () => {
+    const many = [ann, bo, cy, { user_id: 'di', name: 'Di' }, { user_id: 'ed', name: 'Ed' }];
+    expect(deleteOverview({ members: many }, { ideas: 2, done: 0, pictures: 0 }, false, 'ann').pop()).toBe('4 other people lose the group too');
   });
 });

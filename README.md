@@ -195,6 +195,24 @@ owner is whoever started the group, or, once they have gone, whoever has been in
 Leaving, removing and replacing the link need `supabase/updates/007-group-settings.sql`; without
 it the app says they are not available yet.
 
+### The menu on a group's card, and deleting a group
+
+On Home, each group's card has a small round button at its top left. It opens a sheet with
+"Share group", which goes to the invite page, and one more row that depends on who is asking:
+
+- **The owner** gets "Delete group". It asks first, in a box over the page that says plainly what
+  goes: how many ideas, how many pictures the group added, the record of what it did, and who
+  else loses the group. "Yes, delete it" deletes the group for everyone. It cannot be undone.
+- **Anyone else** gets "Leave group", which asks in the same way and does what leaving from the
+  group's settings does.
+
+Deleting needs `supabase/updates/025-delete-group.sql`, which adds `delete_group`. Only the owner
+is allowed, and the database is what says so. The database cannot remove a stored file, so the
+app does it in three steps (`deleteGroup` in `src/lib/group-files.ts`): it asks the database
+whether this person may, without deleting anything, then removes the pictures on the group's
+ideas and its cover photo, and only then deletes the group. In that order, a refusal never leaves
+a group behind with its pictures gone. Without the update the app says which one is missing.
+
 ### Link previews
 
 An idea with a link shows that page's preview picture on its card: the same picture a chat app
@@ -247,9 +265,19 @@ beside the ones that add a link or a note:
   for the idea's name in the person's browser (`pictureSearch` in `src/lib/pictures.ts`). They
   save a picture they like, come back, and add it.
 
-The chosen picture is made small on the device before it is sent: no more than 1280 dots along
-its longer side, as a JPEG, which comes to a few hundred kilobytes
-(`choosePicture` in `src/lib/picture-files.ts`). It is kept in Supabase Storage, in a place
+An idea's picture is shown as a strip twice as wide as it is tall, across the top of its card,
+and a photo from a phone is nothing like that shape. So after choosing a photo the person
+chooses which part of it shows (`src/components/picture-crop.tsx`): the photo sits behind a frame
+of that shape, dragging moves it, and pinching, two round buttons or a mouse's wheel make it
+bigger or smaller. With a keyboard, the arrow keys move it and plus and minus change its size.
+"Use this picture" keeps only the part inside the frame. Until the idea is saved, "Adjust" goes
+back to the same photo to choose a different part. The sums are in `src/lib/picture-crop.ts`.
+A photo found by search, and a link's preview picture, are not the group's to cut: they still
+show their middle.
+
+The chosen part is made small on the device before it is sent: no more than 1280 dots wide, as a
+JPEG, which comes to a few hundred kilobytes
+(`pickPhoto` and `cropPicture` in `src/lib/picture-files.ts`). It is kept in Supabase Storage, in a place
 called `idea-pictures`, under `<group id>/<a new random id>.jpg`, and the idea remembers where
 in its `picture` column. An idea's own picture is the one its card shows. Without one, the card
 shows the preview picture of the page the idea links to, as before (`cardPicture`).
@@ -498,7 +526,12 @@ Guests with a name, and accounts with an email, are never removed by it.
 ### Points, stamps and the do-again shelf
 
 Marking a plan as done opens one "You did it" screen: the points it earned, the stamp, a new
-title if the group reached one, and the question "Would you do it again?". Each group has one
+title if the group reached one, and the question "Would you do it again?". Someone who leaves
+that screen without answering, or who was not the one to mark it done, is asked on the group's
+page instead, for anything done in the last 30 days: a card under "Coming up" with the idea's
+picture (or its list's icon) with a green tick, when it was done, and the two answers
+(`src/components/did-it-card.tsx`). Its X puts the question off until the page is next opened.
+Each group has one
 shared bar and rises through eight titles, from Homebodies to Legends (shown in the app as the
 group's rank). The bar sits under the
 group's name with "Grow your group's petals!" above it (each rank is a petal on the group's
@@ -597,9 +630,12 @@ The design is `docs/REDESIGN-HOME-AND-GROUP-2.md`, sections 3 to 5. The page is 
 - **The row of lists** (see below).
 - **The ideas** (`src/components/idea-card.tsx`). An idea with a picture gets a picture card: the
   picture across the top, the name in white over its darkened foot, and small labels for its list,
-  its date and "Everyone's in". Tapping the picture opens the idea's link. An idea with no picture,
-  or one that will not load, gets a compact card with its list's icon. Both end the same way: the
-  votes with "Plan it" at the right, then a row that shows the newest comment and opens them all.
+  its date and "Everyone's in". The picture is always twice as wide as it is tall. An idea with no
+  picture, or one that will not load, gets a compact card with its list's icon. Both end the same
+  way: the votes with "Plan it" at the right, then a row that shows the newest comment.
+  Tapping a card anywhere that is not a button of its own opens the idea's page
+  (`src/app/group/[id]/comments.tsx`): its picture, name, note, link and date, then its comments,
+  with the box to add one at the bottom. A picture that came with a link opens the link instead.
   Sharing and editing are behind the "..." button, which opens a sheet.
 - **The bottom bar**: "Pick for us" and "Add an idea" on the band of flowers.
 
@@ -840,7 +876,7 @@ private browser window or on another device.
 | `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
-| `src/app/group/[id]/comments.tsx` | The conversation about an idea |
+| `src/app/group/[id]/comments.tsx` | An idea's own page: its details, and the conversation about it |
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
 | `src/app/group/[id]/stamps.tsx` | The group's rank, the ladder of ranks, points and stamps |
 | `src/app/group/[id]/pick.tsx` | Pick for us |
@@ -853,9 +889,10 @@ private browser window or on another device.
 | `src/lib/theme.ts` | Every colour in the app, for light and dark mode. Screens read them with `useTheme()` |
 | `src/lib/appearance.tsx` | Which mode the app is in, and the saved choice of Auto, Light or Dark |
 | `src/lib/pictures.ts`, `src/lib/picture-files.ts` | An idea's own picture: the rules, and choosing, shrinking and keeping it |
+| `src/lib/picture-crop.ts`, `src/components/picture-crop.tsx` | Choosing which part of a photo an idea shows: the sums, and the frame to drag it behind |
 | `src/lib/idea-photos.ts` | A photo found by search as an idea's picture: only its address and credit are kept |
 | `src/lib/every-row.ts` | Reading past the 1,000 rows one request gives |
-| `src/lib/group-files.ts` | Clearing out a group's idea pictures before the group is deleted |
+| `src/lib/group-files.ts` | Clearing out a group's idea pictures before the group is deleted, and deleting a group |
 | `src/lib/search.ts` | Finding an idea in a group by typing part of it |
 | `src/garden/` | The garden's 3D scene, drawn with three.js. Web code, shown through `src/components/garden-view.tsx` |
 | `src/lib/garden.ts` | What each idea looks like as a flower, the words on its sheet, and who a watering nudges |

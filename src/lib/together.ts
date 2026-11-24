@@ -5,6 +5,7 @@
 // Any other failure, such as a dropped connection, is still a failure: it must not be mistaken
 // for "not set up", or the app would fall back to how things worked before the update.
 
+import type { Idea } from './data';
 import { COUNTED, everyRow } from './every-row';
 import type { Completion, DoAgainVote } from './points';
 import { db } from './supabase';
@@ -77,8 +78,11 @@ export async function doItAgain(ideaId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** A done idea this person has not yet said whether they would do again. */
-export type AgainPrompt = { id: string; title: string };
+/**
+ * A done idea this person has not yet said whether they would do again: enough of it to show its
+ * picture and its list beside the question.
+ */
+export type AgainPrompt = Pick<Idea, 'id' | 'title' | 'list_id' | 'link' | 'image_url' | 'picture' | 'photo'> & { done_at: string };
 
 /**
  * The things the group did in the last 30 days that this person has not answered for, most
@@ -88,12 +92,15 @@ export async function fetchAgainPrompts(groupId: string, userId: string, now: Da
   const client = db();
   const since = new Date(now.getTime() - 30 * 86400000).toISOString();
   const [done, votes] = await Promise.all([
-    client.from('ideas').select('id, title, done_at').eq('group_id', groupId).gte('done_at', since).order('done_at', { ascending: false }).limit(10),
+    // "*" takes whatever an idea has, so its picture comes along whichever of the picture updates have been run.
+    client.from('ideas').select('*').eq('group_id', groupId).gte('done_at', since).order('done_at', { ascending: false }).limit(10),
     client.from('do_again_votes').select('idea_id').eq('group_id', groupId).eq('user_id', userId),
   ]);
   if (done.error || votes.error) return [];
   const answered = new Set(((votes.data ?? []) as { idea_id: string }[]).map((v) => v.idea_id));
-  return ((done.data ?? []) as AgainPrompt[]).filter((i) => !answered.has(i.id)).map((i) => ({ id: i.id, title: i.title }));
+  return ((done.data ?? []) as AgainPrompt[])
+    .filter((i) => !answered.has(i.id))
+    .map((i) => ({ id: i.id, title: i.title, list_id: i.list_id, link: i.link ?? null, image_url: i.image_url, picture: i.picture, photo: i.photo, done_at: i.done_at }));
 }
 
 /** How long after "We did it" the mark can still be undone, points and stamp included. */
