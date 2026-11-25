@@ -7,7 +7,7 @@ import { breakdown, levelFor, TITLES, type Completion, type Level } from '@/lib/
 import { useTheme } from '@/lib/theme';
 
 import { Blooming, Confetti, Overlay, PopIn, useReducedMotion } from './celebrate';
-import { Daisy } from './daisy';
+import { ArrowIcon, Daisy, ForwardIcon } from './daisy';
 import { ListTile } from './list-tile';
 import { Button, Card, Chip, T } from './ui';
 
@@ -93,33 +93,73 @@ export function ThinBar({ progress }: { progress: number }) {
   );
 }
 
+// The ring at the end of the strip's bar: how big it is, and how far it hangs past the bar's end.
+const GOAL = 14;
+const GOAL_PAST = 2;
+
 /**
- * The group's rank, for the top of its page: a few words on what the bar is for, then the rank's
- * name, how far it is to the next one, and a thin bar under both. The next rank is not named
- * here, only the points to go. Each rank reached is a petal on the group's daisy, which is what
- * the words at the top are about. Nothing here wraps; what cannot fit is cut short.
+ * The group's rank, across the top of its page, and the way to the things the group did. A few
+ * words on what the bar is for, then the rank the group holds, the one it is working towards, the
+ * points to go and a caret, with a thin bar under them all. The bar ends in a dashed ring, like
+ * the petals of the group's daisy that have not grown yet: the next rank. Each rank reached is a
+ * petal, which is what the words at the top are about.
+ *
+ * Nothing here wraps. When there is not room, the next rank's name is the one cut short. At the
+ * top rank there is no next one, so the arrow, the name and the ring are left out and the bar is
+ * full. Without points (see `GroupData.points`) it is one plain row, so the page is still reached.
  */
-export function RankLine({ points, onPress }: { points: number; onPress: () => void }) {
+export function RankStrip({ points, onPress }: { points: number | null; onPress: () => void }) {
   const { colors } = useTheme();
+  // One tap target, never shorter than a finger needs, and dimmed while it is pressed like the app's other rows.
+  const row = ({ pressed }: { pressed: boolean }) => ({ minHeight: 44, justifyContent: 'center' as const, opacity: pressed ? 0.7 : 1 });
+  if (points === null) {
+    return (
+      <Pressable accessibilityRole="button" accessibilityLabel="Things we did" onPress={onPress} style={row}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <T size={15} weight="black" lines={1} style={{ flex: 1 }}>
+            Things we did
+          </T>
+          <ForwardIcon color={colors.link} />
+        </View>
+      </Pressable>
+    );
+  }
   const level = levelFor(points);
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${barSays(level)}. See your stamps`}
-      onPress={onPress}
-      style={{ flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: 5 }}>
-      <T size={12} weight="extra" color={colors.link} lines={1}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${barSays(level)}. See the things you did`} onPress={onPress} style={row}>
+      <T size={12} weight="extra" color={colors.link} lines={1} style={{ lineHeight: 16, marginBottom: 4 }}>
         {level.next ? "Grow your group's petals!" : 'Every petal has grown!'}
       </T>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <T size={15} weight="black" lines={1} style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 20 }}>
+        <T size={15} weight="black" lines={1} style={{ lineHeight: 20, flexShrink: 0 }}>
           {level.title}
         </T>
-        <T size={13} color={colors.textMuted} lines={1}>
+        {level.next ? (
+          <>
+            <ArrowIcon color={colors.textMuted} />
+            <T size={14} weight="extra" color={colors.textMuted} lines={1} style={{ lineHeight: 20, flexShrink: 1, minWidth: 0 }}>
+              {level.next.title}
+            </T>
+          </>
+        ) : null}
+        <View style={{ flexGrow: 1 }} />
+        <T size={13} color={colors.textMuted} lines={1} style={{ lineHeight: 20, flexShrink: 0 }}>
           {level.next ? `${level.toNext} to go` : 'Top rank'}
         </T>
+        <ForwardIcon color={colors.link} />
       </View>
-      <ThinBar progress={level.progress} />
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.today, marginTop: 5 }}>
+        {/* Never narrower than it is tall, so with no points on this rank yet it is a dot. */}
+        <View style={{ width: percent(level.progress), minWidth: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+        {level.next ? (
+          <View pointerEvents="none" style={{ position: 'absolute', right: -GOAL_PAST, top: (8 - GOAL) / 2 }}>
+            <Svg width={GOAL} height={GOAL} viewBox="0 0 14 14">
+              {/* Six dashes round the ring. Filled with the page's colour, so the bar stops at its edge. */}
+              <Circle cx={7} cy={7} r={6} fill={colors.background} stroke={colors.link} strokeWidth={2} strokeDasharray="3.3 2.98" />
+            </Svg>
+          </View>
+        ) : null}
+      </View>
     </Pressable>
   );
 }

@@ -24,6 +24,8 @@ import { DAYLIGHT, DOOR_GLOW, PAINT, SEASONS, SOIL, type Daylight, type LawnStyl
 import { freePlace, LEAVES, leafSize, placeOf, SHAPES, stemHeight, type Flower, type Memory } from './plan';
 import { buildGrass, buildMeadow, buildTrees, TREES } from './plants';
 import { buildSky } from './sky';
+import type { Effect } from './sound';
+import { buildToys } from './toys';
 
 export type GardenOptions = {
   time: TimeOfDay;
@@ -56,8 +58,12 @@ export type GardenEvents = {
   onSelect: (id: string | null) => void;
   /** A finished flower has landed in the house. */
   onLanded: (id: string) => void;
-  /** The bee has reached the flower it was sent to. */
-  onPickArrive: (id: string) => void;
+  /**
+   * Something that answers a tap for the fun of it was tapped (a tree, the chimney, a lamp in the
+   * house: see toys.ts), and this is the noise it makes. `detail` is what the noise needs to know,
+   * such as how many footsteps.
+   */
+  onToy: (effect: Effect, detail: number) => void;
   /** The door was tapped, in the garden. */
   onDoor: () => void;
   /** The camera has arrived inside the house (true), or is back at the doorway (false). */
@@ -296,9 +302,17 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
   const creatures = buildCreatures(kit, {
     flowers,
     selected: () => selected,
-    onPickArrive: events.onPickArrive,
     onWatered: events.onWatered,
     onVisit: events.onVisit,
+  });
+  // The things that answer a tap for the fun of it. They take none of the made-up numbers.
+  const toys = buildToys(kit, land, {
+    leafy: trees.leafy,
+    garageUp: houseParts.garageUp,
+    out: () => opt,
+    colors: () => opt.leaves,
+    burst: creatures.burst,
+    play: (effect, detail = 0) => events.onToy(effect, detail),
   });
 
   // The camera: where it rests, where it starts from, and where it is now.
@@ -324,12 +338,17 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
   let doorSwing = 0;
   let doorHover = false;
   let overview = false;
-  const hall = buildHallway(kit, setup.fonts.caption, (dx, wall) => {
-    // A far jump has landed: the camera is moved along the hallway under the glow.
-    camAt.x += dx;
-    camLook.x += dx;
-    events.onWall(wall);
-  });
+  const hall = buildHallway(
+    kit,
+    setup.fonts.caption,
+    (dx, wall) => {
+      // A far jump has landed: the camera is moved along the hallway under the glow.
+      camAt.x += dx;
+      camLook.x += dx;
+      events.onWall(wall);
+    },
+    (effect, detail) => events.onToy(effect, detail),
+  );
 
   // The number on a date marker is painted once for each day of the month and kept.
   const dayPictures = new Map<string, THREE.CanvasTexture>();
@@ -725,6 +744,12 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
     ray.setFromCamera(aim, camera);
     return hall.frameAt(ray);
   };
+  /**
+   * Whether a tap on a tree, the chimney and the like counts just now. Not while a flower is
+   * chosen or "Our garden" is open, when a tap anywhere else puts that away, and not for people
+   * who have asked for less motion.
+   */
+  const playing = () => selected == null && !overview && !opt.still;
   const onMove = (e: PointerEvent) => {
     const r = canvas.getBoundingClientRect();
     pointerX = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -742,7 +767,9 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
       doorHover = mode === GARDEN && hovered == null && doorAt();
       const frame = mode === INSIDE ? frameAt() : null;
       hall.hover(frame);
-      canvas.style.cursor = hovered != null || doorHover || frame != null ? 'pointer' : 'grab';
+      // The pointer also shows what answers a tap for the fun of it, wherever such a tap would count.
+      const toy = mode === GARDEN ? hovered == null && !doorHover && playing() && toys.over(ray) : mode === INSIDE && frame == null && hall.toyAt(ray) !== null;
+      canvas.style.cursor = hovered != null || doorHover || frame != null || toy ? 'pointer' : 'grab';
     }
   };
   const onDown = (e: PointerEvent) => {
@@ -766,12 +793,16 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
       // A press that hardly moved is a tap.
       const r = canvas.getBoundingClientRect();
       aim.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-      if (mode === INSIDE) events.onFrame(frameAt());
-      else if (mode === GARDEN) {
-        // A tap that hits no flower is tried against the door before it counts as a tap on the ground.
+      if (mode === INSIDE) {
+        // A tap that hits no frame is tried against the lamps, the album and the vase before it counts as a tap on the wall.
+        const slot = frameAt();
+        if (slot != null || !hall.tapToy(ray, opt.still)) events.onFrame(slot);
+      } else if (mode === GARDEN) {
+        // A tap that hits no flower is tried against the door, then against the things that answer
+        // a tap for the fun of it, before it counts as a tap on the ground.
         const id = flowerAt();
         if (id == null && doorAt()) events.onDoor();
-        else events.onSelect(id);
+        else if (id != null || !playing() || !toys.tap(ray, opt.still)) events.onSelect(id);
       }
     } else if (drag && mode === INSIDE && hall.swipe(e.clientX - drag.x)) {
       // A swipe of more than 56 dots steps to the next wall. Less springs back.
@@ -884,7 +915,8 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
         v1.set(x + chance(-1.2, 1.2), groundY(x, z) + chance(2.4, 3.6), z + chance(-1, 1));
         creatures.burst(v1, autumn ? SEASONS.fallingLeaves[(Math.random() * 3) | 0] : SEASONS.blossom, 1, true);
       }
-      doorSwing = damp(doorSwing, mode >= TO_DOOR && mode <= LEAVING ? -1.8 : doorHover ? -0.32 : 0, 5, dt);
+      // The door also opens a crack for whoever has just walked up the stepping stones.
+      doorSwing = damp(doorSwing, mode >= TO_DOOR && mode <= LEAVING ? -1.8 : doorHover ? -0.32 : -0.6 * toys.doorAjar(), 5, dt);
       land.door.rotation.y = doorSwing;
     }
 
@@ -943,6 +975,7 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
       return false;
     });
     creatures.update(dt, t, still, lightNow.night);
+    toys.update(dt, still);
 
     // The camera moves in on a chosen flower, from the side it is not on. Otherwise it goes where
     // the trip into the house has it, or pulls back for "Our garden", or rests.
@@ -1056,7 +1089,7 @@ export function createGarden(host: HTMLElement, labelHost: HTMLElement, events: 
     focus(id: string | null) {
       focused = id;
     },
-    /** Send the bee to a flower. */
+    /** Pick a flower: its ring pulses and its name shows at once, and the bee flies in to circle it. */
     pick(id: string) {
       creatures.sendBee(id);
     },

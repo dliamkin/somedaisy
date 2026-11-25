@@ -539,12 +539,16 @@ export default function GardenScreen() {
   };
 
   // The bee picks among the flowers on show, and not the same one twice running while there is another.
+  // What it picked is said at once. The bee itself flies in after, to circle the flower.
   const pickForUs = () => {
     const next = beePick(onShow, pick?.id ?? null);
     if (!next) return;
     setLookOpen(false);
     setSelected(null);
     setPick({ id: next, turn: (pick?.turn ?? 0) + 1 });
+    ring('tap');
+    const title = ideas.find((i) => i.id === next)?.title;
+    if (title) say(`How about ${title}?`);
   };
 
   const changeBed = (next: number) => {
@@ -776,12 +780,6 @@ export default function GardenScreen() {
               ring('done');
               say('Pressed and framed in the house');
             }}
-            onPickArrive={async (flowerId) => {
-              const title = ideas.find((i) => i.id === flowerId)?.title;
-              if (!title) return;
-              ring('tap');
-              say(`How about ${title}?`);
-            }}
             onDoor={async () => enterHouse()}
             onInside={async (arrived) => setInside(arrived)}
             onWall={async (index) => {
@@ -872,6 +870,9 @@ export default function GardenScreen() {
           }}
           onDone={() => void finish()}
           onWater={startWatering}
+          onOpen={() => {
+            if (chosen) go(`comments?idea=${chosen.id}`);
+          }}
           onClose={() => setSelected(null)}
         />
         <LookSheet open={lookOpen && !house} group={group.name} look={look} level={houseLevel(group.points)} done={done} sound={sound} onChange={changeLook} onLocked={lockedExtra} onSound={changeSound} onClose={() => setLookOpen(false)} />

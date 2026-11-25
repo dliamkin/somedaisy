@@ -1,11 +1,14 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, View } from 'react-native';
+import { AppState, Platform, Pressable, View } from 'react-native';
 
 import { ActionIcon } from '@/components/action-icons';
+import { AddReaction, afterHold, CLUSTER_HANGS, ReactionCluster, ReactionPeople, ReactionPicker } from '@/components/comment-reactions';
 import { PhotoCredit } from '@/components/cover-credit';
+import { Sheet } from '@/components/sheet';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
+import { DOUBLE_TAP_EMOJI, fetchCommentReactions, isDoubleTap, nextReaction, setCommentReaction, summarize, withReaction, type CommentReaction, type Tap } from '@/lib/comment-reactions';
 import { addComment, cleanComment, COMMENT_MAX, fetchComments, removeComment, timeAgo, type Comment } from '@/lib/comments';
 import { fetchGroup, markChanged, type Idea, type List, type Member } from '@/lib/data';
 import { openLink, siteName } from '@/lib/links';
@@ -18,15 +21,33 @@ import { somedayLabel } from '@/lib/someday';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 
-type Thread = { idea: Idea | null; members: Member[]; lists: List[]; comments: Comment[] };
+type Thread = { idea: Idea | null; members: Member[]; lists: List[]; comments: Comment[]; reactions: CommentReaction[] };
 
 // The corners of the card the idea is shown on, which its picture is cut to.
 const RADIUS = 26;
+/**
+ * How long a finger is held on a comment before the emoji to react with come up, in milliseconds.
+ * Longer than a tap takes, and shorter than a phone's own press and hold.
+ */
+const HOLD_MS = 250;
+// A browser already waits 50 milliseconds before it counts a press as begun, and adds this to that.
+const HOLD_WAIT = Platform.OS === 'web' ? HOLD_MS - 50 : HOLD_MS;
+// In a phone's browser, holding a finger on words selects them and brings up the browser's own
+// menu. On a comment, holding is for reacting, so there the words are not selectable.
+const TOUCH_WEB = Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+// Whether a finger is what points: the phone app, or a browser on a phone or a tablet. Holding a
+// comment and tapping it twice are for a finger. With a mouse they would get in the way of
+// selecting its words, and the small face under the comment is there instead.
+const FINGER = Platform.OS !== 'web' || TOUCH_WEB;
 
 /**
  * An idea's own page: what it is (its picture, its name, who added it, its note, its link and its
  * date), then the conversation about it, with the box to add to that pinned at the bottom.
  * Tapping an idea's card on the group's page opens this.
+ *
+ * A comment can be reacted to with an emoji: tap the small face that hangs off its bottom left
+ * corner or, with a finger, press and hold it. Tapping it twice with a finger leaves a heart. Its
+ * reactions are gathered at its bottom right corner, and tapping them shows who reacted.
  */
 export default function IdeaComments() {
   const { colors } = useTheme();
@@ -39,23 +60,28 @@ export default function IdeaComments() {
   const [error, setError] = useState<string | null>(null);
   // The picture that would not load, so the card is not left with an empty frame.
   const [broken, setBroken] = useState<string | null>(null);
+  // The comment the emoji are open for, and the comment whose reactions are being looked through.
+  const [picking, setPicking] = useState<string | null>(null);
+  const [looking, setLooking] = useState<string | null>(null);
   const notifyRef = useRef<() => void>(() => {});
+  // The last tap on a comment, to tell when the next one makes it a double tap.
+  const lastTap = useRef<Tap | null>(null);
 
   const load = useCallback(async () => {
     if (!id || !ideaId) return;
     try {
-      const [group, comments] = await Promise.all([fetchGroup(id), fetchComments(ideaId)]);
-      setThread({ idea: group?.ideas.find((i) => i.id === ideaId) ?? null, members: group?.members ?? [], lists: group?.lists ?? [], comments });
+      const [group, comments, reactions] = await Promise.all([fetchGroup(id), fetchComments(ideaId), fetchCommentReactions(ideaId)]);
+      setThread({ idea: group?.ideas.find((i) => i.id === ideaId) ?? null, members: group?.members ?? [], lists: group?.lists ?? [], comments, reactions });
       setNow(new Date());
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load the comments.');
-      setThread((current) => current ?? { idea: null, members: [], lists: [], comments: [] });
+      setThread((current) => current ?? { idea: null, members: [], lists: [], comments: [], reactions: [] });
     }
   }, [id, ideaId]);
 
-  // Live updates: a signal arrives when a comment here changes, from the database (update 016)
-  // and from the phone that wrote it, and the comments are loaded again.
+  // Live updates: a signal arrives when a comment here changes, or a reaction to one, from the
+  // database (updates 016 and 026) and from the phone that wrote it, and the comments are loaded again.
   useEffect(() => {
     if (!supabase || !ideaId) return;
     const client = supabase;
@@ -121,6 +147,37 @@ export default function IdeaComments() {
     }
   };
 
+  // Leave a reaction on a comment, change it, or with null take it away. It shows at once and is saved behind that.
+  const react = async (commentId: string, emoji: string | null) => {
+    if (!id || !ideaId || !userId) return;
+    setError(null);
+    const before = thread?.reactions ?? [];
+    setThread((current) => (current ? { ...current, reactions: withReaction(current.reactions, commentId, userId, emoji, new Date()) } : current));
+    try {
+      await setCommentReaction({ groupId: id, ideaId, commentId, userId, emoji });
+      await load();
+      notifyRef.current();
+    } catch (e) {
+      // Back to what was there, with why it could not be saved.
+      setThread((current) => (current ? { ...current, reactions: before } : current));
+      setError(e instanceof Error ? e.message : 'Could not save your reaction.');
+    }
+  };
+  // Pressing and holding a comment brings up the emoji to react with.
+  const held = (commentId: string) => {
+    afterHold();
+    setPicking(commentId);
+  };
+  // Tapping a comment twice, quickly, leaves a heart on it. It never takes one away.
+  const tapped = (commentId: string) => {
+    const tap = { commentId, at: Date.now() };
+    const twice = isDoubleTap(lastTap.current, tap);
+    lastTap.current = twice ? null : tap;
+    if (!twice) return;
+    const mine = thread?.reactions.find((r) => r.comment_id === commentId && r.user_id === userId)?.emoji;
+    if (mine !== DOUBLE_TAP_EMOJI) void react(commentId, DOUBLE_TAP_EMOJI);
+  };
+
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/group/${id}` as never));
 
   if (thread === undefined) return <Loading />;
@@ -136,8 +193,13 @@ export default function IdeaComments() {
     );
   }
 
-  const { idea, members, lists, comments } = thread;
+  const { idea, members, lists, comments, reactions } = thread;
   const who = (uid: string) => members.find((m) => m.user_id === uid);
+  const gathered = summarize(reactions, userId);
+  // The sheets are only for a comment that is still here.
+  const pickingFor = picking ? (comments.find((c) => c.id === picking) ?? null) : null;
+  const lookingAt = looking && gathered[looking] && comments.some((c) => c.id === looking) ? looking : null;
+  const sayer = (comment: Comment) => (comment.user_id === userId ? 'your' : `${who(comment.user_id)?.name ?? 'this'}${who(comment.user_id) ? "'s" : ''}`);
   const shown = cardPicture(idea);
   const picture = shown && broken !== shown ? shown : null;
   // Who to credit, when the picture is a photo found by search.
@@ -150,6 +212,7 @@ export default function IdeaComments() {
   const link = idea.link;
 
   return (
+    <View style={{ flex: 1 }}>
     <Screen
       footer={
         <>
@@ -213,10 +276,13 @@ export default function IdeaComments() {
       {comments.map((comment) => {
         const author = who(comment.user_id);
         const mine = comment.user_id === userId;
-        return (
-          <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-            <Avatar name={author?.name ?? '?'} color={author?.color ?? colors.line} photo={author?.photo} />
-            <Card style={{ flex: 1, gap: 4, backgroundColor: mine ? colors.today : colors.card }}>
+        const summary = gathered[comment.id];
+        // The comment, and under its bottom edge the two pills that hang off it: the small face to
+        // react with on the left, and the reactions it has on the right. The room they hang into
+        // is part of the comment, so that all of each pill can be tapped on a phone.
+        const whole = (
+          <>
+            <Card style={{ gap: 4, paddingBottom: mine ? 12 : 20, backgroundColor: mine ? colors.today : colors.card }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <T size={14} weight="extra" lines={1} style={{ flexShrink: 1 }}>
                   {mine ? 'You' : (author?.name ?? 'Someone who left')}
@@ -228,13 +294,67 @@ export default function IdeaComments() {
               <T size={15} weight="medium">
                 {comment.body}
               </T>
-              {mine ? (
-                <Button label="Remove" kind="ghost" small onPress={() => remove(comment)} style={{ alignSelf: 'flex-start', height: 32, paddingHorizontal: 0 }} />
-              ) : null}
+              {mine ? <Button label="Remove" kind="ghost" small onPress={() => remove(comment)} style={{ height: 32, paddingHorizontal: 0, alignSelf: 'flex-start' }} /> : null}
             </Card>
+            <View style={{ position: 'absolute', left: 12, bottom: 0 }}>
+              <AddReaction label={`React to ${sayer(comment)} comment`} onPress={() => setPicking(comment.id)} />
+            </View>
+            {summary ? (
+              <View style={{ position: 'absolute', right: 12, bottom: 0 }}>
+                <ReactionCluster summary={summary} onPress={() => setLooking(comment.id)} />
+              </View>
+            ) : null}
+          </>
+        );
+        return (
+          <View key={comment.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: -4 }}>
+            <Avatar name={author?.name ?? '?'} color={author?.color ?? colors.line} photo={author?.photo} />
+            {FINGER ? (
+              // With a finger, pressing and holding anywhere on the comment brings up the emoji, and tapping it twice leaves a heart.
+              <Pressable
+                accessible={false}
+                focusable={false}
+                tabIndex={-1}
+                delayLongPress={HOLD_WAIT}
+                onLongPress={() => held(comment.id)}
+                onPress={() => tapped(comment.id)}
+                style={[{ flex: 1, paddingBottom: CLUSTER_HANGS }, TOUCH_WEB ? ({ userSelect: 'none', WebkitTouchCallout: 'none' } as object) : null]}>
+                {whole}
+              </Pressable>
+            ) : (
+              <View style={{ flex: 1, paddingBottom: CLUSTER_HANGS }}>{whole}</View>
+            )}
           </View>
         );
       })}
     </Screen>
+      {pickingFor ? (
+        <Sheet title={`React to ${sayer(pickingFor)} comment`} onClose={() => setPicking(null)}>
+          <ReactionPicker
+            mine={gathered[pickingFor.id]?.mine ?? null}
+            onPick={(emoji) => {
+              const comment = pickingFor.id;
+              setPicking(null);
+              void react(comment, nextReaction(gathered[comment]?.mine ?? null, emoji));
+            }}
+          />
+        </Sheet>
+      ) : null}
+      {lookingAt ? (
+        <Sheet title="Reactions" onClose={() => setLooking(null)}>
+          <ReactionPeople
+            people={gathered[lookingAt].people.map((person) => {
+              const member = who(person.userId);
+              return { id: person.userId, name: member?.name ?? 'Someone who left', color: member?.color ?? colors.line, photo: member?.photo, emoji: person.emoji, me: person.userId === userId };
+            })}
+            onRemoveMine={() => {
+              const comment = lookingAt;
+              setLooking(null);
+              void react(comment, null);
+            }}
+          />
+        </Sheet>
+      ) : null}
+    </View>
   );
 }

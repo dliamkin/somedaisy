@@ -56,6 +56,27 @@ export function BackIcon({ color }: { color?: string }) {
   );
 }
 
+/** A caret pointing right: the sign that a row or a pill opens something. The back arrow, turned round. */
+export function ForwardIcon({ color, size = 12 }: { color?: string; size?: number }) {
+  const { colors } = useTheme();
+  return (
+    // Kept at its size in a row that has run out of room: on the web a drawing would otherwise be squeezed.
+    <Svg width={size} height={size} viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
+      <Path d="M7.5 4l6 6-6 6" fill="none" stroke={color ?? colors.text} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** An arrow pointing right, between where something is and where it is going. */
+export function ArrowIcon({ color, size = 12 }: { color?: string; size?: number }) {
+  const { colors } = useTheme();
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
+      <Path d="M3.5 10h13M11 4.5l5.5 5.5-5.5 5.5" fill="none" stroke={color ?? colors.text} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 /** An X, for closing a page that was opened to do one thing. */
 export function CloseIcon({ color }: { color?: string }) {
   const { colors } = useTheme();

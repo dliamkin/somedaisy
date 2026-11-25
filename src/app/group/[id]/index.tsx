@@ -4,17 +4,17 @@ import { AppState, View } from 'react-native';
 
 import { ActionIcon } from '@/components/action-icons';
 import { AvatarStack } from '@/components/avatar-stack';
-import { ComingUpCard, ComingUpHeading, ComingUpRow, PlanSheet } from '@/components/coming-up';
+import { ComingUp, ComingUpCard, ComingUpRow, PlanSheet } from '@/components/coming-up';
 import { DidItCard } from '@/components/did-it-card';
-import { CoverPage } from '@/components/cover-page';
+import { CoverPage, SeamPill } from '@/components/cover-page';
 import { Daisy } from '@/components/daisy';
 import { IdeaCard } from '@/components/idea-card';
-import { EveryonesIn, NewTitle, RankLine, YouDidIt } from '@/components/together';
+import { EveryonesIn, NewTitle, RankStrip, YouDidIt } from '@/components/together';
 import { SlideIn } from '@/components/celebrate';
 import { ListStrip } from '@/components/list-strip';
 import { ListIcon } from '@/components/list-tile';
 import { Sheet, SheetRow } from '@/components/sheet';
-import { Button, Card, CircleButton, ErrorNote, Loading, Screen, SearchBox, SHOW_AT_ONCE, ShowMore, T } from '@/components/ui';
+import { Button, Card, ErrorNote, Loading, Screen, SearchBox, SHOW_AT_ONCE, ShowMore, T } from '@/components/ui';
 import { everyoneIn, fetchGroup, markDone, newlyAllIn, onLateChange, setReaction, takeChanged, takeListToOpen, type GroupData, type Idea } from '@/lib/data';
 import { useCoverPhotos } from '@/lib/cover-addresses';
 import { coverOf } from '@/lib/covers';
@@ -356,6 +356,8 @@ export default function GroupScreen() {
             </T>
           </View>
         )}
+        // The same ideas as a garden, on the line where the panel meets the cover. Only once there is something that could grow in it.
+        seam={group.ideas.length > 0 ? <SeamPill label="Garden" says="Garden view" icon="tulip" onPress={() => go('garden')} /> : undefined}
         footer={
           group.lists.length > 0 ? (
             // "Pick for us" appears once there is something to choose between. Adding is the main thing, so its button is the wider one.
@@ -380,53 +382,39 @@ export default function GroupScreen() {
             <Button label="Invite" small onPress={() => go('invite')} />
           </Card>
         ) : null}
-        {/* The group's rank, which opens its stamps, and its two other pages as round buttons beside it,
-            kept at the top so nobody has to scroll past every idea to reach them. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {group.points !== null ? <RankLine points={group.points} onPress={() => go('stamps')} /> : <View style={{ flex: 1 }} />}
-          {/* The same ideas as a garden. Only once there is something that could grow in it. */}
-          {group.ideas.length > 0 ? (
-            <CircleButton label="Garden view" onPress={() => go('garden')}>
-              <ListIcon name="tulip" size={22} color={colors.link} />
-            </CircleButton>
-          ) : null}
-          <CircleButton label="Calendar" onPress={() => go('calendar')}>
-            <ListIcon name="calendar" size={22} color={colors.link} />
-          </CircleButton>
-          <CircleButton label="Things we did" onPress={() => go('done')}>
-            <ListIcon name="trophy" size={22} color={colors.link} />
-          </CircleButton>
-        </View>
+        {/* The group's rank across the page, kept at the top so nobody has to scroll past every idea to
+            reach it. The whole strip opens the things the group did, which is where its stamps are. */}
+        <RankStrip points={group.points} onPress={() => go('done')} />
         <ErrorNote message={error} />
 
-        {/* Every plan that is coming up. One plan is a card with its buttons on it. More than one go in a
-            row that slides sideways, and tapping one opens it. With none, there is nothing here at all. */}
-        {plans.length > 0 ? (
-          <View style={{ gap: 10 }}>
-            <ComingUpHeading count={plans.length} onSeeAll={() => go('calendar')} />
-            {plans.length === 1 ? (
-              <ComingUpCard
-                title={plans[0].title}
-                plannedFor={plans[0].planned_for}
-                now={now}
-                confirming={confirmDone === plans[0].id}
-                onAskDone={() => setConfirmDone(plans[0].id)}
-                onDone={() => void finish(plans[0])}
-                onNotYet={() => setConfirmDone(null)}
-                onChangeDate={() => openPlan(plans[0])}
-              />
-            ) : (
-              <ComingUpRow
-                plans={plans}
-                now={now}
-                onOpen={(plan) => {
-                  setConfirmDone(null);
-                  setPlanOpen(plan.id);
-                }}
-              />
-            )}
-          </View>
-        ) : null}
+        {/* Every plan that is coming up, under a heading with the way to the calendar. One plan is a card
+            with its buttons on it, and tapping the rest of it opens the idea's own page. More than one go
+            in a row that slides sideways: tapping one brings up its buttons, and from there its page.
+            With none, only the heading is here. */}
+        <ComingUp count={plans.length} onCalendar={() => go('calendar')}>
+          {plans.length === 0 ? null : plans.length === 1 ? (
+            <ComingUpCard
+              title={plans[0].title}
+              plannedFor={plans[0].planned_for}
+              now={now}
+              confirming={confirmDone === plans[0].id}
+              onAskDone={() => setConfirmDone(plans[0].id)}
+              onDone={() => void finish(plans[0])}
+              onNotYet={() => setConfirmDone(null)}
+              onChangeDate={() => openPlan(plans[0])}
+              onOpen={() => openComments(plans[0])}
+            />
+          ) : (
+            <ComingUpRow
+              plans={plans}
+              now={now}
+              onOpen={(plan) => {
+                setConfirmDone(null);
+                setPlanOpen(plan.id);
+              }}
+            />
+          )}
+        </ComingUp>
 
         {/* Something the group did that this person has not said whether they would do again. It comes
             after what is coming up, which is the more pressing, and can be put off until the next visit. */}
@@ -568,6 +556,10 @@ export default function GroupScreen() {
           onChangeDate={() => {
             closePlan();
             openPlan(planShown);
+          }}
+          onOpen={() => {
+            closePlan();
+            openComments(planShown);
           }}
         />
       ) : null}

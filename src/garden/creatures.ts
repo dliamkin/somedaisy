@@ -32,8 +32,6 @@ type Yard = {
   flowers: Map<string, Bloom>;
   /** The flower that is chosen, if one is. */
   selected: () => string | null;
-  /** The bee has reached the flower it was sent to. */
-  onPickArrive: (id: string) => void;
   /** The watering can has poured on a flower. */
   onWatered: (id: string) => void;
   /** A visiting friend's butterfly has landed on a flower. `who` is whatever the visit was started with. */
@@ -65,11 +63,12 @@ export function buildCreatures(kit: Kit, yard: Yard) {
   /**
    * A burst of petals from a spot, in a colour, with a daisy-yellow one among every four.
    * `soft` is for a leaf or a petal let go by a tree: it drifts sideways and comes down slowly.
+   * `plain` leaves the yellow ones out, for drops of water, sparks and snow.
    */
-  function burst(from: THREE.Vector3, color: string, count = 16, soft = false) {
+  function burst(from: THREE.Vector3, color: string, count = 16, soft = false, plain = false) {
     for (let i = 0; i < count; i++) {
       const p = petals[nextPetal++ % petals.length];
-      p.paint.color.set(i % 4 === 3 ? PAINT.center : color);
+      p.paint.color.set(!plain && i % 4 === 3 ? PAINT.center : color);
       p.m.position.copy(from);
       if (soft) {
         p.v.set(chance(0.6, 1.4), chance(-0.2, 0.2), chance(0.2, 0.8));
@@ -383,7 +382,8 @@ export function buildCreatures(kit: Kit, yard: Yard) {
     }
   }
 
-  // The bee, which "Pick for us" sends in from the front left to circle one flower.
+  // The bee, which "Pick for us" sends in from the front left to circle one flower. The flower is
+  // the picked one from the moment the bee is sent, so nobody waits on its flight to see the choice.
   const bee = (() => {
     const g = new THREE.Group();
     add(g, mesh(ball, lambert(PAINT.center))).scale.set(0.09, 0.08, 0.13);
@@ -405,16 +405,19 @@ export function buildCreatures(kit: Kit, yard: Yard) {
     scene.add(g);
     return { g, wings, mode: 'off' as 'off' | 'in' | 'hover' | 'out', at: new THREE.Vector3(), was: new THREE.Vector3(), v: new THREE.Vector3(), flower: null as string | null, t: 0, angle: 0, yaw: 0 };
   })();
-  /** The flower the bee is circling right now, which pulses its ring and shows its name. */
+  /** The flower the bee was sent to, which pulses its ring and shows its name until the bee leaves. */
   let picked: string | null = null;
 
   function sendBee(id: string) {
+    const on = yard.flowers.get(id);
     bee.flower = id;
     bee.mode = 'in';
-    bee.at.set(-3.2, 3.6, 5.5);
-    bee.v.set(1.5, 0, -1.5);
+    // It comes in from just up and to the front left of the flower, already at speed, and is there in well under a second.
+    if (on) bee.at.copy(on.headAt).add(v1.set(-2.1, 1.5, 2.2));
+    else bee.at.set(-3.2, 3.6, 5.5);
+    bee.v.set(2.6, -1.8, -2.7);
     bee.g.visible = true;
-    picked = null;
+    picked = id;
   }
   function moveBee(dt: number, t: number) {
     if (bee.mode === 'off') return;
@@ -436,12 +439,10 @@ export function buildCreatures(kit: Kit, yard: Yard) {
         v2.copy(on.headAt);
         v2.x += 0.45;
         v2.y += 0.25;
-        if (steer(v2, 3.4) < 0.14) {
+        if (steer(v2, 5.5) < 0.14) {
           bee.mode = 'hover';
           bee.t = 0;
           bee.angle = 0;
-          picked = on.id;
-          yard.onPickArrive(on.id);
         }
       }
     } else if (bee.mode === 'hover') {

@@ -94,8 +94,6 @@ type Props = {
   onSelect: (id: string | null) => Promise<void>;
   /** A finished flower has landed in the house. */
   onLanded: (id: string) => Promise<void>;
-  /** The bee has reached the flower it was sent to. */
-  onPickArrive: (id: string) => Promise<void>;
   /** The door was tapped. */
   onDoor: () => Promise<void>;
   /** The camera has arrived inside the house (true), or is back at the doorway (false). */
@@ -248,7 +246,8 @@ export default function GardenView(props: Props) {
             // If marking it as done did not go through, the idea is still on the list: plant it again.
             setTimeout(() => garden.current?.setFlowers(latest.current.flowers), 0);
           },
-          onPickArrive: (id) => void latest.current.onPickArrive(id),
+          // The noise of a tree, the chimney, a lamp or the like being tapped. It is made here, with no word to the screen.
+          onToy: (effect, detail) => sound.current?.effect(effect, detail),
           onDoor: () => void latest.current.onDoor(),
           onInside: (inside) => void latest.current.onInside(inside),
           onWall: (index) => void latest.current.onWall(index),

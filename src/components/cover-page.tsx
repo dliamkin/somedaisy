@@ -1,16 +1,18 @@
 import { useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isDark, type Cover as CoverData } from '@/lib/covers';
+import type { IconName } from '@/lib/looks';
 import { searchedPhoto } from '@/lib/photo-search';
 import { useTheme } from '@/lib/theme';
 
 import { Cover, COVER } from './cover';
 import { CoverCredit } from './cover-credit';
-import { BackIcon } from './daisy';
+import { BackIcon, ForwardIcon } from './daisy';
+import { ListIcon } from './list-tile';
 import { CircleButton, FooterBand, GUTTER, T, TypingContext, useKeepInView } from './ui';
 
 // How far the panel under the cover rides up over it, and how round its top corners are.
@@ -18,6 +20,13 @@ const OVERLAP = 28;
 const CORNER = 30;
 // How tall the small bar that stays at the top is, under the clock and battery.
 const BAR = 56;
+// What hangs on the seam between the cover and the panel (see `SeamPill`): how tall it is, how much
+// of it sits on the cover, how wide it is taken to be until it has been measured, and the room
+// kept between it and the photo's credit, which it would otherwise cover the end of.
+const SEAM = 44;
+const SEAM_ON_COVER = 18;
+const SEAM_GUESS = 120;
+const SEAM_CLEAR = 12;
 
 /** A round button over the cover. `icon` is given the colour to draw in. */
 export type CoverAction = { label: string; icon: (color: string) => ReactNode; onPress: () => void };
@@ -29,7 +38,8 @@ export type CoverAction = { label: string; icon: (color: string) => ReactNode; o
  * back, the group's name and the same buttons stays at the top.
  *
  * `under` goes below the name on the cover (see `Cover`). `footer` is pinned to the bottom of the
- * screen on a band of flowers.
+ * screen on a band of flowers. `seam` hangs at the right on the line where the panel meets the
+ * cover, drawn over both.
  *
  * A box on the page that is being typed in is kept above the keyboard, as on every other page
  * (see `useKeepInView`), and clear of the small bar. Sliding the page puts the keyboard away,
@@ -43,6 +53,7 @@ export function CoverPage({
   onBack,
   actions,
   under,
+  seam,
   footer,
   children,
 }: {
@@ -53,6 +64,7 @@ export function CoverPage({
   onBack: () => void;
   actions: CoverAction[];
   under?: ReactNode | ((ink: string) => ReactNode);
+  seam?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
 }) {
@@ -60,6 +72,7 @@ export function CoverPage({
   const insets = useSafeAreaInsets();
   // Whether the cover has scrolled out from under the top of the screen.
   const [gone, setGone] = useState(false);
+  const [seamWide, setSeamWide] = useState(SEAM_GUESS);
   // The clock and battery follow the cover only while this page is the one on show: a page opened
   // over this one keeps this one alive underneath.
   const [onShow, setOnShow] = useState(false);
@@ -116,6 +129,16 @@ export function CoverPage({
             }>
             {under}
           </Cover>
+          {/* Placed from the top of the page and not hung off the panel, so all of it is inside what holds it
+              and can be tapped on Android. It comes before the panel, so a keyboard and a screen reader
+              reach it before what is on the panel, and is lifted to be drawn over the panel. */}
+          {seam ? (
+            <View
+              onLayout={(event) => setSeamWide(Math.round(event.nativeEvent.layout.width))}
+              style={{ position: 'absolute', zIndex: 1, top: COVER.page.height + insets.top - OVERLAP - SEAM_ON_COVER, right: GUTTER + insets.right }}>
+              {seam}
+            </View>
+          ) : null}
           <View
             style={{
               flexGrow: 1,
@@ -130,7 +153,10 @@ export function CoverPage({
               gap: 18,
             }}>
             {/* Who took the photo, straight under it, when the cover is one found by search. */}
-            {searchedPhoto(cover) ? <CoverCredit cover={cover} size={11} style={{ marginTop: -6, marginBottom: -8 }} /> : null}
+            {/* With something on the seam, the credit keeps to one line and stops short of it. */}
+            {searchedPhoto(cover) ? (
+              <CoverCredit cover={cover} size={11} lines={seam ? 1 : undefined} style={{ marginTop: -6, marginBottom: -8, marginRight: seam ? seamWide + SEAM_CLEAR : 0 }} />
+            ) : null}
             {children}
           </View>
         </ScrollView>
@@ -169,5 +195,29 @@ export function CoverPage({
         {footer ? <FooterBand>{footer}</FooterBand> : null}
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+/**
+ * A named pill for the seam of a `CoverPage`: an icon, a word and a caret. White in every mode,
+ * like the round buttons at the top of the cover, since part of it sits on the cover.
+ */
+export function SeamPill({ label, says, icon, onPress }: { label: string; /** What a screen reader says, when the word alone is not enough. */ says?: string; icon: IconName; onPress: () => void }) {
+  const { colors, shadow } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={says ?? label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        { height: SEAM, borderRadius: SEAM / 2, paddingLeft: 12, paddingRight: 13, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white, opacity: pressed ? 0.85 : 1 },
+        shadow,
+      ]}>
+      <ListIcon name={icon} size={19} color={colors.logoTile} />
+      <T size={14} weight="extra" color={colors.ink}>
+        {label}
+      </T>
+      <ForwardIcon color={colors.ink} />
+    </Pressable>
   );
 }

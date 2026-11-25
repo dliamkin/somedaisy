@@ -12,7 +12,8 @@ Phase 2 so far: plans. Any idea can be given a day and a time of day, planned id
 And accounts: a guest can add an email, or continue with Google on the website, to keep their groups and sign in on other devices.
 And push notifications on phones, kept deliberately few: a reaction to or comment on an idea you
 added, and a reminder before a plan. Each person can switch any of them off.
-And comments: every idea has a conversation any member of the group can add to.
+And comments: every idea has a conversation any member of the group can add to, and a comment can
+be reacted to with an emoji.
 
 ## First-time setup
 
@@ -621,12 +622,32 @@ The design is `docs/REDESIGN-HOME-AND-GROUP-2.md`, sections 3 to 5. The page is 
   and light over a dark one. The cover scrolls away with the page. Once it has gone, a small bar
   with the way back, the name and the same buttons stays at the top.
 - **A panel** in the page's colour that rides up over the bottom of the cover and holds the rest.
-- **The rank line**, which opens the stamps, with the garden (see "The garden" below), Calendar and
-  "Things we did" beside it. The garden's button is there once the group has an idea.
-- **Coming up** (`src/components/coming-up.tsx`). One plan is a card with its buttons on it. More
-  than one go in a row that slides sideways, and tapping one opens it on a sheet that slides up
-  (`src/components/sheet.tsx`), which is where "Change date", "Did it early" and "We did it!" are
-  then. With no plans the whole block is left out.
+- **The top of the panel** follows the handoff in `design_handoff_group_header_1d/`. It took the
+  place of a narrower rank bar with three round buttons beside it (garden, Calendar, "Things we
+  did"), which were small and did not say what they were for.
+  - **The Garden pill**, white, at the right on the line where the panel meets the cover (see
+    "The garden" below). It is there once the group has an idea. The credit for a cover photo
+    keeps to one line and stops short of it.
+  - **The rank strip** (`RankStrip` in `src/components/together.tsx`), the full width of the page:
+    "Grow your group's petals!", then the rank the group holds, an arrow and the next rank, with
+    the points to go and a caret at the right, and a thin bar under them that ends in a dashed
+    ring for the next rank. The whole strip is one button and opens "Things we did", which shows
+    the rank and leads on to the stamps and the ladder of ranks. The handoff calls for it to
+    open what the trophy button opened, and that was "Things we did". When a name is too long
+    for the row, the next rank's name is the one cut short. At the top rank there is no arrow,
+    next name or ring, and the bar is full. A group with no points yet set up in the database
+    gets one plain row, "Things we did".
+  - **The daisy on the cover** spins once when tapped and leads nowhere. A tap while it turns
+    adds a turn. It stands still for people who have asked for less motion, and a keyboard and
+    a screen reader pass it by. Its taps are counted for a surprise that may come later; nothing
+    reads the count yet.
+- **Coming up** (`src/components/coming-up.tsx`), with the Calendar pill at the right of its
+  heading. One plan is a card with its buttons on it. More than one go in a row that slides
+  sideways, and tapping one opens it on a sheet that slides up (`src/components/sheet.tsx`), which
+  is where "Change date", "Did it early" and "We did it!" are then. With no plans the heading
+  reads "Nothing coming up" and the Calendar pill stays, since the calendar also shows what the
+  group has done. That case is not in the handoff: without it there would be no way to the
+  calendar.
 - **The row of lists** (see below).
 - **The ideas** (`src/components/idea-card.tsx`). An idea with a picture gets a picture card: the
   picture across the top, the name in white over its darkened foot, and small labels for its list,
@@ -665,6 +686,53 @@ comes back into view. No form opens the keyboard by itself, so the whole form is
 row of chips for up to six lists. With more, the form shows only the chosen list, and tapping it
 opens every list in order of name, with the same box to find one by name.
 
+### Reactions on comments
+
+On an idea's page (`src/app/group/[id]/comments.tsx`), a comment can be reacted to with an emoji.
+
+- **The small face with a plus** opens the emoji. It is a pill that hangs off the bottom left
+  corner of every comment, half on it and half below, on phones and on computers.
+- **Press and hold a comment** with a finger to do the same. It takes a quarter of a second
+  (`HOLD_MS`), which is longer than a tap and shorter than a phone's own press and hold.
+- **Tap a comment twice, quickly,** with a finger to leave a heart (`DOUBLE_TAP_EMOJI`, and
+  `DOUBLE_TAP_MS` for how quickly). It changes another reaction of yours to a heart, and never
+  takes a heart away.
+- **A person has one reaction to a comment at a time.** Tapping another emoji changes it, and
+  tapping the same one again takes it away. You can react to your own comment.
+- **A comment's reactions are gathered in a pill at its bottom right corner**: the three emoji
+  used most, each overlapping the last, then how many people reacted. The number is in the link
+  colour when you are one of them. Tapping it lists who reacted and with what, and yours can be
+  taken away from there.
+- The emoji offered are the ones under "+ emoji" on an idea, with a thumbs up, a heart, a laugh,
+  a wow and a tear first (`COMMENT_REACTIONS` in `src/lib/theme.ts`). There is no thumbs down.
+- Reactions show for everyone looking at the comments as they happen (see "Live updates").
+  Nobody is sent a notification about one.
+
+It needs `supabase/updates/026-comment-reactions.sql`, which needs update 003 (comments) first.
+Without it the comments still open, with no reactions on them, and trying to react says which
+update is missing. The rules are in `src/lib/comment-reactions.ts` and what is drawn is in
+`src/components/comment-reactions.tsx`.
+
+Holding and tapping twice are for a finger: the phone app, and a browser on a phone or a tablet.
+With a mouse they are left alone, so that a comment's words can be selected and copied, and the
+small face is the way to react.
+
+Three things about a phone's browser, where the same finger also means something to the browser:
+
+- The words of a comment cannot be selected, because holding a finger on them is for reacting.
+- The browser has its own, slower, press and hold, which selects the word under the finger and
+  offers to copy or look it up. By then the emoji have come up under the finger, so it used to
+  select a word of their heading. From the hold until the finger lifts, `afterHold` makes nothing
+  on the page selectable and turns the browser's menu down.
+- Lifting the finger is followed by a click on whatever is under it by then, which would shut the
+  emoji that had just opened. `afterHold` lets that one click go by.
+
+The room the two pills hang into is part of the comment (it is padding, not a gap), because an
+Android phone does not pass on a tap that lands outside the box a button is in.
+
+A guest who moves to an account keeps their comments but not their reactions to other people's
+comments.
+
 ### Reaction emoji
 
 The emoji under "+ emoji" are drawn from pictures kept in the app (`assets/emoji`, one 72 by 72
@@ -674,7 +742,7 @@ Emoji, used under the Apache licence, which is kept beside them in `assets/emoji
 `src/lib/emoji-pictures.ts` maps each emoji to its picture and `src/components/emoji.tsx` shows
 one. The emoji itself is still what is stored and what a notification says. To offer a new one,
 add it to `MORE_REACTIONS` in `src/lib/theme.ts` and add its picture: a test fails if one is
-missing.
+missing. The thumbs up and the tear offered on a comment have pictures from the same set.
 
 On a list that is just a list, the thumbs, the emoji people have used and the icon that adds one
 all sit on the one line with the comment, share and edit icons. They run on to a second line only
@@ -742,7 +810,7 @@ tags chosen on the forms are simply not kept.
 
 ### The garden
 
-Another way to look at a group's ideas, reached from the round tulip button on the group's page.
+Another way to look at a group's ideas, reached from the Garden pill on the group's page.
 Instead of a list, the group sees a little house on a hilltop, and every idea is a daisy in the
 yard. It sits beside the list and replaces nothing: the arrow at the top goes back to the list.
 The design came in three handoffs, `design_handoff_garden_a/`, `design_handoff_garden_a_v2/` and
@@ -761,10 +829,12 @@ How to read a flower:
 - **The daisy in the sky** is the group's rank: one petal filled in for each rank reached.
 
 Tapping a flower moves the camera in on it and opens a sheet with who has answered and what can be
-done next: "I'm in" and "Eh" until everyone is in, then "Plan it", then "We did it!". "We did it!"
-sends the flower into the house, and the usual "You did it" screen follows, where a mistaken tap
-can be undone. "Pick for us" sends a bee to choose a flower, and "Add an idea" opens the usual
-form: the new idea comes up as a bud in the front row.
+done next: "I'm in" and "Eh" until everyone is in, then "Plan it", then "We did it!". Tapping the
+sheet anywhere else opens the idea's own page, with its picture, details and comments. "We did
+it!" sends the flower into the house, and the usual "You did it" screen follows, where a mistaken
+tap can be undone. "Pick for us" chooses a flower: its ring pulses and "How about ...?" shows at
+once, and a bee flies in to circle it. "Add an idea" opens the usual form: the new idea comes up
+as a bud in the front row.
 
 What else is in it:
 
@@ -826,8 +896,28 @@ What else is in it:
   share sheet too, which is where a phone offers to keep a picture: saving straight into the
   phone's photos would mean asking for access to them, and the app does not.
 - **Sounds**, off until someone turns them on in "Our garden", and remembered on that device only:
-  wind, birds by day, crickets at night, and a few notes when things happen. They are made as they
-  play. There are no sound files.
+  wind, birds by day, crickets at night, a few notes when things happen, and the small noises of
+  the things below. They are made as they play. There are no sound files.
+- **Things that answer a tap, for the fun of it.** None of them changes anything about the group
+  or its ideas, and none is kept. In the garden (`src/garden/toys.ts`):
+  - A tree, a conifer or a shrub waves its leaves and lets a few go: blossom in spring, turned
+    leaves in autumn, snow in winter.
+  - A stepping stone starts footprints up the path, one to a stone, and the door opens a crack
+    for whoever made them.
+  - The attic window swings open and a little person waves, wearing one of the members' colours.
+  - The chimney chuffs three big puffs and blows a ring of smoke.
+  - The birdbath splashes, the pond ripples and the fire pit throws sparks, when the group has them.
+  - The daisy in the sky spins once.
+
+  In the house (`src/garden/hallway.ts`):
+  - The table lamp and the wall light each turn through five colours of light and back to their
+    own. The lamps are their own colour again the next time someone comes in.
+  - The top album on the sideboard opens and turns two pages.
+  - The flowers in the vase open into daisies, and shut again on the next tap.
+
+  A flower, the door and a frame come first: these only answer a tap that lands on none of those.
+  While a flower is chosen, "Our garden" is open or a frame is leaned in to, a tap elsewhere puts
+  that away as before. These are the app's own additions, not part of the design handoffs.
 
 What it shows, and what it leaves to the list:
 
@@ -837,7 +927,8 @@ What it shows, and what it leaves to the list:
 - Dark mode is night, with stars, a shooting star now and then, fireflies and a lit window. Light
   mode is day, and dusk from five until nine in the evening.
 - People who have asked their device for less motion get a garden that stands still: nothing
-  sways, the walk into the house is a quick cut, and a friend's vote simply shows.
+  sways, the walk into the house is a quick cut, and a friend's vote simply shows. Of the things
+  that answer a tap, only the lamps (a change of colour) and the vase (open at once) still do.
 - The flowers are also there as a list nobody sees, so a keyboard or a screen reader can reach
   each one and open it. Inside the house the list of finished ideas does that job. The list view
   remains the fuller way to do everything.
@@ -849,7 +940,7 @@ How it is built:
   `house.ts` (what the house gains with rank), `plants.ts` (trees, shrubs, grass, wildflowers),
   `extras.ts` (bench, birdbath, lights, picnic, woodpile, fire pit, pond, snow), `hallway.ts`
   (inside the house), `creatures.ts` (butterflies, the bee, fireflies, the watering can),
-  `sound.ts`, and three files with no drawing in them that the tests cover: `ground.ts`, `plan.ts`
+  `toys.ts` (what answers a tap for the fun of it), `sound.ts`, and three files with no drawing in them that the tests cover: `ground.ts`, `plan.ts`
   and `palette.ts`. Nothing is loaded from an image file except the pictures in the frames. Trees
   and grass are worked out from the same run of made-up numbers every time, so it is always the
   same garden.
@@ -877,7 +968,9 @@ the side panel itself is a review tool, not part of the app.
 Checked against the prototypes in a browser on a computer, where they look alike and the garden
 holds 60 frames a second, in every season and time of day, with 0, 1, 3, 12, 40 and 320 things
 done in the house, with the house at each of its six levels by day, at night and in winter, and
-with all seven extras out. Not yet seen on a phone, and not yet timed on one.
+with all seven extras out. The things that answer a tap were each tapped in a browser on a
+computer. Not yet seen on a phone, and not yet timed on one, and their noises have not been
+listened to: a test browser makes no sound.
 
 ## Run it
 
@@ -907,7 +1000,7 @@ private browser window or on another device.
 | `src/app/group/[id]/edit.tsx` | Change an idea or remove it |
 | `src/app/group/[id]/plan.tsx` | Pick a date for an idea |
 | `src/app/group/[id]/calendar.tsx` | The group's calendar: plans and done things, a month at a time |
-| `src/app/group/[id]/comments.tsx` | An idea's own page: its details, and the conversation about it |
+| `src/app/group/[id]/comments.tsx` | An idea's own page: its details, and the conversation about it, with reactions on each comment |
 | `src/app/group/[id]/done.tsx` | Things we did: the do-again shelf, and done ideas with the do-again question |
 | `src/app/group/[id]/stamps.tsx` | The group's rank, the ladder of ranks, points and stamps |
 | `src/app/group/[id]/pick.tsx` | Pick for us |
@@ -977,3 +1070,11 @@ What a shared link looks like, and what search engines read, is set in `scripts/
 added to the site by `npm run deploy:web`. The picture is `public/og.png` (1200 x 630). The files
 in `public/` (the picture, `manifest.json`, `robots.txt`, `sitemap.xml`, the home-screen icons)
 are published as they are.
+
+The two colours in `public/manifest.json` are the dark mode background, in both modes. Once the
+site is added to an Android home screen, Chrome colours the strip along the bottom of the screen
+from the manifest alone. The page cannot change it while running, as it does the bar along the
+top, and a manifest has no second colour for dark mode. So the strip matches dark mode, and in
+light mode it is a dark strip, with a dark screen for the moment the app starts. An app that is
+already on a home screen gets a changed manifest when Chrome next refreshes it, which can take a
+day or more, or at once when it is removed and added again.

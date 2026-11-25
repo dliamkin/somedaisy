@@ -17,8 +17,19 @@ const SHARE = {
     "Collect ideas for things to do with friends, family or a partner, see who's in, and pick a date. Movies, places, trips and more, for free.",
   image: `${SITE}/og.png`,
   imageAlt: 'The SomeDaisy flower beside the words: Turn someday into a day.',
-  // The colour a phone browser tints its bars with: the app's own background.
+  // The colour a phone browser tints its bars with: the app's own background. The page starts
+  // with the light one, and the app changes it to the dark one in dark mode (paintWebPage in
+  // src/lib/web-page.ts).
   themeColor: '#F6F0FB',
+  // The one colour public/manifest.json names, twice. Once the site is added to an Android home
+  // screen, Chrome fills the strip along the bottom of the screen (behind the gesture handle or
+  // the three buttons) from the manifest, and nothing the page does while running can change it.
+  // A manifest holds one colour, with none for dark mode, so the strip matches one mode only.
+  // The dark background was chosen: a light strip under a dark app glares, and a dark strip under
+  // a light app looks like Android's own black bar. Chrome also shows this colour for the moment
+  // the installed app starts. It has to stay the same as `background` in the dark colours of
+  // src/lib/theme.ts.
+  installedColor: '#171124',
 };
 
 const escape = (text) => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

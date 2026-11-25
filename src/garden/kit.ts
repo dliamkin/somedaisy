@@ -57,6 +57,11 @@ export function makeKit(world: THREE.Scene, quality: Quality) {
    * how far round it the grass lies flat (z), and how far out it is, from 0 to 1 (w).
    */
   const lawnSpots = { value: LAWN_EXTRAS.map((key) => new THREE.Vector4(LAWN_SPOTS[key].at[0], LAWN_SPOTS[key].at[1], LAWN_SPOTS[key].flat, 0)) };
+  /**
+   * Up to four trees or shrubs being shaken by a tap, as the leaves are told them: where each
+   * stands (x, y), how far round it its leaves reach (z), and how hard it is shaking, from 0 to 1 (w).
+   */
+  const shakes = { value: Array.from({ length: 4 }, () => new THREE.Vector4()) };
 
   const lambert = (color: string, more?: THREE.MeshLambertMaterialParameters) => new THREE.MeshLambertMaterial({ color, ...more });
   const basic = (color: string, more?: THREE.MeshBasicMaterialParameters) => new THREE.MeshBasicMaterial({ color, ...more });
@@ -76,6 +81,7 @@ export function makeKit(world: THREE.Scene, quality: Quality) {
     season,
     lawnStyle,
     lawnSpots,
+    shakes,
     /** A flat-coloured material that takes light and shade. Nothing is glossy, so brand colours stay true. */
     lambert,
     /** A material that is its colour whatever the light. */
@@ -123,6 +129,7 @@ export function makeKit(world: THREE.Scene, quality: Quality) {
         shader.uniforms.uSe = season;
         shader.uniforms.uLawn = lawnStyle;
         shader.uniforms.uX = lawnSpots;
+        shader.uniforms.uK = shakes;
         let vertex = shader.vertexShader;
         for (const [from, to] of swaps) vertex = vertex.replace(from, to);
         vertex = vertex.replace(

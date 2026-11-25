@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<style>body{margin:0;background:#f0eee9;font-family:system-ui,sans-serif}a{color:#7A3FD6}a:hover{color:#9547EF}.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}</style>
+</helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Group header 1d: before and after</span></div>
+<p class="dv-next" style="margin:-8px 0 22px;max-width:760px;text-wrap:pretty">Left: the group screen as it ships today. Right: the change to build. Only the strip between the photo and the “Coming up” card changes; the photo, avatars, daisy and event card are crops of the live screen, there for context. Progress and Petals line in Tweaks are review controls.</p>
+<div class="dv-opts">
+
+<div class="dv-opt" id="now">
+<div class="dv-olabel"><span class="dv-oid">Before</span>The screen today</div>
+<div class="dv-card" style="width:360px;border:0;border-radius:20px;background:#171124">
+<div data-ab="now" data-screen-label="Now" style="position:relative;width:360px;font-family:Lexend,sans-serif;color:#F4EDFB;background:#171124">
+<img src="assets/group-top/hero.jpg" alt="" style="display:block;width:360px;height:227px">
+<div style="position:relative;margin-top:-33px;background:#171124;border-radius:30px 30px 0 0;padding:10px 16px 0">
+<div style="font:300 12px/16px Lexend,sans-serif;color:#C4B4D3">Photo by <span style="font-weight:600;color:#CBA8F6;text-decoration:underline">Callum Hill</span> on <span style="font-weight:600;color:#CBA8F6;text-decoration:underline">Unsplash</span></div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:9px">
+<div style="flex:1;min-width:0">
+<div style="font:600 12px/16px Lexend,sans-serif;color:#CBA8F6">Grow your group's petals!</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><span style="font:700 15px/20px Lexend,sans-serif">Weekenders</span><span style="font:400 14px/20px Lexend,sans-serif;color:#C4B4D3">{{ togo }} to go</span></div>
+<div style="height:8px;border-radius:4px;background:#402E5D;margin-top:5px"><div style="width:{{ pct }};min-width:8px;height:8px;border-radius:4px;background:#F771D2"></div></div>
+</div>
+<div style="width:44px;height:44px;flex:none;border-radius:22px;background:#2C2039;box-shadow:0 6px 12px rgba(5,2,12,.35);display:grid;place-items:center"><i class="ph-bold ph-flower-tulip" style="font-size:20px;color:#CBA8F6"></i></div>
+<div style="width:44px;height:44px;flex:none;border-radius:22px;background:#2C2039;box-shadow:0 6px 12px rgba(5,2,12,.35);display:grid;place-items:center"><i class="ph-bold ph-calendar-dots" style="font-size:20px;color:#CBA8F6"></i></div>
+<div style="width:44px;height:44px;flex:none;border-radius:22px;background:#2C2039;box-shadow:0 6px 12px rgba(5,2,12,.35);display:grid;place-items:center"><i class="ph-bold ph-trophy" style="font-size:20px;color:#CBA8F6"></i></div>
+</div>
+<div data-cu="1" style="display:flex;align-items:center;gap:9px;margin-top:24px;height:20px"><span style="font:700 15px/20px Lexend,sans-serif">Coming up</span><span style="width:23px;height:18px;border-radius:9px;background:#402E5D;display:grid;place-items:center;font:600 12px/1 Lexend,sans-serif">1</span><span style="margin-left:auto;font:600 14px/20px Lexend,sans-serif;color:#CBA8F6;text-decoration:underline">See all</span></div>
+<img src="assets/group-top/card.png" alt="" style="display:block;width:360px;height:163px;margin:9px -16px 0">
+</div>
+</div>
+</div>
+<div style="width:360px;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.62);text-wrap:pretty">The bar gets 172 of 328px. Three icon-only buttons take the rest.</div>
+</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>After<span style="margin-left:auto;font:600 11px ui-monospace,Menlo,monospace;color:#1a1a1a">{{ d1d }}</span></div>
+<div class="dv-card" style="width:360px;border:0;border-radius:20px;background:#171124">
+<div data-ab="1d" data-screen-label="1d Put each where it's used" style="position:relative;width:360px;font-family:Lexend,sans-serif;color:#F4EDFB;background:#171124">
+<img src="assets/group-top/hero.jpg" alt="" style="display:block;width:360px;height:227px">
+<div style="position:relative;margin-top:-33px;background:#171124;border-radius:30px 30px 0 0;padding:10px 16px 0">
+<div style="position:absolute;right:16px;top:-18px;height:44px;padding:0 13px 0 12px;border-radius:22px;background:#fff;color:#2C2040;box-shadow:0 6px 12px rgba(5,2,12,.4);display:flex;align-items:center;gap:6px;font:600 14px/1 Lexend,sans-serif"><i class="ph-bold ph-flower-tulip" style="font-size:19px;color:#9547EF"></i>Garden<i class="ph-bold ph-caret-right" style="font-size:12px"></i></div>
+<div style="font:300 12px/16px Lexend,sans-serif;color:#C4B4D3">Photo by <span style="font-weight:600;color:#CBA8F6;text-decoration:underline">Callum Hill</span> on <span style="font-weight:600;color:#CBA8F6;text-decoration:underline">Unsplash</span></div>
+<div style="margin-top:9px;min-height:44px;display:flex;flex-direction:column;justify-content:center">
+<sc-if value="{{ eb1d }}" hint-placeholder-val="{{ true }}"><div style="font:600 12px/16px Lexend,sans-serif;color:#CBA8F6;margin-bottom:4px">Grow your group's petals!</div></sc-if>
+<div style="display:flex;align-items:center;gap:6px;white-space:nowrap"><span style="font:700 15px/20px Lexend,sans-serif">Weekenders</span><i class="ph-bold ph-arrow-right" style="font-size:12px;color:#C4B4D3"></i><span style="font:500 14px/20px Lexend,sans-serif;color:#C4B4D3">Thrill Seekers</span><span style="margin-left:auto;font:400 13px/20px Lexend,sans-serif;color:#C4B4D3">{{ togo }} to go</span><i class="ph-bold ph-caret-right" style="font-size:12px;color:#CBA8F6"></i></div>
+<div style="position:relative;height:8px;border-radius:4px;background:#402E5D;margin-top:5px"><div style="width:{{ pct }};min-width:8px;height:8px;border-radius:4px;background:#F771D2"></div><div style="position:absolute;right:-2px;top:-3px;width:14px;height:14px;box-sizing:border-box;border-radius:7px;border:2px dashed #CBA8F6;background:#171124"></div></div>
+</div>
+<div data-cu="1" style="display:flex;align-items:center;gap:9px;margin-top:24px;height:20px"><span style="font:700 15px/20px Lexend,sans-serif">Coming up</span><span style="width:23px;height:18px;border-radius:9px;background:#402E5D;display:grid;place-items:center;font:600 12px/1 Lexend,sans-serif">1</span><span style="margin-left:auto;height:44px;display:flex;align-items:center"><span style="height:32px;padding:0 12px 0 10px;border-radius:16px;background:#2C2039;box-shadow:0 6px 12px rgba(5,2,12,.35);display:flex;align-items:center;gap:6px;font:600 13px/1 Lexend,sans-serif"><i class="ph-bold ph-calendar-dots" style="font-size:17px;color:#CBA8F6"></i>Calendar</span></span></div>
+<img src="assets/group-top/card.png" alt="" style="display:block;width:360px;height:163px;margin:9px -16px 0">
+</div>
+</div>
+</div>
+<div style="width:360px;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.62);text-wrap:pretty">No button row at all. The bar is the Ranks button, Calendar takes over from “See all”, and Garden hangs off the daisy. Assumes Calendar and “See all” can lead to the same place.</div>
+</div>
+
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;progress&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:8,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Compare&quot;},&quot;petalsLine&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Per design&quot;,&quot;options&quot;:[&quot;Per design&quot;,&quot;Show on all&quot;,&quot;Hide on all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Compare&quot;}}">
+class Component extends DCLogic {
+  state = { m: {} };
+  measure = () => {
+    const m = {};
+    document.querySelectorAll('[data-ab]').forEach(ab => {
+      const cu = ab.querySelector('[data-cu]');
+      if (cu) m[ab.getAttribute('data-ab')] = cu.offsetTop;
+    });
+    const prev = this.state.m;
+    if (Object.keys(m).some(k => m[k] !== prev[k])) this.setState({ m });
+  };
+  componentDidMount() {
+    this.measure();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(this.measure);
+    this._t = setTimeout(this.measure, 900);
+  }
+  componentDidUpdate() { this.measure(); }
+  componentWillUnmount() { clearTimeout(this._t); }
+  renderVals() {
+    const raw = Number(this.props.progress ?? 8);
+    const p = Math.max(0, Math.min(100, isNaN(raw) ? 8 : raw));
+    const mode = this.props.petalsLine ?? 'Per design';
+    const eb = d => mode === 'Show on all' ? true : mode === 'Hide on all' ? false : d;
+    const m = this.state.m, base = m.now;
+    const delta = k => {
+      if (base == null || m[k] == null) return '';
+      const d = Math.round(m[k] - base);
+      return d === 0 ? 'same height as now' : (d > 0 ? '+' + d : '−' + Math.abs(d)) + 'px vs now';
+    };
+    return {
+      pct: p + '%',
+      clipRest: (100 - p) + '%',
+      togo: Math.max(0, Math.round(60 * (1 - p / 100))),
+      rimDash: (p / 100 * 398.4).toFixed(1) + ' 1000',
+      eb1a: eb(false), eb1b: eb(false), eb1c: eb(false), eb1d: eb(true), eb1e: eb(false),
+      d1a: delta('1a'), d1b: delta('1b'), d1c: delta('1c'), d1d: delta('1d'), d1e: delta('1e')
+    };
+  }
+}
+</script>
+</body>
+</html>

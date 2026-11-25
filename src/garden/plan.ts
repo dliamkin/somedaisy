@@ -187,6 +187,40 @@ export const LAWN_SPOTS: Record<LawnExtra, { at: [number, number]; flat: number;
   pond: { at: [2.15, 3.3], flat: 0.36, turn: 0.4 },
 };
 
+// ---------- The things that answer a tap (toys.ts and hallway.ts) ----------
+
+/** How long after one footprint the next one lands on the stone ahead, in seconds. The footsteps are heard at the same pace. */
+export const STEP_EVERY = 0.26;
+/** How long a footprint stays before it starts to fade, and how long the fading takes, in seconds. */
+const PRINT_STAYS = 1.5;
+const PRINT_FADES = 0.8;
+
+/**
+ * How dark the footprint on a stepping stone is, from 0 to 1, `since` seconds after the walk up
+ * the path began. `stone` counts from the front of the garden. Each one lands in turn, stays a
+ * while and fades, so the prints lead up to the door and are gone behind whoever made them.
+ */
+export function printShows(since: number, stone: number): number {
+  const landed = since - stone * STEP_EVERY;
+  if (landed <= 0) return 0;
+  const coming = Math.min(1, landed / 0.08);
+  const going = Math.min(1, Math.max(0, (landed - PRINT_STAYS) / PRINT_FADES));
+  return coming * (1 - going);
+}
+
+/** How long a walk up `stones` stepping stones takes to be over, the last print faded, in seconds. */
+export function walkLasts(stones: number): number {
+  return (stones - 1) * STEP_EVERY + PRINT_STAYS + PRINT_FADES;
+}
+
+/**
+ * The colour a lamp turns to when it is tapped: on through `colours` colours, then back to its own
+ * warm light, which is 0.
+ */
+export function nextLight(now: number, colours: number): number {
+  return (now + 1) % (colours + 1);
+}
+
 /** How many sizes the house comes in: a cottage, and five things added to it as the group's rank rises. */
 export const HOUSE_LEVELS = 6;
 

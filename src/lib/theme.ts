@@ -209,4 +209,8 @@ export const MORE_REACTIONS = [
   '☀️', '🏖️', '⛰️', '🚗', '✈️', '🍕', '🍷', '🎶',
 ];
 export const REACTIONS = ['👍', '👎', ...MORE_REACTIONS];
+// The emoji offered on a comment: the ones people reach for most when answering each other, then
+// the rest of the ones offered on an idea.
+const FIRST_ON_COMMENTS = ['👍', '❤️', '😂', '😮', '😢'];
+export const COMMENT_REACTIONS = [...FIRST_ON_COMMENTS, ...MORE_REACTIONS.filter((emoji) => !FIRST_ON_COMMENTS.includes(emoji))];
 export const STARTER_LISTS = ['Movies', 'Places', 'Food', 'Shows', 'Games', 'Trips', 'Day trips'];
