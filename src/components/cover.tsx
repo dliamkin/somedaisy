@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
-import { useState, type ReactNode } from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { useRef, useState, type ReactNode } from 'react';
+import { Animated, Easing, Platform, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { nameColor, nameSize, patternStrength, shapeStrength, type Cover as CoverData } from '@/lib/covers';
 import { dark } from '@/lib/theme';
 
+import { useReducedMotion } from './celebrate';
 import { RankDaisy } from './daisy';
 import { CoverFlowers } from './flower-outlines';
 import { T } from './ui';
@@ -160,7 +161,10 @@ export function Cover({
         </Svg>
       ) : null}
       <View
-        pointerEvents="none"
+        // On the group's page the daisy can be tapped, for the fun of it. Anywhere else the cover is
+        // a button itself, or a preview, and the daisy is only a picture.
+        pointerEvents={place === 'page' ? 'box-none' : 'none'}
+        aria-hidden
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         style={{
@@ -168,11 +172,12 @@ export function Cover({
           right: layout.daisyRight,
           top: layout.daisyTop === undefined ? (height - layout.daisy) / 2 : layout.daisyTop + inset,
         }}>
-        <RankDaisy earned={earned} size={layout.daisy} />
+        {place === 'page' ? <TurningDaisy earned={earned} size={layout.daisy} /> : <RankDaisy earned={earned} size={layout.daisy} />}
       </View>
       {place === 'page' ? (
         // On the group's page the cover is the top of the screen: the buttons, then the name under them.
-        <View style={{ paddingTop: inset + 20, paddingHorizontal: layout.left }}>
+        // This box lies over the daisy, so taps on the empty parts of it are let through.
+        <View pointerEvents="box-none" style={{ paddingTop: inset + 20, paddingHorizontal: layout.left }}>
           {above}
           <View style={{ marginTop: 20, marginRight: layout.clear - layout.left, gap: 8 }}>
             {title}
@@ -186,6 +191,54 @@ export function Cover({
         </View>
       )}
     </View>
+  );
+}
+
+// One turn of the daisy: how long it takes, and how it slows to a stop. Starting values from the
+// design (`design_handoff_group_header_1d`), to be tuned by feel.
+const TURN_MS = 700;
+const TURN_EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
+// Turning can run off the main thread on phones. The web has no such thing.
+const NATIVE = Platform.OS !== 'web';
+
+/**
+ * The daisy on the group's page, which spins once when tapped. It leads nowhere. A tap while it
+ * is still turning adds another turn to the one under way, and does not start it again. People
+ * who have asked their device for less motion get a daisy that stands still.
+ *
+ * It is left out of what a keyboard and a screen reader step through: it does nothing they could
+ * use. Every tap is counted, turning or not, for a surprise that may be hung on the count later.
+ * Nothing reads the count yet.
+ */
+function TurningDaisy({ earned, size }: { earned: number; size: number }) {
+  const reduced = useReducedMotion();
+  const [turns] = useState(() => new Animated.Value(0));
+  // The turns asked for since the daisy last stood still, and every tap since the page opened.
+  const asked = useRef(0);
+  const taps = useRef(0);
+
+  const tapped = () => {
+    taps.current += 1;
+    // Still until the device has said it is not asking for less motion.
+    if (reduced !== false) return;
+    asked.current += 1;
+    turns.stopAnimation((now) => {
+      const goal = asked.current;
+      Animated.timing(turns, { toValue: goal, duration: TURN_MS * Math.max(0.5, goal - now), easing: TURN_EASE, useNativeDriver: NATIVE }).start(({ finished }) => {
+        // A whole number of turns looks the same as none, so the count starts again from there.
+        if (!finished || asked.current !== goal) return;
+        asked.current = 0;
+        turns.setValue(0);
+      });
+    });
+  };
+
+  return (
+    <Pressable accessible={false} focusable={false} tabIndex={-1} onPress={tapped} style={Platform.OS === 'web' ? ({ cursor: 'default' } as object) : null}>
+      <Animated.View style={{ transform: [{ rotate: turns.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
+        <RankDaisy earned={earned} size={size} />
+      </Animated.View>
+    </Pressable>
   );
 }
 

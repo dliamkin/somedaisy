@@ -16,6 +16,13 @@ import { CONIFERS, FENCE_POSTS, POTS, SHRUBS, TREES } from './plants';
 /** How far back the house stands. */
 export const HOUSE_Z = -5.2;
 
+/** The three hills behind the house, each the top of a ball, as [x, y, z, how big]. */
+export const FAR_HILLS: readonly (readonly [number, number, number, number])[] = [
+  [-13, -19, -34, 14],
+  [12, -23, -38, 17],
+  [2, -27, -46, 20],
+];
+
 /** Gives every point of a shape a shade that depends on how high it is, for the small far-off trees. */
 export function shadeByHeight(shape: THREE.BufferGeometry, at: (y: number) => number): THREE.BufferGeometry {
   const p = shape.attributes.position;
@@ -131,14 +138,9 @@ export function buildLand(kit: Kit) {
   // Three hills behind the house, wooded with small pointed and round trees, fading into the haze.
   const farTreePaint = new THREE.MeshLambertMaterial({ vertexColors: true });
   kit.tinted.push(farTreePaint);
-  const farHills: [number, number, number, number][] = [
-    [-13, -19, -34, 14],
-    [12, -23, -38, 17],
-    [2, -27, -46, 20],
-  ];
   const pointed: [number, number, number, number][] = [];
   const round: [number, number, number, number][] = [];
-  for (const [hx, hy, hz, r] of farHills) {
+  for (const [hx, hy, hz, r] of FAR_HILLS) {
     add(scene, mesh(ball, farHillPaint, hx, hy, hz, false)).scale.setScalar(r);
     for (let i = 0; i < 430; i++) {
       const up = between(0.5, 1);
@@ -354,9 +356,13 @@ export function buildLand(kit: Kit) {
   house.add(mesh(new THREE.BoxGeometry(0.74, 0.04, 0.1), trimPaint, 0.72, 1.05, 1.12));
   house.add(mesh(new THREE.BoxGeometry(0.9, 0.17, 0.22), lambert(PAINT.pot), 0.72, 0.58, 1.2));
   [0.42, 0.62, 0.82, 1.02].forEach((x, i) => add(house, mesh(ball, plantPaint, x, 0.7, 1.22)).scale.setScalar(0.1 + (i % 2) * 0.02));
-  // The round attic window, which finished flowers fly into.
-  const atticPane = mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 28).rotateX(Math.PI / 2), panePaint, 0, 2.3, 1.31, false);
-  top.add(atticPane);
+  // The round attic window, which finished flowers fly into. Its pane hangs on a hinge at its
+  // left edge, so it can swing open (see toys.ts).
+  const atticHinge = new THREE.Group();
+  atticHinge.position.set(-0.3, 2.3, 1.31);
+  top.add(atticHinge);
+  const atticPane = mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 28).rotateX(Math.PI / 2), panePaint, 0.3, 0, 0, false);
+  atticHinge.add(atticPane);
   top.add(mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 32), white, 0, 2.3, 1.33));
   top.add(mesh(new THREE.BoxGeometry(0.42, 0.95, 0.42), lambert(PAINT.chimney, { map: brick }), -0.95, 2.55, -0.2));
   top.add(mesh(new THREE.BoxGeometry(0.54, 0.1, 0.54), white, -0.95, 3.06, -0.2));
@@ -429,6 +435,7 @@ export function buildLand(kit: Kit) {
     skyCenterPaint,
     panePaint,
     atticPane,
+    atticHinge,
     windowLight,
     /** The house's paint, which follows the colours the group chose. The gable follows the roof and the door's face follows the door. */
     wallPaint,

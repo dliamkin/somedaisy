@@ -412,6 +412,9 @@ export type SheetIdea = {
  * The sheet for the flower that was tapped. It slides up over the bottom bar and leaves the garden
  * in view above it, where the camera has moved in on that flower. Null puts it away, and while it
  * slides down it still shows the idea it was last about.
+ *
+ * Tapping the sheet anywhere but on its buttons opens the idea's own page, with its picture, its
+ * details and its comments.
  */
 export function IdeaSheet({
   idea,
@@ -421,6 +424,7 @@ export function IdeaSheet({
   onPlan,
   onDone,
   onWater,
+  onOpen,
   onClose,
 }: {
   idea: SheetIdea | null;
@@ -432,6 +436,8 @@ export function IdeaSheet({
   onPlan: () => void;
   onDone: () => void;
   onWater: () => void;
+  /** Open the idea's own page. */
+  onOpen: () => void;
   onClose: () => void;
 }) {
   const { colors } = useTheme();
@@ -444,13 +450,17 @@ export function IdeaSheet({
   return (
     <SlideSheet open={idea !== null}>
       {about ? (
-        <>
-          <T size={19} weight="black" lines={2}>
-            {about.title}
-          </T>
-          <T size={13} color={colors.textMuted} style={{ marginTop: 2, marginBottom: 12 }}>
-            {about.line}
-          </T>
+        // The whole sheet can be tapped. It is left out of what a keyboard and a screen reader step
+        // through, since a button must not hold other buttons: for them the name is the button.
+        <Pressable accessible={false} focusable={false} tabIndex={-1} onPress={onOpen} style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : null}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${about.title}. ${about.line}. Open this idea`} onPress={onOpen} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+            <T size={19} weight="black" lines={2}>
+              {about.title}
+            </T>
+            <T size={13} color={colors.textMuted} style={{ marginTop: 2, marginBottom: 12 }}>
+              {about.line}
+            </T>
+          </Pressable>
           {about.members ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6, marginBottom: 14 }}>
               {about.members.map((m) => (
@@ -489,7 +499,7 @@ export function IdeaSheet({
             <Pill label="Close" kind="text" onPress={onClose} style={{ marginLeft: 'auto' }} />
             {about.nudge ? <Pill label={`Water to nudge ${about.nudge}`} kind="soft" pad={16} disabled={watering} onPress={onWater} style={{ maxWidth: '100%' }} /> : null}
           </View>
-        </>
+        </Pressable>
       ) : null}
     </SlideSheet>
   );

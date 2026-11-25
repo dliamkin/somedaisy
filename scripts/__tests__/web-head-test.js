@@ -84,10 +84,15 @@ describe('the files the tags point at', () => {
     }
   });
 
-  it('tint the phone browser bars the same in the page and in the home-screen app, so no strip of another colour shows', () => {
+  it('start the page with the light background for a phone browser to tint its bars with', () => {
+    const theme = fs.readFileSync(path.join(root, 'src', 'lib', 'theme.ts'), 'utf8');
+    expect(theme.match(/background: '(#[0-9A-F]{6})'/g)).toEqual([`background: '${SHARE.themeColor}'`, `background: '${SHARE.installedColor}'`]);
+  });
+
+  it('give the home-screen app the dark background for the strip along the bottom of an Android screen, which only the manifest can colour', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'public', 'manifest.json'), 'utf8'));
-    expect(manifest.theme_color).toBe(SHARE.themeColor);
-    expect(manifest.background_color).toBe(SHARE.themeColor);
+    expect(manifest.theme_color).toBe(SHARE.installedColor);
+    expect(manifest.background_color).toBe(SHARE.installedColor);
   });
 
   it('include a sitemap and a robots file that point at the real address', () => {

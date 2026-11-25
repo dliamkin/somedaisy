@@ -102,12 +102,34 @@ const TURN = 6.2832;
 const floats = (values: number[], size: number) => new THREE.Float32BufferAttribute(values, size);
 
 /**
+ * Where one tree, conifer or shrub is, for a tap to find it and for its leaves to be shaken: the
+ * line down the middle of its leaves (a single point for a round one), how far from that line a
+ * tap still counts, where it stands, and how far round that its leaves reach.
+ */
+export type Leafy = {
+  kind: 'tree' | 'conifer' | 'shrub';
+  from: THREE.Vector3;
+  to: THREE.Vector3;
+  near: number;
+  x: number;
+  z: number;
+  reach: number;
+  /** The light green of its leaves, for the ones it lets go of when shaken. */
+  color: string;
+  /** Whether it keeps its leaves in winter. */
+  evergreen: boolean;
+  /** Its place in `SHRUBS`, for a shrub. */
+  shrub?: number;
+};
+
+/**
  * Grows every tree, conifer and shrub, and adds them to the scene as three shapes: the bark, the
  * dark hearts of the clumps, and the leaves. What it hands back puts away the two shrubs right of
- * the house, which make way for the garage, and brings them back.
+ * the house, which make way for the garage, and brings them back, and says where each one is.
  */
-export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => void } {
+export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => void; leafy: Leafy[] } {
   const { rand, between, quality } = kit;
+  const leafy: Leafy[] = [];
   // Everything is gathered into these lists first, then handed over in one go.
   const bark = { at: [] as number[], facing: [] as number[], uv: [] as number[], tint: [] as number[], corners: [] as number[] };
   const leaves = { placed: [] as number[], color: [] as number[], facing: [] as number[], sway: [] as number[] };
@@ -277,6 +299,10 @@ export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => v
     const crown = new THREE.Vector3();
     tips.forEach((t) => crown.add(t));
     crown.multiplyScalar(1 / tips.length);
+    {
+      const wide = Math.max(...tips.map((t) => t.distanceTo(crown))) + spec.clump * S;
+      leafy.push({ kind: 'tree', from: crown.clone(), to: crown.clone(), near: wide * 0.8, x, z, reach: wide * 1.15, color: spec.greens.light, evergreen: false });
+    }
     tips.forEach((t) => clump(t, spec.clump * S * between(0.85, 1.2), spec.leaves, shades, crown, spec.leaf * S, foot));
     mids.forEach((t) => clump(t, spec.clump * S * 0.8, Math.round(spec.leaves * 0.6), shades, crown, spec.leaf * S, foot));
   };
@@ -286,6 +312,7 @@ export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => v
     const foot = groundY(x, z) - 0.08;
     const reach = H * 0.25;
     const tip = between(-0.03, 0.03);
+    leafy.push({ kind: 'conifer', from: new THREE.Vector3(x, foot + H * 0.3, z), to: new THREE.Vector3(x, foot + H * 0.9, z), near: reach * 0.75, x, z, reach: reach * 1.3, color: GREENS.conifer.light, evergreen: true });
     limb(
       [0, 0.5, 1].map((t) => new THREE.Vector3(x + tip * t * H, foot + t * H * 0.96, z)),
       (t) => H * 0.034 * (1 - t) * (1 + 0.6 * Math.exp(-t * 9)) + 0.012,
@@ -352,7 +379,9 @@ export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => v
   TREES.forEach(([x, z, spec]) => tree(x, z, spec));
   CONIFERS.forEach(([x, z, height]) => conifer(x, z, height));
   // Where each shrub's leaves and dark hearts fall in the lists, so that two of them can be put away.
-  const shrubParts = SHRUBS.map(([x, z, r, greens, leafSize]) => {
+  const shrubParts = SHRUBS.map(([x, z, r, greens, leafSize], i) => {
+    const middle = new THREE.Vector3(x, groundY(x, z) + r * 0.5, z);
+    leafy.push({ kind: 'shrub', from: middle, to: middle.clone(), near: r * 1.2, x, z, reach: r * 1.9, color: greens.light, evergreen: true, shrub: i });
     const leafFrom = leaves.placed.length;
     const coreFrom = cores.at.length;
     shrub(x, z, r, greens, leafSize);
@@ -422,7 +451,7 @@ export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => v
   // Leaves sway more the higher they are, and each one flutters, more as a gust passes.
   kit.sway(
     leafPaint,
-    'uniform float uT, uA; attribute vec3 aN; attribute vec3 aS; uniform vec4 uSe;\n',
+    'uniform float uT, uA; attribute vec3 aN; attribute vec3 aS; uniform vec4 uSe; uniform vec4 uK[4];\n',
     [
       // Winter: a leaf that is not evergreen shrinks to nothing.
       ['#include <begin_vertex>', '#include <begin_vertex>\ntransformed *= 1. - uSe.z * (1. - aS.z);'],
@@ -434,7 +463,9 @@ export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => v
       ],
       ['#include <defaultnormal_vertex>', '#include <defaultnormal_vertex>\ntransformedNormal = normalize( normalMatrix * aN + normalize( transformedNormal ) * .3 );'],
     ],
-    'vec3 gR = instanceMatrix[3].xyz; float gW = gWind(gR.xz, uT) * uA;\nmvPosition.x += gW * aS.x; mvPosition.z += gW * aS.x * .4;\nmvPosition.xyz += aN * (sin(uT * 5.3 + dot(gR, vec3(7.1, 5.3, 6.7))) * (.35 + .65 * abs(gW)) * min(uA, 1.) * aS.y * position.y);',
+    // A tree or shrub that has been tapped waves: its leaves swing from side to side, more the
+    // higher they are, and flutter harder, for as long as `uK` says it is shaking.
+    'vec3 gR = instanceMatrix[3].xyz; float gW = gWind(gR.xz, uT) * uA;\nfloat gK = 0.; for (int i = 0; i < 4; i++) gK += uK[i].w * (1. - smoothstep(uK[i].z * .6, uK[i].z, distance(gR.xz, uK[i].xy)));\nmvPosition.x += gW * aS.x + gK * sin(uT * 13. + gR.y * 2.3) * (aS.x * 4. + .05); mvPosition.z += gW * aS.x * .4 + gK * cos(uT * 11. + gR.x * 3.1) * (aS.x * 2. + .03);\nmvPosition.xyz += aN * (sin(uT * 5.3 + dot(gR, vec3(7.1, 5.3, 6.7))) * (.35 + .65 * abs(gW)) * min(uA, 1.) * aS.y * position.y * (1. + 5. * gK));',
   );
   const leafMesh = new THREE.InstancedMesh(leafShape, leafPaint, leaves.placed.length / 16);
   leafMesh.instanceMatrix.array.set(leaves.placed);
@@ -459,6 +490,7 @@ export function buildTrees(kit: Kit): { hideGarageShrubs: (hidden: boolean) => v
   });
   let away = false;
   return {
+    leafy,
     hideGarageShrubs(hidden: boolean) {
       if (hidden === away) return;
       away = hidden;

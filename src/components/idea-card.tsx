@@ -149,7 +149,7 @@ export function IdeaCard({
     // The whole card can be tapped. It is left out of what a keyboard and a screen reader step
     // through, since the row at its foot is the button that says where a tap leads, and a button
     // must not hold other buttons.
-    <Pressable accessible={false} focusable={false} onPress={onComments} style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : null}>
+    <Pressable accessible={false} focusable={false} tabIndex={-1} onPress={onComments} style={Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : null}>
     <Card style={{ padding: 0, gap: 0, borderRadius: RADIUS }}>
       {picture ? (
         // Only the picture is cut to the card's top corners. The rest of the card is left open, so the

@@ -2,8 +2,9 @@
 // browser. Left to the device, each draws its own: Apple's, Google's, Samsung's, Microsoft's.
 //
 // The pictures are Google's Noto Emoji, 72 by 72, in assets/emoji (Apache licence, kept beside
-// them). Each file is named by the emoji's code. A new emoji in MORE_REACTIONS needs its picture
-// added here, or it falls back to the device's own drawing; a test checks none is missing.
+// them). Each file is named by the emoji's code. A new emoji in MORE_REACTIONS, or in
+// COMMENT_REACTIONS, needs its picture added here, or it falls back to the device's own drawing;
+// a test checks none is missing.
 //
 // The emoji itself is still what is stored and what a notification says. Only the drawing changes.
 
@@ -40,4 +41,7 @@ export const EMOJI_PICTURES: Record<string, number> = {
   '🍕': require('../../assets/emoji/1f355.png'),
   '🍷': require('../../assets/emoji/1f377.png'),
   '🎶': require('../../assets/emoji/1f3b6.png'),
+  // Offered on comments only (COMMENT_REACTIONS). On an idea a thumb is a drawn icon, not a picture.
+  '👍': require('../../assets/emoji/1f44d.png'),
+  '😢': require('../../assets/emoji/1f622.png'),
 };

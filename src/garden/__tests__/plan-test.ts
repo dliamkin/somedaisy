@@ -1,7 +1,32 @@
 import { dark, light, LIST_COLORS } from '../../lib/theme';
 import { groundY, HILL_Z, lawn, pathX, seeded, steppingStones, wind } from '../ground';
 import { DAYLIGHT, EXTRAS, HALL, HOUSE_PAINTS, HOUSE_PARTS, PAINT, POSTCARD, SKY, STARS, WILDFLOWERS } from '../palette';
-import { BATH_AT, BED, BENCH_AT, FRAMES, frameScale, freePlace, FRONT, GARAGE_SHRUBS, HOUSE_LEVELS, LAWN_EXTRAS, LAWN_SPOTS, LEAVES, leafSize, MAX_LEAVES, placeOf, SHAPES, SLOTS, stemHeight, variety, WALL } from '../plan';
+import {
+  BATH_AT,
+  BED,
+  BENCH_AT,
+  FRAMES,
+  frameScale,
+  freePlace,
+  FRONT,
+  GARAGE_SHRUBS,
+  HOUSE_LEVELS,
+  LAWN_EXTRAS,
+  LAWN_SPOTS,
+  LEAVES,
+  leafSize,
+  MAX_LEAVES,
+  nextLight,
+  placeOf,
+  printShows,
+  SHAPES,
+  SLOTS,
+  STEP_EVERY,
+  stemHeight,
+  variety,
+  walkLasts,
+  WALL,
+} from '../plan';
 import { SHRUBS } from '../plants';
 
 describe('the ground', () => {
@@ -233,6 +258,36 @@ describe('what the third design added to the yard', () => {
     expect(SKY.night.cloudOpacity).toBe(0.95);
     // Day and dusk are as they were.
     expect([SKY.day.cloudOpacity, SKY.day.wisps, SKY.dusk.cloudOpacity, SKY.dusk.wisps]).toEqual([0.97, 0.5, 0.97, 0.7]);
+  });
+});
+
+describe('the things that answer a tap', () => {
+  it('lands a footprint on each stepping stone in turn, from the front of the garden to the door', () => {
+    expect(printShows(0, 0)).toBe(0);
+    expect(printShows(0.2, 0)).toBe(1);
+    // The next stone has to wait its turn.
+    expect(printShows(0.2, 1)).toBe(0);
+    expect(printShows(STEP_EVERY + 0.2, 1)).toBe(1);
+    expect(printShows(STEP_EVERY * 5, 11)).toBe(0);
+  });
+
+  it('fades each footprint behind whoever made it, and has none left when the walk is over', () => {
+    expect(printShows(1.9, 0)).toBeGreaterThan(0);
+    expect(printShows(1.9, 0)).toBeLessThan(1);
+    expect(printShows(3, 0)).toBe(0);
+    // The last one is still there when the first has gone.
+    expect(printShows(3, 11)).toBe(1);
+    const stones = steppingStones().length;
+    for (let stone = 0; stone < stones; stone++) expect(printShows(walkLasts(stones), stone)).toBeCloseTo(0);
+    expect(printShows(walkLasts(stones) - 0.3, stones - 1)).toBeGreaterThan(0);
+  });
+
+  it('turns a lamp through each colour and back to its own', () => {
+    const seen = [0];
+    for (let i = 0; i < HALL.lights.length + 1; i++) seen.push(nextLight(seen[seen.length - 1], HALL.lights.length));
+    expect(seen).toEqual([0, 1, 2, 3, 4, 5, 0]);
+    expect(new Set(HALL.lights).size).toBe(HALL.lights.length);
+    for (const color of HALL.lights) expect(color).toMatch(/^#[0-9A-F]{6}$/);
   });
 });
 

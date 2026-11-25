@@ -156,6 +156,25 @@ export const HOUSE_PARTS = {
 } as const;
 
 /** What the seasons add: blossom and falling leaves in the air, and the far hills in autumn and under frost. */
+/** What the things in the garden that answer a tap are painted with (see toys.ts). */
+export const TOYS = {
+  /** A footprint on a stepping stone, as the three numbers of its colour. */
+  footprint: '44,32,64',
+  /** The dark of the attic behind its open window. */
+  attic: '#3D2F5A',
+  /** The little person who waves from it: their head and hand, their eyes, and what they wear when the group has no colour to lend. */
+  face: '#FFD25A',
+  eyes: '#2C2040',
+  coat: '#8A4BE6',
+  /** Drops of water from the birdbath and the pond, and the rings that spread on them. */
+  drop: '#CFE3FF',
+  ripple: '#FFFFFF',
+  /** Snow knocked off a tree in winter. */
+  snow: '#FFFFFF',
+  /** Sparks from the fire pit. */
+  spark: '#FFB23E',
+};
+
 export const SEASONS = {
   blossom: '#F7C9EA',
   fallingLeaves: ['#D9552B', '#F0A93A', '#B8402E'],
@@ -214,6 +233,11 @@ export const HALL = {
   /** The shade of the table lamp and the globes of the wall lights. */
   shade: '#FFF1CC',
   lamp: '#FFE0A8',
+  /** The warm pool a lamp throws on the wall, and the colours a lamp goes through when it is tapped, after its own. */
+  pool: '#FFCD8C',
+  lights: ['#FF8FC7', '#B58BFF', '#7FB6FF', '#7FE3C4', '#FF9A5C'],
+  /** The pages of the album that opens. */
+  pages: '#FFFBF4',
   albums: ['#8A4BE6', '#F7C9EA', '#FFD9C7'],
   /** The three daisies in the vase. */
   vase: ['#E0489E', '#7B3FE4', '#2F7BE8'],

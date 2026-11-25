@@ -7,13 +7,22 @@
 // covers the cut as the camera goes through the door (see scene.ts).
 //
 // Ported from the design handoffs (design_handoff_garden_a_v3/garden3d-v3.js is the newest).
+//
+// Four things on each wall answer a tap, for the fun of it, and these are this app's own: the table
+// lamp and the wall light each turn through a few colours of light, the top album opens and turns
+// two pages, and the flowers in the vase open into daisies and shut again. None of it is kept:
+// the lamps are back to their own warm light the next time someone comes in.
 
 import * as THREE from 'three';
 
 import { clamp, damp } from './ground';
 import type { Kit } from './kit';
 import { HALL, PAINT } from './palette';
-import { FRAMES, frameScale, WALL, type Memory } from './plan';
+import { FRAMES, frameScale, nextLight, WALL, type Memory } from './plan';
+import type { Effect } from './sound';
+
+/** The things in the hallway that answer a tap. */
+export type HallToy = 'lamp' | 'sconce' | 'book' | 'vase';
 
 /** Where the hallway is. */
 const IN = new THREE.Vector3(0, -60, 0);
@@ -49,15 +58,29 @@ type Hung = {
   up: boolean;
 };
 
-type Bay = { group: THREE.Object3D; frames: Hung[] };
+/** The parts of one wall's sideboard that move when tapped: the album's cover and two of its pages, and each flower in the vase. */
+type Movers = { cover: THREE.Object3D | null; pages: (THREE.Object3D | null)[]; buds: (THREE.Object3D | null)[]; petals: (THREE.Object3D | null)[] };
+
+type Bay = { group: THREE.Object3D; frames: Hung[]; movers: Movers };
+
+/** What has been set going on one wall: how far through its turn the album is, and whether the vase's daisies are open. */
+type Play = { book: number | null; open: boolean; since: number; bloom: number[]; speed: number[] };
+
+/** How long the album takes to open, turn two pages and shut, in seconds. */
+const BOOK = 2.45;
+const ease = (x: number) => {
+  const c = clamp(x, 0, 1);
+  return c * c * (3 - 2 * c);
+};
 
 export type Hallway = ReturnType<typeof buildHallway>;
 
 /**
  * `captionFont` is the font family for the name under a pressed flower, as CSS writes it.
  * `onJumped` is told how far the camera must be moved sideways when a far jump lands, and at which wall.
+ * `onToy` is asked for the noise of something that was tapped.
  */
-export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: number, wall: number) => void) {
+export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: number, wall: number) => void, onToy: (effect: Effect, detail: number) => void) {
   const { lambert, basic, ball } = kit;
   const room = new THREE.Group();
   room.position.copy(IN);
@@ -154,7 +177,15 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
     });
   /** The soft shadow a frame casts on the wallpaper, and the warm pool of light round a lamp. */
   const shadowPaint = new THREE.MeshBasicMaterial({ map: blob('44,32,64', 0.45), transparent: true, depthWrite: false });
-  const poolPaint = new THREE.MeshBasicMaterial({ map: blob('255,205,140', 0.9), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.2 });
+  // The table lamp and the wall light each have a pool, a shade and a colour of their own, so each can be turned on its own.
+  const poolPicture = blob('255,255,255', 0.9);
+  const pool = () => new THREE.MeshBasicMaterial({ map: poolPicture, color: HALL.pool, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.2 });
+  const lampPool = pool();
+  const wallPool = pool();
+  const lampShade = basic(HALL.shade, { side: THREE.DoubleSide, fog: false });
+  const wallGlobe = basic(HALL.shade, { fog: false });
+  /** For the unseen shapes round the small things that answer a tap, so a finger does not have to be exact. */
+  const unseen = new THREE.MeshBasicMaterial({ visible: false });
   // A soft darkening toward the corners and the floor, laid over the wallpaper, so the wall reads as lit from the middle.
   const shadePaint = new THREE.MeshBasicMaterial({
     map: picture(128, 128, (x, w, h) => {
@@ -215,8 +246,9 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
   put(new THREE.BoxGeometry(0.14, HIGH, 0.07), white, BAY / 2, HIGH / 2, 0.035);
   put(new THREE.BoxGeometry(0.06, 0.17, 0.02), brass, BAY / 2, 2.72, 0.08);
   put(new THREE.BoxGeometry(0.02, 0.02, 0.1), brass, BAY / 2, 2.76, 0.13);
-  put(new THREE.SphereGeometry(0.07, 16, 12), basic(HALL.shade, { fog: false }), BAY / 2, 2.84, 0.17);
-  put(new THREE.PlaneGeometry(1.8, 1.8), poolPaint, BAY / 2, 2.84, 0.006);
+  put(new THREE.SphereGeometry(0.07, 16, 12), wallGlobe, BAY / 2, 2.84, 0.17);
+  put(new THREE.PlaneGeometry(1.8, 1.8), wallPool, BAY / 2, 2.84, 0.006);
+  put(new THREE.SphereGeometry(0.2, 8, 6), unseen, BAY / 2, 2.8, 0.14).userData.toy = 'sconce';
   put(new THREE.PlaneGeometry(BAY, DEEP).rotateX(-Math.PI / 2), lambert(PAINT.white, { map: planks }), 0, 0, DEEP / 2);
   // Where the floor meets the wall it is a little darker.
   put(
@@ -267,16 +299,43 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
   // The table lamp: a brass foot and stem under a cream shade, and its pool of light on the wall.
   put(new THREE.CylinderGeometry(0.07, 0.085, 0.03, 18), brass, -0.52, 0.69, 0.2, furniture);
   put(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 8), brass, -0.52, 0.81, 0.2, furniture);
-  put(new THREE.CylinderGeometry(0.085, 0.13, 0.17, 22, 1, true), basic(HALL.shade, { side: THREE.DoubleSide, fog: false }), -0.52, 0.98, 0.2, furniture);
-  put(new THREE.PlaneGeometry(1.2, 1.2), poolPaint, -0.52, 1.06, 0.007, furniture);
+  put(new THREE.CylinderGeometry(0.085, 0.13, 0.17, 22, 1, true), lampShade, -0.52, 0.98, 0.2, furniture);
+  put(new THREE.PlaneGeometry(1.2, 1.2), lampPool, -0.52, 1.06, 0.007, furniture);
+  put(new THREE.BoxGeometry(0.32, 0.46, 0.3), unseen, -0.52, 0.9, 0.2, furniture).userData.toy = 'lamp';
   const albums: [number, number, number, number, number][] = [
     [0.3, 0.045, 0.24, 0.697, 0],
     [0.28, 0.04, 0.23, 0.74, 0.14],
     [0.26, 0.04, 0.22, 0.78, -0.2],
   ];
-  albums.forEach(([w, h, d, y, turn], i) => {
+  albums.slice(0, 2).forEach(([w, h, d, y, turn], i) => {
     put(new THREE.BoxGeometry(w, h, d), lambert(HALL.albums[i]), 0.14, y, 0.2, furniture).rotation.y = turn;
   });
+  {
+    // The top album is made of parts, so it can open: its back cover and spine, its block of
+    // pages, and its front cover and two loose pages, each on a hinge along the spine.
+    const [w, h, d, y, turn] = albums[2];
+    const book = new THREE.Group();
+    book.position.set(0.14, y, 0.2);
+    book.rotation.y = turn;
+    furniture.add(book);
+    const cover = lambert(HALL.albums[2]);
+    const pages = lambert(HALL.pages);
+    put(new THREE.BoxGeometry(w, 0.008, d), cover, 0, -h / 2 + 0.004, 0, book);
+    put(new THREE.BoxGeometry(0.008, h, d), cover, -w / 2 + 0.004, 0, 0, book);
+    put(new THREE.BoxGeometry(w - 0.02, h - 0.016, d - 0.016), pages, 0.004, 0, 0, book);
+    const hinged = (name: string, shape: THREE.BoxGeometry, paint: THREE.Material, up: number) => {
+      const hinge = new THREE.Group();
+      hinge.name = name;
+      hinge.position.set(-w / 2 + 0.008, up, 0);
+      book.add(hinge);
+      put(shape, paint, shape.parameters.width / 2, 0, 0, hinge);
+      return hinge;
+    };
+    hinged('cover', new THREE.BoxGeometry(w - 0.008, 0.008, d), cover, h / 2 - 0.004);
+    const sheet = new THREE.BoxGeometry(w - 0.03, 0.002, d - 0.02);
+    for (const name of ['page1', 'page2']) hinged(name, sheet, pages, h / 2 - 0.009).visible = false;
+    put(new THREE.BoxGeometry(0.36, 0.2, 0.3), unseen, 0.14, 0.76, 0.2, furniture).userData.toy = 'book';
+  }
   put(new THREE.CylinderGeometry(0.045, 0.062, 0.2, 16), white, 0.56, 0.775, 0.2, furniture);
   const daisies: [number, number][] = [
     [-0.05, 0.14],
@@ -284,14 +343,62 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
     [0.07, 0.12],
   ];
   daisies.forEach(([dx, tall], k) => {
+    const paint = lambert(HALL.vase[k]);
     put(new THREE.CylinderGeometry(0.006, 0.006, tall, 5), lambert(HALL.stalk), 0.56 + dx * 0.5, 0.875 + tall / 2, 0.2, furniture).rotation.z = -dx * 2.2;
-    put(ball, lambert(HALL.vase[k]), 0.56 + dx, 0.875 + tall, 0.2 + k * 0.012, furniture).scale.set(0.05, 0.05, 0.018);
+    const bud = put(ball, paint, 0.56 + dx, 0.875 + tall, 0.2 + k * 0.012, furniture);
+    bud.scale.set(0.05, 0.05, 0.018);
+    bud.name = `bud${k}`;
     put(ball, lambert(PAINT.center), 0.56 + dx, 0.875 + tall, 0.215 + k * 0.012, furniture).scale.setScalar(0.02);
+    // The eight petals it opens into when the vase is tapped, folded away until then.
+    const petals = new THREE.Group();
+    petals.name = `petals${k}`;
+    petals.position.set(0.56 + dx, 0.875 + tall, 0.204 + k * 0.012);
+    petals.visible = false;
+    furniture.add(petals);
+    for (let i = 0; i < 8; i++) {
+      const round = new THREE.Group();
+      round.rotation.z = (i * Math.PI) / 4;
+      petals.add(round);
+      put(ball, paint, 0, 0.046, 0, round).scale.set(0.014, 0.03, 0.006);
+    }
   });
+  put(new THREE.BoxGeometry(0.3, 0.5, 0.22), unseen, 0.56, 0.93, 0.2, furniture).userData.toy = 'vase';
   // A warm lamp for the wall in view. It is stronger at night.
   const lamp = new THREE.PointLight(HALL.lamp, 0, 10, 1.2);
   lamp.position.copy(IN).add(new THREE.Vector3(0, 2.6, 2.4));
   kit.world.add(lamp);
+
+  // What tapping has set going. The two lights are the same on every wall, since every wall is a
+  // copy of one. 0 is a light's own warm colour, and 1 upward counts through `HALL.lights`.
+  let lampLight = 0;
+  let wallLight = 0;
+  const plays = new Map<number, Play>();
+  const mixed = new THREE.Color();
+  const pale = new THREE.Color(PAINT.white);
+  const relight = () => {
+    const turn = (light: number, shade: THREE.MeshBasicMaterial, on: THREE.MeshBasicMaterial) => {
+      // A coloured light keeps its shade pale, so it still reads as a lamp that is on.
+      if (light) shade.color.set(HALL.lights[light - 1]).lerp(pale, 0.45);
+      else shade.color.set(HALL.shade);
+      on.color.set(light ? HALL.lights[light - 1] : HALL.pool);
+    };
+    turn(lampLight, lampShade, lampPool);
+    turn(wallLight, wallGlobe, wallPool);
+    // The light the room is lit by is the two of them mixed.
+    lamp.color.set(lampLight ? HALL.lights[lampLight - 1] : HALL.lamp).lerp(mixed.set(wallLight ? HALL.lights[wallLight - 1] : HALL.lamp), 0.5);
+  };
+  /** The nearest thing along a ray that answers a tap, and which wall it is on. */
+  const toyAt = (ray: THREE.Raycaster): { toy: HallToy; wall: number } | null => {
+    const best = { found: null as { toy: HallToy; wall: number } | null, far: Infinity };
+    for (const [wall, b] of bays) {
+      const hit = ray.intersectObject(b.group, true).find((h) => h.object.userData.toy);
+      if (hit && hit.distance < best.far) {
+        best.far = hit.distance;
+        best.found = { toy: hit.object.userData.toy as HallToy, wall };
+      }
+    }
+    return best.found;
+  };
 
   /**
    * What hangs in a frame when the idea has no picture: its pressed flower, a daisy in its list's
@@ -490,7 +597,9 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
       const side = group.getObjectByName('furniture');
       if (side) side.scale.x = i % 2 ? -1 : 1;
       room.add(group);
-      bays.set(i, { group, frames: walls[i] ? hang(walls[i], group) : [] });
+      const named = (name: string) => group.getObjectByName(name) ?? null;
+      const movers: Movers = { cover: named('cover'), pages: [named('page1'), named('page2')], buds: [0, 1, 2].map((k) => named(`bud${k}`)), petals: [0, 1, 2].map((k) => named(`petals${k}`)) };
+      bays.set(i, { group, frames: walls[i] ? hang(walls[i], group) : [], movers });
     }
   };
 
@@ -568,6 +677,10 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
       awake = false;
       for (const b of bays.values()) takeDown(b);
       bays.clear();
+      // Whatever was played with is put back as it was.
+      lampLight = wallLight = 0;
+      relight();
+      plays.clear();
     },
     /** Hand back everything the graphics card was holding for the hallway, when the garden is closed for good. */
     dispose() {
@@ -618,6 +731,39 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
       jump = null;
       jumpGlow = 0;
     },
+    /** Whether a ray lands on something that answers a tap, for the pointer to show it. */
+    toyAt: (ray: THREE.Raycaster): HallToy | null => toyAt(ray)?.toy ?? null,
+    /**
+     * A tap along this ray that landed on no frame. True if something answered it. Nothing does
+     * while a frame is chosen, when a tap steps back from it. `still` is for people who have asked
+     * for less motion: the lamps still change colour and the daisies open at once, and the album stays shut.
+     */
+    tapToy(ray: THREE.Raycaster, still: boolean): boolean {
+      if (chosen !== null || jump) return false;
+      const found = toyAt(ray);
+      if (!found) return false;
+      if (found.toy === 'lamp' || found.toy === 'sconce') {
+        if (found.toy === 'lamp') lampLight = nextLight(lampLight, HALL.lights.length);
+        else wallLight = nextLight(wallLight, HALL.lights.length);
+        relight();
+        onToy('lamp', found.toy === 'lamp' ? lampLight : wallLight);
+        return true;
+      }
+      const play = plays.get(found.wall) ?? { book: null, open: false, since: 99, bloom: [0, 0, 0], speed: [0, 0, 0] };
+      plays.set(found.wall, play);
+      if (found.toy === 'book') {
+        if (still) return false;
+        if (play.book === null) {
+          play.book = 0;
+          onToy('page', 0);
+        }
+      } else {
+        play.open = !play.open;
+        play.since = 0;
+        onToy('petals', play.open ? 1 : 0);
+      }
+      return true;
+    },
     /** The frame on the wall in view that a ray lands on, if it lands on one. */
     frameAt(ray: THREE.Raycaster): number | null {
       const b = bays.get(at);
@@ -661,11 +807,53 @@ export function buildHallway(kit: Kit, captionFont: string, onJumped: (dx: numbe
         }
       }
       room.visible = inside;
-      lamp.intensity = inside ? 1.2 + night * 6 : 0;
+      // A light that has been turned a colour is brighter, by day too, so the colour shows.
+      lamp.intensity = inside ? Math.max(1.2 + night * 6, lampLight || wallLight ? 2.6 : 0) : 0;
       lamp.position.set(IN.x + wallX(at), IN.y + 2.6, IN.z + 2.4);
-      poolPaint.opacity = 0.05 + 0.4 * night;
+      lampPool.opacity = Math.max(0.05 + 0.4 * night, lampLight ? 0.3 : 0);
+      wallPool.opacity = Math.max(0.05 + 0.4 * night, wallLight ? 0.3 : 0);
       if (!inside) return;
       for (const [i, b] of bays) {
+        const play = plays.get(i);
+        {
+          // The album: its cover lifts over, two pages follow one after the other, and it all shuts again.
+          if (play && play.book !== null) {
+            play.book += dt;
+            if (play.book > BOOK || still) play.book = null;
+          }
+          const t = play?.book ?? null;
+          const lift = t === null ? 0 : ease(t / 0.45) * (1 - ease((t - 1.9) / 0.5));
+          if (b.movers.cover) b.movers.cover.rotation.z = 2.75 * lift;
+          b.movers.pages.forEach((page, n) => {
+            if (!page) return;
+            page.visible = t !== null && t > 0.4 && lift > 0.05;
+            page.rotation.z = t === null ? 0 : Math.min(2.7 * ease((t - 0.5 - n * 0.5) / 0.45), 2.75 * lift);
+          });
+        }
+        {
+          // The vase: each flower opens into a daisy on a spring, one after another, or folds back.
+          if (play) play.since += dt;
+          b.movers.petals.forEach((petals, k) => {
+            const bud = b.movers.buds[k];
+            if (!petals || !bud) return;
+            let open = 0;
+            if (play) {
+              const turned = play.since >= k * 0.13;
+              const want = play.open === turned ? 1 : 0;
+              if (still) play.bloom[k] = want;
+              else {
+                play.speed[k] += ((want - play.bloom[k]) * 90 - play.speed[k] * 10) * dt;
+                play.bloom[k] += play.speed[k] * dt;
+              }
+              open = play.bloom[k];
+            }
+            petals.visible = open > 0.02;
+            petals.scale.setScalar(Math.max(0.001, open));
+            petals.rotation.z = (1 - open) * 1.4;
+            const small = 1 - 0.55 * clamp(open, 0, 1);
+            bud.scale.set(0.05 * small, 0.05 * small, 0.018);
+          });
+        }
         const here = i === at;
         for (const f of b.frames) {
           f.size = damp(f.size, here && chosen === f.slot ? 1.1 : here && hover === f.slot ? 1.04 : 1, 10, dt);
