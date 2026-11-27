@@ -61,8 +61,8 @@ export function afterHold(): void {
 const CLUSTER = 26;
 export const CLUSTER_HANGS = 13;
 
-// What the two pills that hang off a comment's bottom edge have in common.
-const pill = (colors: Theme['colors'], pressed: boolean): ViewStyle => ({
+// What the pills that hang off a comment's bottom edge have in common.
+export const hangingPill = (colors: Theme['colors'], pressed: boolean): ViewStyle => ({
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
@@ -88,7 +88,7 @@ export function ReactionCluster({ summary, onPress }: { summary: ReactionSummary
       accessibilityLabel={summaryWords(summary)}
       onPress={onPress}
       hitSlop={9}
-      style={({ pressed }) => [pill(colors, pressed), { paddingLeft: 2, paddingRight: 8 }]}>
+      style={({ pressed }) => [hangingPill(colors, pressed), { paddingLeft: 2, paddingRight: 8 }]}>
       {summary.top.map((emoji, i) => (
         // Each sits on a disc the colour of the pill, so the one before it shows as a clean crescent.
         <View key={emoji} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', marginLeft: i ? -5 : 0, zIndex: summary.top.length - i }}>
@@ -104,12 +104,19 @@ export function ReactionCluster({ summary, onPress }: { summary: ReactionSummary
 
 /**
  * The small face with a plus, which opens the emoji to react with. A pill like the gathered
- * reactions, hanging off the comment's other bottom corner.
+ * reactions, hanging off the comment's other bottom corner. `beside` is for when another pill
+ * sits straight after it, such as the pencil on your own comment: the room to tap round the face
+ * then stops short on that side, where the other pill's begins.
  */
-export function AddReaction({ label, onPress }: { label: string; onPress: () => void }) {
+export function AddReaction({ label, onPress, beside }: { label: string; onPress: () => void; beside?: boolean }) {
   const { colors } = useTheme();
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={9} style={({ pressed }) => [pill(colors, pressed), { paddingHorizontal: 8 }]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={beside ? { top: 9, bottom: 9, left: 9, right: 4 } : 9}
+      style={({ pressed }) => [hangingPill(colors, pressed), { paddingHorizontal: 8 }]}>
       <ActionIcon name="emoji" size={17} />
     </Pressable>
   );

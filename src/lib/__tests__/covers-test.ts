@@ -15,6 +15,7 @@ import {
   nameSize,
   OWN_COLORS,
   patternStrength,
+  photoDown,
   readyLook,
   sameCover,
   shapeStrength,
@@ -132,6 +133,41 @@ describe('coverOf', () => {
     expect(coverOf({ id: GROUP, cover: 'sky', cover_style: { kind: 'photo', background: '#CDEFE0', pattern: true, photo: uploaded } })).toEqual({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: uploaded });
     const searched = { source: 'search', url: 'https://images.unsplash.com/photo-1?ixid=abc&w=1080', credit: 'Photo by Ann on Unsplash', creditUrl: 'https://unsplash.com/@ann?utm_source=somedaisy&utm_medium=referral' };
     expect(coverOf({ id: GROUP, cover: 'sky', cover_style: { kind: 'photo', background: '#CDEFE0', pattern: true, photo: searched } })).toEqual({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: searched });
+  });
+
+  it('reads how far down an uploaded photo its strip is taken from', () => {
+    const style = (down: unknown) => ({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: { source: 'upload', path: coverPath(GROUP), version: 3, down } });
+    const read = (down: unknown) => coverOf({ id: GROUP, cover: 'sky', cover_style: style(down) });
+    expect(read(1)).toEqual(style(1));
+    expect(read(0)).toEqual(style(0));
+    expect(photoDown(read(0.25))).toBe(0.25);
+    expect(photoDown(read(1))).toBe(1);
+    expect(photoDown(read(0))).toBe(0);
+    // The middle is not kept, and neither is anything that is not a number from 0 to 1. The photo still shows.
+    for (const down of [0.5, undefined, null, 2, -0.1, Number.NaN, '1', {}]) {
+      const cover = read(down);
+      expect(cover).toEqual({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: { source: 'upload', path: coverPath(GROUP), version: 3 } });
+      expect('down' in (cover as { photo: object }).photo).toBe(false);
+      expect(photoDown(cover)).toBe(0.5);
+    }
+  });
+
+  it('takes the strip from the middle of any other cover', () => {
+    expect(photoDown({ kind: 'classic', background: '#CDEFE0', pattern: true })).toBe(0.5);
+    expect(photoDown({ kind: 'photo', background: '#CDEFE0', pattern: true, photo: { source: 'search', url: 'https://images.unsplash.com/a', credit: 'Photo by Ann', creditUrl: 'https://unsplash.com/@ann' } })).toBe(0.5);
+  });
+
+  it('writes how far down the strip is taken from, and tells two covers apart by it', () => {
+    const cover = (down?: number): Cover => ({ kind: 'photo', background: '#cdefe0', pattern: true, photo: { source: 'upload', path: coverPath(GROUP), version: 3, down } });
+    expect(coverChange(cover(0.66666))).toEqual({ cover_style: { kind: 'photo', background: '#CDEFE0', pattern: true, photo: { source: 'upload', path: coverPath(GROUP), version: 3, down: 0.667 } } });
+    // The middle is written as it always was, so nothing changes for a photo that was not slid past the frame.
+    for (const down of [undefined, 0.5, 7]) {
+      const written = coverChange(cover(down)).cover_style as { photo: object };
+      expect(JSON.stringify(written.photo)).toBe(JSON.stringify({ source: 'upload', path: coverPath(GROUP), version: 3 }));
+    }
+    expect(sameCover(cover(1), cover(1))).toBe(true);
+    expect(sameCover(cover(1), cover(0))).toBe(false);
+    expect(sameCover(cover(0.5), cover())).toBe(true);
   });
 
   it('leaves the colour when a photo cannot be read', () => {

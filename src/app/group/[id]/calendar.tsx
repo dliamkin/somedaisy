@@ -2,6 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
+import { DeleteDoneDialog, DeleteDoneLink } from '@/components/delete-done';
 import { MonthGrid } from '@/components/month-grid';
 import { Button, Card, Chip, ErrorNote, FlowerCard, Loading, Screen, T, TopBar } from '@/components/ui';
 import { byDay, dayKey, longDayLabel, monthOf, shiftMonth, type Month } from '@/lib/calendar';
@@ -19,6 +20,8 @@ export default function GroupCalendar() {
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
   const [done, setDone] = useState<DoneIdea[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The finished thing whose "Delete" was tapped, while the app asks to be sure.
+  const [deleting, setDeleting] = useState<DoneIdea | null>(null);
 
   // Reload whenever the screen comes back into view, for example after changing a date.
   useFocusEffect(
@@ -74,74 +77,93 @@ export default function GroupCalendar() {
   };
 
   return (
-    <Screen>
-      <TopBar title="Calendar" subtitle={group.name} backTo={`/group/${id}`} />
-      <ErrorNote message={error} />
+    <View style={{ flex: 1 }}>
+      <Screen>
+        <TopBar title="Calendar" subtitle={group.name} backTo={`/group/${id}`} />
+        <ErrorNote message={error} />
 
-      <Card style={{ padding: 14, gap: 10 }}>
-        <MonthGrid
-          month={month}
-          onTurn={turn}
-          picked={picked}
-          today={now}
-          onPick={setPicked}
-          marks={(key) => ({ plans: plansByDay[key]?.length, done: doneByDay[key]?.length })}
-        />
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
-          <Legend color={colors.button} label="Planned" />
-          <Legend color={colors.good} label="Done" />
-        </View>
-      </Card>
-
-      <T size={16} weight="black">
-        {dayLabel(picked, now) === longDayLabel(picked) ? longDayLabel(picked) : `${dayLabel(picked, now)}, ${longDayLabel(picked)}`}
-      </T>
-
-      {plans.length === 0 && finished.length === 0 ? (
-        <T weight="medium" color={colors.textMuted}>
-          Nothing on this day. To plan something, open an idea in the group and pick a date.
-        </T>
-      ) : null}
-
-      {plans.map((plan) => (
-        <FlowerCard key={plan.id}>
-          <View style={{ gap: 2 }}>
-            <T size={13} weight="extra" color={colors.link}>
-              {timeLabel(new Date(plan.planned_for))}
-            </T>
-            <T size={17} weight="extra">
-              {plan.title}
-            </T>
-            {listName(plan.list_id) ? (
-              <T size={13} color={colors.textMuted}>
-                {listName(plan.list_id)}
-              </T>
-            ) : null}
-          </View>
-          <View style={{ flexDirection: 'row' }}>
-            <Chip outlined label="Change date" accessibilityLabel={`Change the date of ${plan.title}`} onPress={() => router.push(`/group/${id}/plan?idea=${plan.id}` as never)} />
-          </View>
-        </FlowerCard>
-      ))}
-
-      {finished.map((idea) => (
-        <Card key={idea.id}>
-          <View style={{ gap: 2 }}>
-            <T size={13} weight="extra" color={colors.good}>
-              Done
-            </T>
-            <T size={17} weight="extra">
-              {idea.title}
-            </T>
-            {listName(idea.list_id) ? (
-              <T size={13} color={colors.textMuted}>
-                {listName(idea.list_id)}
-              </T>
-            ) : null}
+        <Card style={{ padding: 14, gap: 10 }}>
+          <MonthGrid
+            month={month}
+            onTurn={turn}
+            picked={picked}
+            today={now}
+            onPick={setPicked}
+            marks={(key) => ({ plans: plansByDay[key]?.length, done: doneByDay[key]?.length })}
+          />
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
+            <Legend color={colors.button} label="Planned" />
+            <Legend color={colors.good} label="Done" />
           </View>
         </Card>
-      ))}
-    </Screen>
+
+        <T size={16} weight="black">
+          {dayLabel(picked, now) === longDayLabel(picked) ? longDayLabel(picked) : `${dayLabel(picked, now)}, ${longDayLabel(picked)}`}
+        </T>
+
+        {plans.length === 0 && finished.length === 0 ? (
+          <T weight="medium" color={colors.textMuted}>
+            Nothing on this day. To plan something, open an idea in the group and pick a date.
+          </T>
+        ) : null}
+
+        {plans.map((plan) => (
+          <FlowerCard key={plan.id}>
+            <View style={{ gap: 2 }}>
+              <T size={13} weight="extra" color={colors.link}>
+                {timeLabel(new Date(plan.planned_for))}
+              </T>
+              <T size={17} weight="extra">
+                {plan.title}
+              </T>
+              {listName(plan.list_id) ? (
+                <T size={13} color={colors.textMuted}>
+                  {listName(plan.list_id)}
+                </T>
+              ) : null}
+            </View>
+            <View style={{ flexDirection: 'row' }}>
+              <Chip outlined label="Change date" accessibilityLabel={`Change the date of ${plan.title}`} onPress={() => router.push(`/group/${id}/plan?idea=${plan.id}` as never)} />
+            </View>
+          </FlowerCard>
+        ))}
+
+        {finished.map((idea) => (
+          <Card key={idea.id}>
+            <View style={{ gap: 2 }}>
+              <T size={13} weight="extra" color={colors.good}>
+                Done
+              </T>
+              <T size={17} weight="extra">
+                {idea.title}
+              </T>
+              {listName(idea.list_id) ? (
+                <T size={13} color={colors.textMuted}>
+                  {listName(idea.list_id)}
+                </T>
+              ) : null}
+            </View>
+            {/* For something the group would rather not keep. It asks to be sure first. */}
+            <View style={{ flexDirection: 'row' }}>
+              <DeleteDoneLink title={idea.title} onPress={() => setDeleting(idea)} />
+            </View>
+          </Card>
+        ))}
+      </Screen>
+      {deleting && id ? (
+        <DeleteDoneDialog
+          groupId={id}
+          idea={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={async () => {
+            // The days are read afresh first, so the thing is gone from behind the question as it shuts.
+            const fresh = await fetchDone(id).catch(() => null);
+            if (fresh) setDone(fresh);
+            setDeleting(null);
+          }}
+        />
+      ) : null}
+    </View>
   );
 }
 

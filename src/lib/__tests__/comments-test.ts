@@ -1,9 +1,9 @@
-import { addComment, cleanComment, COMMENT_MAX, countByIdea, fetchComments, latestByIdea, removeComment, timeAgo } from '../comments';
+import { addComment, cleanComment, COMMENT_MAX, countByIdea, editComment, fetchComments, latestByIdea, removeComment, timeAgo, wasEdited } from '../comments';
 import { db } from '../supabase';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
 
-type Result = { data?: unknown; error?: { message: string } | null };
+type Result = { data?: unknown; error?: { message: string; code?: string } | null };
 
 /** A stand-in for the Supabase client that records the chain of calls and resolves to `result`. */
 function fakeClient(result: Result = {}) {
@@ -18,8 +18,9 @@ function fakeClient(result: Result = {}) {
   builder.then = (resolve: (r: Result) => unknown, reject: (e: unknown) => unknown) =>
     Promise.resolve({ data: null, error: null, ...result }).then(resolve, reject);
   const from = jest.fn((_table: string) => builder);
-  jest.mocked(db).mockReturnValue({ from } as never);
-  return { from, steps };
+  const rpc = jest.fn((_name: string, _args: unknown) => Promise.resolve({ data: null, error: null, ...result }));
+  jest.mocked(db).mockReturnValue({ from, rpc } as never);
+  return { from, rpc, steps };
 }
 
 describe('cleanComment', () => {
@@ -102,6 +103,13 @@ describe('fetchComments', () => {
     fakeClient({ error: { message: 'relation "comments" does not exist' } });
     await expect(fetchComments('i1')).rejects.toThrow('does not exist');
   });
+
+  it('asks for every column, so it still reads them before the database knows about edits', async () => {
+    const { steps } = fakeClient({ data: [] });
+    await fetchComments('i1');
+    expect(steps[0][0]).toBe('select');
+    expect(steps[0][1]).toBe('*');
+  });
 });
 
 describe('addComment', () => {
@@ -128,5 +136,48 @@ describe('removeComment', () => {
     const { steps } = fakeClient();
     await removeComment('c1');
     expect(steps).toEqual([['delete'], ['eq', 'id', 'c1']]);
+  });
+});
+
+describe('editComment', () => {
+  it('saves the trimmed words, and says they were changed', async () => {
+    const { rpc } = fakeClient({ data: true });
+    expect(await editComment('c1', '  Count me in \n')).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('edit_comment', { p_comment: 'c1', p_body: 'Count me in' });
+  });
+
+  it('says nothing was changed when the database found the same words', async () => {
+    fakeClient({ data: false });
+    expect(await editComment('c1', 'Count me in')).toBe(false);
+  });
+
+  it('asks nothing of the database when there are no words', async () => {
+    const { rpc } = fakeClient({ data: true });
+    expect(await editComment('c1', '  \n ')).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('cuts words the database would refuse as too long', async () => {
+    const { rpc } = fakeClient({ data: true });
+    await editComment('c1', 'x'.repeat(COMMENT_MAX + 50));
+    expect((rpc.mock.calls[0][1] as { p_body: string }).p_body).toHaveLength(COMMENT_MAX);
+  });
+
+  it('says so plainly when the database has not been updated yet', async () => {
+    fakeClient({ error: { code: 'PGRST202', message: 'Could not find the function public.edit_comment(p_body, p_comment) in the schema cache' } });
+    await expect(editComment('c1', 'Hi')).rejects.toThrow('not set up yet');
+  });
+
+  it('fails with what the database said otherwise', async () => {
+    fakeClient({ error: { message: 'That is not your comment' } });
+    await expect(editComment('c1', 'Hi')).rejects.toThrow('not your comment');
+  });
+});
+
+describe('wasEdited', () => {
+  it('is true only for a comment with a time its words were changed', () => {
+    expect(wasEdited({ edited_at: '2026-11-26T10:00:00Z' })).toBe(true);
+    expect(wasEdited({ edited_at: null })).toBe(false);
+    expect(wasEdited({})).toBe(false);
   });
 });

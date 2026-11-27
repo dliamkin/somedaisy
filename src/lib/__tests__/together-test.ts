@@ -1,9 +1,22 @@
 import { db } from '../supabase';
-import { canUndoDone, doItAgain, fetchAgainPrompts, fetchCompletions, fetchDoAgainVotes, fetchFreshCompletion, fetchPointsByGroup, setDoAgain, undoDone, UNDO_MINUTES } from '../together';
+import {
+  canUndoDone,
+  countForgotten,
+  deleteDone,
+  doItAgain,
+  fetchAgainPrompts,
+  fetchCompletions,
+  fetchDoAgainVotes,
+  fetchFreshCompletion,
+  fetchPointsByGroup,
+  setDoAgain,
+  undoDone,
+  UNDO_MINUTES,
+} from '../together';
 
 jest.mock('../supabase', () => ({ db: jest.fn() }));
 
-type Result = { data?: unknown; error?: { message: string; code?: string } | null };
+type Result = { data?: unknown; count?: number; error?: { message: string; code?: string } | null };
 type Call = { table: string; steps: [method: string, ...args: unknown[]][] };
 
 /** A stand-in for the Supabase client: each query on a table resolves to the next result queued for it. */
@@ -46,6 +59,12 @@ describe('fetchCompletions', () => {
   it('is an empty list for a group that has done nothing', async () => {
     fakeClient();
     expect(await fetchCompletions('g1')).toEqual([]);
+  });
+
+  it('takes whatever a completion has, so it reads the same before and after update 027', async () => {
+    const calls = fakeClient({ completions: [{ data: [{ id: 'c1', points: 20, forgotten: true }] }] });
+    expect(await fetchCompletions('g1')).toEqual([{ id: 'c1', points: 20, forgotten: true }]);
+    expect(argsOf(stepsFor(calls, 'completions')[0], 'select')?.[0]).toBe('*');
   });
 
   it('says "not available" instead of failing when points are not set up', async () => {
@@ -209,5 +228,52 @@ describe('undoDone', () => {
     await expect(undoDone('i1')).rejects.toThrow('Undo is not set up yet');
     withRpc({ error: { message: 'You are not in that group' } });
     await expect(undoDone('i1')).rejects.toThrow('You are not in that group');
+  });
+});
+
+describe('deleteDone', () => {
+  const withRpc = (result: Result) => {
+    const rpc = jest.fn(() => Promise.resolve({ data: null, error: null, ...result }));
+    jest.mocked(db).mockReturnValue({ rpc } as never);
+    return rpc;
+  };
+
+  it('asks the database to delete that finished idea, and says whether it did', async () => {
+    const rpc = withRpc({ data: true });
+    expect(await deleteDone('i1')).toBe(true);
+    expect(rpc).toHaveBeenCalledWith('delete_done', { p_idea: 'i1' });
+    // Not done any more: somebody put it back on its list in the meantime.
+    withRpc({ data: false });
+    expect(await deleteDone('i1')).toBe(false);
+  });
+
+  it('explains itself when deleting is not set up, and passes on any other failure', async () => {
+    withRpc({ error: { message: 'Could not find the function public.delete_done', code: 'PGRST202' } });
+    await expect(deleteDone('i1')).rejects.toThrow('Deleting is not set up yet');
+    withRpc({ error: { message: 'You are not in that group' } });
+    await expect(deleteDone('i1')).rejects.toThrow('You are not in that group');
+  });
+});
+
+describe('countForgotten', () => {
+  it('counts the things the group deleted, each once however often it was done', async () => {
+    const calls = fakeClient({ completions: [{ count: 3 }] });
+    expect(await countForgotten('g1')).toBe(3);
+    const [query] = stepsFor(calls, 'completions');
+    expect(argsOf(query, 'select')).toEqual(['id', { count: 'exact', head: true }]);
+    expect(allArgsOf(query, 'eq')).toEqual([
+      ['group_id', 'g1'],
+      ['forgotten', true],
+      ['repeat', false],
+    ]);
+  });
+
+  it('is none when it cannot be read, as before update 027, so the garden still opens', async () => {
+    fakeClient({ completions: [{ error: { message: 'column completions.forgotten does not exist', code: '42703' } }] });
+    expect(await countForgotten('g1')).toBe(0);
+    fakeClient({ completions: [offline] });
+    expect(await countForgotten('g1')).toBe(0);
+    fakeClient();
+    expect(await countForgotten('g1')).toBe(0);
   });
 });

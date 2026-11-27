@@ -4,6 +4,7 @@ import { AppState, BackHandler, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReducedMotion } from '@/components/celebrate';
+import { DeleteDoneDialog } from '@/components/delete-done';
 import { BedPager, CaptionBar, CardSource, CountPills, DoneList, GardenBar, GardenHeader, IdeaSheet, LookSheet, Postcard, Toast, type SheetIdea } from '@/components/garden-chrome';
 import GardenView, { type Visit } from '@/components/garden-view';
 import { PictureCrop } from '@/components/picture-crop';
@@ -50,7 +51,7 @@ import { savePostcard, sharePostcard } from '@/lib/postcard';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { fetchFreshCompletion, setDoAgain, undoDone } from '@/lib/together';
+import { countForgotten, fetchFreshCompletion, setDoAgain, undoDone } from '@/lib/together';
 
 /** How long to wait for a finished flower to reach the house before carrying on without it. */
 const LANDING_WAIT_MS = 4000;
@@ -86,8 +87,13 @@ export default function GardenScreen() {
   const [group, setGroup] = useState<GroupData | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
-  /** How many things the group has done, for the number on the book and for what it has earned. */
+  /** How many things the group has done and still has, for the number on the book. */
   const [done, setDone] = useState(0);
+  /**
+   * How many it has ever done, for what the yard has earned: those it still has and those it has
+   * since deleted. Deleting something takes nothing away from the garden.
+   */
+  const [ever, setEver] = useState(0);
   /** Everything the group has done, for the frames in the house. `turn` goes up each time it is read afresh. */
   const [finished, setFinished] = useState<{ ideas: DoneIdea[]; turn: number }>({ ideas: [], turn: 0 });
   const [selected, setSelected] = useState<string | null>(null);
@@ -139,6 +145,8 @@ export default function GardenScreen() {
   // A photo being added to a finished idea from its card: the photo, whose it is, and the picture it takes the place of.
   const [adding, setAdding] = useState<{ photo: PickedPhoto; ideaId: string; had: string | null } | null>(null);
   const [addBusy, setAddBusy] = useState(false);
+  // The finished idea whose "Delete" was tapped on its card, while the app asks to be sure.
+  const [deleting, setDeleting] = useState<Finished | null>(null);
   /** Extras that have just been earned, and anything the house has just gained, waiting to be announced. */
   const [earned, setEarned] = useState<{ words: string }[]>([]);
 
@@ -147,6 +155,7 @@ export default function GardenScreen() {
   // The answers and the number of things done at the last load, to notice a friend's vote and an extra being earned.
   const votesRef = useRef<GroupData['reactions'] | null>(null);
   const doneRef = useRef<number | null>(null);
+  const everRef = useRef<number | null>(null);
   // How far the house had grown at the last load, to notice it growing.
   const houseRef = useRef<number | null>(null);
   const turnRef = useRef(0);
@@ -184,7 +193,7 @@ export default function GardenScreen() {
     if (!id) return null;
     try {
       // The count is only for the badge and the extras, so the garden still opens without it.
-      const [g, count] = await Promise.all([fetchGroup(id), countDone(id).catch(() => null)]);
+      const [g, count, gone] = await Promise.all([fetchGroup(id), countDone(id).catch(() => null), countForgotten(id).catch(() => 0)]);
       if (g) {
         const growing = gardenIdeas(g);
         const fresh = newlyPlanted(knownRef.current, growing);
@@ -222,14 +231,17 @@ export default function GardenScreen() {
       setGroup(g);
       if (count !== null) {
         setDone(count);
-        const before = doneRef.current;
-        if (before !== count) void loadFinished();
-        // Finishing things together earns things for the yard.
-        if (before !== null && count > before) {
-          const won = newlyEarned(before, count);
-          if (won.length > 0) setEarned((waiting) => [...waiting, ...won.map((extra) => ({ words: earnedWords(count, extra) }))]);
-        }
+        if (doneRef.current !== count) void loadFinished();
         doneRef.current = count;
+        // Finishing things together earns things for the yard. What was done and later deleted still counts.
+        const total = count + gone;
+        setEver(total);
+        const before = everRef.current;
+        if (before !== null && total > before) {
+          const won = newlyEarned(before, total);
+          if (won.length > 0) setEarned((waiting) => [...waiting, ...won.map((extra) => ({ words: earnedWords(total, extra) }))]);
+        }
+        everRef.current = total;
       }
       setNow(new Date());
       setError(null);
@@ -418,7 +430,7 @@ export default function GardenScreen() {
 
   // The garden's look. A choice shows at once, and is saved behind it.
   const look = lookDraft ?? gardenLook(group.garden);
-  const out = extrasOut(look, done);
+  const out = extrasOut(look, ever);
 
   // The house: every finished idea in a frame, hung on walls by month.
   const walls = buildWalls(finishedIdeas(finished.ideas, group.lists));
@@ -687,7 +699,7 @@ export default function GardenScreen() {
   };
   const lockedExtra = (key: Extra) => {
     const extra = EXTRAS.find((e) => e.key === key);
-    if (extra) say(lockedWords(done, extra));
+    if (extra) say(lockedWords(ever, extra));
   };
   const changeSound = (on: boolean) => {
     setSound(on);
@@ -875,7 +887,7 @@ export default function GardenScreen() {
           }}
           onClose={() => setSelected(null)}
         />
-        <LookSheet open={lookOpen && !house} group={group.name} look={look} level={houseLevel(group.points)} done={done} sound={sound} onChange={changeLook} onLocked={lockedExtra} onSound={changeSound} onClose={() => setLookOpen(false)} />
+        <LookSheet open={lookOpen && !house} group={group.name} look={look} level={houseLevel(group.points)} done={ever} sound={sound} onChange={changeLook} onLocked={lockedExtra} onSound={changeSound} onClose={() => setLookOpen(false)} />
         <CaptionBar open={house && inside && !listOpen} title={caption.title} line={caption.line} walls={walls.length} wall={wallNow} onWall={(to) => walkTo(to)} onList={() => setListOpen(true)} />
         <DoneList
           open={house && inside && listOpen}
@@ -894,7 +906,7 @@ export default function GardenScreen() {
           line={carded ? finishedLine(carded, now) : (postcard?.line ?? '')}
           alt={carded && memCard ? `${carded.title}. ${sourceWords(carded, memCard.photo)}` : 'Postcard of the garden'}
           whole={carded !== null}
-          below={carded && memCard ? <CardSource idea={carded} shown={memCard.photo} busy={cardBusy || addBusy} onAdd={() => void addPhoto()} /> : null}
+          below={carded && memCard ? <CardSource idea={carded} shown={memCard.photo} busy={cardBusy || addBusy} onAdd={() => void addPhoto()} onDelete={() => setDeleting(carded)} /> : null}
           flash={flash}
           busy={cardBusy}
           onShare={() => makeCard('share')}
@@ -904,6 +916,22 @@ export default function GardenScreen() {
         {adding ? <PictureCrop photo={adding.photo} busy={addBusy} shape={CARD_SHAPE} shows="the card shows" onUse={(part) => void keepPhoto(part)} onCancel={() => setAdding(null)} /> : null}
         {/* After the postcard, so that what it says shows over it. */}
         <Toast words={toast?.words ?? null} turn={toast?.turn ?? 0} />
+        {/* Last, so it covers the card it was asked from. */}
+        {deleting ? (
+          <DeleteDoneDialog
+            groupId={group.id}
+            idea={{ id: deleting.id, title: deleting.title, picture: deleting.kept }}
+            onClose={() => setDeleting(null)}
+            onDeleted={async () => {
+              // Its card goes, the frames are hung again without it, and the others are told.
+              closeCard();
+              await Promise.all([loadFinished(), load()]);
+              tellRef.current();
+              setDeleting(null);
+              say('Deleted for everyone');
+            }}
+          />
+        ) : null}
 
         {didIt ? (
           <YouDidIt

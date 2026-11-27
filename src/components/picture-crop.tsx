@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Modal, Platform, useWindowDimensions, View, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { clampView, cropOf, MOST_ZOOM, moveView, PICTURE_SHAPE, shownSize, startView, zoomView, type CropRect, type CropView } from '@/lib/picture-crop';
+import { bandPlace, clampView, cropOf, middleBand, MOST_ZOOM, moveView, PICTURE_SHAPE, shownSize, startView, zoomView, type CropRect, type CropView } from '@/lib/picture-crop';
 import type { PickedPhoto } from '@/lib/picture-files';
 import { useTheme } from '@/lib/theme';
 
@@ -26,6 +26,13 @@ const KEY_STEP = 24;
  * The frame is the shape of an idea's picture unless `shape` says otherwise, which is how the
  * garden's house asks for the taller shape of its card. `shows` finishes the sentence "The part
  * inside the frame is what".
+ *
+ * `strip` is for a picture that is also shown as a wider strip, as a group's cover is on Home:
+ * two lines across the frame mark the part the strip shows, and `strip.shows` finishes the
+ * sentence "The part between the two lines is what". The photo can then be slid until its top
+ * or bottom edge reaches a line, not only the frame's edge, so that the strip can show the very
+ * top or bottom of the photo. Past the frame's edge the frame is left partly empty, less of the
+ * photo is kept, and `onUse` is told how far down the kept part the strip sits (see `bandPlace`).
  */
 export function PictureCrop({
   photo,
@@ -33,6 +40,7 @@ export function PictureCrop({
   busy,
   shape = PICTURE_SHAPE,
   shows = 'the idea shows',
+  strip,
   onUse,
   onCancel,
 }: {
@@ -40,11 +48,14 @@ export function PictureCrop({
   /** How much wider than tall the frame is. */
   shape?: number;
   shows?: string;
+  /** A wider strip the same picture is shown in: how much wider than tall it is, and where. */
+  strip?: { shape: number; shows: string };
   /** Where the photo was left the last time, if this is a second look at it. */
   start?: CropView | null;
   /** True while the chosen part is being cut out. */
   busy: boolean;
-  onUse: (part: CropRect, view: CropView) => void;
+  /** `down` is given only with `strip`: how far down the kept part the strip sits, 0.5 being its middle. */
+  onUse: (part: CropRect, view: CropView, down?: number) => void;
   onCancel: () => void;
 }) {
   const { colors } = useTheme();
@@ -53,18 +64,20 @@ export function PictureCrop({
   // The frame is as wide as an idea's card, and the shape its picture is shown in. A tall frame
   // is made narrower on a short screen, so the buttons under it stay on the screen.
   const widest = Math.max(200, Math.min(window.width, 480) - 32);
-  const tallest = Math.max(160, window.height - insets.top - insets.bottom - 350);
+  // The sentence about the strip takes two more lines at the top.
+  const tallest = Math.max(160, window.height - insets.top - insets.bottom - (strip ? 394 : 350));
   const height = Math.round(Math.min(widest / shape, tallest));
   const frame = { width: Math.round(Math.min(widest, height * shape)), height };
+  const band = strip ? middleBand(frame, strip.shape) : null;
   // Where the person has put the photo. Until they touch it, it is where it started.
   const [moved, setMoved] = useState<CropView | null>(start ?? null);
-  const view = clampView(photo, frame, moved ?? startView(photo, frame));
+  const view = clampView(photo, frame, moved ?? startView(photo, frame), band);
   const shown = shownSize(photo, frame, view.zoom);
 
   // What the drag handlers need, kept where they can read the newest of it.
-  const now = useRef({ photo, frame, view });
+  const now = useRef({ photo, frame, view, band });
   useEffect(() => {
-    now.current = { photo, frame, view };
+    now.current = { photo, frame, view, band };
   });
   const box = useRef<ComponentRef<typeof View>>(null);
   // Where the frame is on the screen, to place the spot between two fingers.
@@ -95,22 +108,22 @@ export function PictureCrop({
     if (!drag.current || drag.current.fingers !== fingers) begin(event);
     const from = drag.current;
     if (!from) return;
-    const { photo: p, frame: f } = now.current;
+    const { photo: p, frame: f, band: h } = now.current;
     if (fingers === 2 && from.apart > 0) {
       // Bigger or smaller about the spot between the two fingers.
       const [a, b] = event.nativeEvent.touches;
       const between = { x: (a.pageX + b.pageX) / 2 - corner.current.x, y: (a.pageY + b.pageY) / 2 - corner.current.y };
-      setMoved(zoomView(p, f, from.view, (from.view.zoom * apartOf(event)) / from.apart, between));
+      setMoved(zoomView(p, f, from.view, (from.view.zoom * apartOf(event)) / from.apart, between, h));
     } else {
       const first = firstOf(event);
-      setMoved(moveView(p, f, from.view, first.pageX - from.x, first.pageY - from.y));
+      setMoved(moveView(p, f, from.view, first.pageX - from.x, first.pageY - from.y, h));
     }
   };
   const onEnd = () => {
     drag.current = null;
   };
 
-  const zoomBy = (times: number) => setMoved(zoomView(photo, frame, view, view.zoom * times));
+  const zoomBy = (times: number) => setMoved(zoomView(photo, frame, view, view.zoom * times, undefined, band));
 
   // On a computer: the wheel makes the photo bigger and smaller about the pointer, the arrow keys move it, and plus and minus change its size.
   useEffect(() => {
@@ -118,18 +131,18 @@ export function PictureCrop({
     const element = box.current as unknown as HTMLElement | null;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      const { photo: p, frame: f, view: v } = now.current;
+      const { photo: p, frame: f, view: v, band: h } = now.current;
       const at = element?.getBoundingClientRect();
       const about = at ? { x: event.clientX - at.left, y: event.clientY - at.top } : undefined;
-      setMoved(zoomView(p, f, v, v.zoom * (event.deltaY < 0 ? 1.1 : 1 / 1.1), about));
+      setMoved(zoomView(p, f, v, v.zoom * (event.deltaY < 0 ? 1.1 : 1 / 1.1), about, h));
     };
     const onKey = (event: KeyboardEvent) => {
-      const { photo: p, frame: f, view: v } = now.current;
+      const { photo: p, frame: f, view: v, band: h } = now.current;
       const moves: Record<string, [number, number]> = { ArrowLeft: [KEY_STEP, 0], ArrowRight: [-KEY_STEP, 0], ArrowUp: [0, KEY_STEP], ArrowDown: [0, -KEY_STEP] };
       const move = moves[event.key];
-      if (move) setMoved(moveView(p, f, v, move[0], move[1]));
-      else if (event.key === '+' || event.key === '=') setMoved(zoomView(p, f, v, v.zoom * ZOOM_STEP));
-      else if (event.key === '-') setMoved(zoomView(p, f, v, v.zoom / ZOOM_STEP));
+      if (move) setMoved(moveView(p, f, v, move[0], move[1], h));
+      else if (event.key === '+' || event.key === '=') setMoved(zoomView(p, f, v, v.zoom * ZOOM_STEP, undefined, h));
+      else if (event.key === '-') setMoved(zoomView(p, f, v, v.zoom / ZOOM_STEP, undefined, h));
       else return;
       event.preventDefault();
     };
@@ -151,6 +164,7 @@ export function PictureCrop({
             </T>
             <T size={15} weight="medium" color={colors.textMuted}>
               Drag the picture to move it. {Platform.OS === 'web' ? 'Use the buttons to' : 'Pinch, or use the buttons, to'} make it bigger or smaller. The part inside the frame is what {shows}.
+              {band && strip ? ` The part between the two lines is what ${strip.shows}.` : ''}
             </T>
           </View>
           <View style={{ width: frame.width, height: frame.height, alignSelf: 'center' }}>
@@ -174,6 +188,16 @@ export function PictureCrop({
                 <Image source={{ uri: photo.uri }} style={{ width: '100%', height: '100%' }} contentFit="fill" />
               </View>
             </View>
+            {/* The two lines: white with a dark edge, to show on a pale photo and on a dark one. */}
+            {band
+              ? [band.top, band.top + band.height].map((at) => (
+                  <View
+                    key={at}
+                    pointerEvents="none"
+                    style={{ position: 'absolute', left: 0, right: 0, top: Math.round(at) - 1, height: 2, backgroundColor: colors.white, opacity: 0.9, boxShadow: `0 0 3px ${colors.ink}` }}
+                  />
+                ))
+              : null}
             {/* The frame's edge is drawn round the outside, so that all of what is inside it is kept. */}
             <View pointerEvents="none" style={{ position: 'absolute', left: -3, top: -3, right: -3, bottom: -3, borderRadius: 19, borderWidth: 3, borderColor: colors.button }} />
           </View>
@@ -194,7 +218,7 @@ export function PictureCrop({
           </View>
           <View style={{ flex: 1 }} />
           <View style={{ gap: 8 }}>
-            <Button label="Use this picture" busy={busy} onPress={() => onUse(cropOf(photo, frame, view), view)} />
+            <Button label="Use this picture" busy={busy} onPress={() => onUse(cropOf(photo, frame, view, band), view, band ? bandPlace(photo, frame, view, band) : undefined)} />
             <Button label="Cancel" kind="ghost" small disabled={busy} onPress={onCancel} />
           </View>
         </View>

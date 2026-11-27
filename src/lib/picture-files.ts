@@ -7,7 +7,7 @@ import * as Crypto from 'expo-crypto';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
-import { COVER_BUCKET, COVER_ENOUGH, COVER_MAX_BYTES, COVER_TRIES, fitWidth, NO_COVER_PHOTOS, PHOTO_NOT_SAVED } from './cover-photos';
+import { COVER_BUCKET, COVER_ENOUGH, COVER_MAX_BYTES, COVER_TRIES, COVER_WIDTH, NO_COVER_PHOTOS, PHOTO_NOT_SAVED } from './cover-photos';
 import { coverPath } from './covers';
 import { keptSize, type CropRect } from './picture-crop';
 import { base64Size, bytesFromBase64, fitWithin, NO_PICTURES, ownPicture, PICTURE_BUCKET, PICTURE_MAX_BYTES, picturePath, TOO_BIG } from './pictures';
@@ -18,8 +18,6 @@ export type ChosenPicture = { uri: string; base64: string };
 
 /** How a chosen picture is made small. */
 type Shrink = {
-  /** The size to make it, or null to leave its size alone. */
-  fit: (width: number, height: number) => { width: number; height: number } | null;
   /** How strongly it is squeezed as a JPEG, one try after another, gentlest first. */
   tries: number[];
   /** A try no bigger than this is kept, without going on to the next. */
@@ -29,13 +27,16 @@ type Shrink = {
 };
 
 // A picture on an idea: first as a good-looking JPEG. If that is still too big for the place it is kept, once more, squeezed harder.
-const FOR_IDEA: Shrink = { fit: (width, height) => fitWithin(width, height), tries: [0.72, 0.5], enough: PICTURE_MAX_BYTES, most: PICTURE_MAX_BYTES };
+const FOR_IDEA: Shrink = { tries: [0.72, 0.5], enough: PICTURE_MAX_BYTES, most: PICTURE_MAX_BYTES };
+
+// A cover photo is kept smaller, since every member loads it on Home.
+const FOR_COVER: Shrink = { tries: COVER_TRIES, enough: COVER_ENOUGH, most: COVER_MAX_BYTES };
 
 /** A picture as the picture tools hold it once it is drawn. */
 type Drawn = Awaited<ReturnType<ReturnType<typeof ImageManipulator.manipulate>['renderAsync']>>;
 
 /** Save a drawn picture as a JPEG small enough to keep, squeezing harder if the first try is too big. */
-async function squeeze(image: Drawn, how: Pick<Shrink, 'tries' | 'enough' | 'most'>): Promise<ChosenPicture> {
+async function squeeze(image: Drawn, how: Shrink): Promise<ChosenPicture> {
   for (const [i, compress] of how.tries.entries()) {
     // Saving it afresh as a JPEG also leaves out where and with what the photo was taken.
     const saved = await image.saveAsync({ compress, format: SaveFormat.JPEG, base64: true });
@@ -44,30 +45,10 @@ async function squeeze(image: Drawn, how: Pick<Shrink, 'tries' | 'enough' | 'mos
   }
   throw new Error(TOO_BIG);
 }
-// A cover photo is kept smaller, since every member loads it on Home.
-const FOR_COVER: Shrink = { fit: (width, height) => fitWidth(width, height), tries: COVER_TRIES, enough: COVER_ENOUGH, most: COVER_MAX_BYTES };
-
-async function choose(how: Shrink): Promise<ChosenPicture | null> {
-  const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
-  const asset = picked.canceled ? null : picked.assets?.[0];
-  if (!asset) return null;
-  let image = null;
-  // The chooser usually says how big the photo is. When it does not, the photo is opened to find out.
-  let size = how.fit(asset.width, asset.height);
-  if (!(asset.width > 0 && asset.height > 0)) {
-    image = await ImageManipulator.manipulate(asset.uri).renderAsync();
-    size = how.fit(image.width, image.height);
-  }
-  if (!image || size) {
-    const work = ImageManipulator.manipulate(asset.uri);
-    image = await (size ? work.resize(size) : work).renderAsync();
-  }
-  return squeeze(image, how);
-}
 
 /**
- * A photo someone has chosen for an idea, before they have said which part of it to show.
- * `uri` is a working copy the right way up, and the sizes are that copy's.
+ * A photo someone has chosen, for an idea or as a group's cover, before they have said which part
+ * of it to show. `uri` is a working copy the right way up, and the sizes are that copy's.
  */
 export type PickedPhoto = { uri: string; width: number; height: number };
 
@@ -75,14 +56,14 @@ export type PickedPhoto = { uri: string; width: number; height: number };
 const WORKING_SIDE = 2400;
 
 /**
- * Let the person choose a photo for an idea. Null when they back out without choosing. Only photos
- * are offered, and the phone's own chooser is used, so the app never sees any photo but the one
- * chosen.
+ * Let the person choose a photo, for an idea or as a group's cover. Null when they back out
+ * without choosing. Only photos are offered, and the phone's own chooser is used, so the app
+ * never sees any photo but the one chosen.
  *
  * What comes back is a working copy, not the picture to keep: the person still chooses which part
- * of it shows (src/components/picture-crop.tsx), and `cropPicture` then cuts that part out. The
- * copy is drawn afresh, so it is the right way up whichever way the phone was held, and its size
- * is the size the cut is measured in.
+ * of it shows (src/components/picture-crop.tsx), and `cropPicture` or `cropCover` then cuts that
+ * part out. The copy is drawn afresh, so it is the right way up whichever way the phone was held,
+ * and its size is the size the cut is measured in.
  */
 export async function pickPhoto(): Promise<PickedPhoto | null> {
   const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
@@ -100,19 +81,23 @@ export async function pickPhoto(): Promise<PickedPhoto | null> {
  * wide, as a JPEG. `part` is in the dots of the working copy `pickPhoto` gave. `most` is for a
  * part that is taller than it is wide, to keep its height within the same bound.
  */
-export async function cropPicture(photo: PickedPhoto, part: CropRect, most?: number): Promise<ChosenPicture> {
-  const cut = ImageManipulator.manipulate(photo.uri).crop(part);
-  const size = keptSize(part, most);
-  const image = await (size ? cut.resize(size) : cut).renderAsync();
-  return squeeze(image, FOR_IDEA);
+export function cropPicture(photo: PickedPhoto, part: CropRect, most?: number): Promise<ChosenPicture> {
+  return cutOut(photo, part, most, FOR_IDEA);
 }
 
 /**
  * The same, for a group's cover: no more than 1200 dots wide, as a JPEG of a few hundred
- * kilobytes at most. Null when they back out without choosing.
+ * kilobytes at most.
  */
-export function chooseCoverPhoto(): Promise<ChosenPicture | null> {
-  return choose(FOR_COVER);
+export function cropCover(photo: PickedPhoto, part: CropRect): Promise<ChosenPicture> {
+  return cutOut(photo, part, COVER_WIDTH, FOR_COVER);
+}
+
+async function cutOut(photo: PickedPhoto, part: CropRect, most: number | undefined, how: Shrink): Promise<ChosenPicture> {
+  const cut = ImageManipulator.manipulate(photo.uri).crop(part);
+  const size = keptSize(part, most);
+  const image = await (size ? cut.resize(size) : cut).renderAsync();
+  return squeeze(image, how);
 }
 
 /**

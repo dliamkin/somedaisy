@@ -1,26 +1,24 @@
-import { COVER_WIDTH, fitWidth, fromPhotoKey, nextVersion, photoKey, uploadedPhoto, versioned } from '../cover-photos';
+import { COVER_SHAPE, COVER_WIDTH, fromPhotoKey, nextVersion, photoKey, uploadedPhoto, versioned } from '../cover-photos';
 import { coverPath, type Cover } from '../covers';
+import { keptSize } from '../picture-crop';
 
 const GROUP = '0f0e0d0c-0b0a-4908-8706-050403020100';
 
-describe('fitWidth', () => {
-  it('brings a wide photo down to the limit and keeps its shape', () => {
-    expect(fitWidth(4000, 3000)).toEqual({ width: COVER_WIDTH, height: 900 });
-    expect(fitWidth(2400, 4000)).toEqual({ width: COVER_WIDTH, height: 2000 });
+describe('the part of a photo kept as a cover', () => {
+  it('is cut down to the widest a cover is kept, in the shape a cover is kept in', () => {
+    // The most a working copy can hold in that shape.
+    expect(keptSize({ width: 2400, height: 2400 / COVER_SHAPE }, COVER_WIDTH)).toEqual({ width: COVER_WIDTH, height: 800 });
   });
 
-  it('never makes a narrow photo bigger, however tall it is', () => {
-    expect(fitWidth(800, 600)).toBeNull();
-    expect(fitWidth(COVER_WIDTH, 9000)).toBeNull();
+  it('is never made bigger', () => {
+    expect(keptSize({ width: COVER_WIDTH, height: 800 }, COVER_WIDTH)).toBeNull();
+    expect(keptSize({ width: 600, height: 400 }, COVER_WIDTH)).toBeNull();
   });
 
-  it('keeps at least one dot of height', () => {
-    expect(fitWidth(120000, 10)).toEqual({ width: COVER_WIDTH, height: 1 });
-  });
-
-  it('leaves a photo of unknown size alone', () => {
-    expect(fitWidth(0, 0)).toBeNull();
-    expect(fitWidth(Number.NaN, 100)).toBeNull();
+  it('is taller than the card on Home and the preview in the picker, which show its middle', () => {
+    // A card on a phone 390 wide: 358 by 96. The preview: 358 by 132.
+    expect(COVER_SHAPE).toBeLessThan(358 / 132);
+    expect(COVER_SHAPE).toBeLessThan(358 / 96);
   });
 });
 

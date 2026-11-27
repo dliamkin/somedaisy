@@ -53,6 +53,15 @@ for (const before of [[], ['001-push-notifications.sql', '002-account-transfer.s
     eq((await coverOf()).cover_style, inOrder(searched));
   });
 
+  await test('an uploaded photo can say how far down it its strip is taken from', async () => {
+    // Added by the app later (27 November 2026), with no update to the database: the check lets it through.
+    for (const down of [0, 0.667, 1]) {
+      const placed = { ...uploaded(group, 7), photo: { ...uploaded(group, 7).photo, down } };
+      await setStyle(bo, placed);
+      eq((await coverOf()).cover_style, inOrder(placed));
+    }
+  });
+
   await test('the details can be emptied again', async () => {
     await setStyle(ann, null);
     eq(await coverOf(), inOrder({ cover: 'mint', cover_style: null }));

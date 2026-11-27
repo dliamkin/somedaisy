@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { nameColor, nameSize, patternStrength, shapeStrength, type Cover as CoverData } from '@/lib/covers';
+import { nameColor, nameSize, patternStrength, photoDown, shapeStrength, type Cover as CoverData } from '@/lib/covers';
 import { dark } from '@/lib/theme';
 
 import { useReducedMotion } from './celebrate';
@@ -142,6 +142,8 @@ export function Cover({
           source={{ uri: photo.uri, cacheKey: photo.key }}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: showing ? 1 : 0 }}
           contentFit="cover"
+          // Where the cover is less tall than the photo, the strip of it that was chosen. Otherwise its middle.
+          contentPosition={{ left: '50%', top: `${photoDown(cover) * 100}%` }}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           onLoad={() => setLoaded(mark)}

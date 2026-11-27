@@ -3,8 +3,8 @@
 // A group can upload one photo of its own. It is made small on the device, then kept in Supabase
 // Storage as the one file in the group's folder (supabase/updates/019-cover-photos.sql). That
 // place is private: only members can see the photo, and the app asks storage for an address that
-// works for a day each time it needs to show it (src/lib/cover-addresses.ts). Choosing, shrinking
-// and sending the photo are in src/lib/picture-files.ts.
+// works for a day each time it needs to show it (src/lib/cover-addresses.ts). Choosing the photo,
+// cutting out the part to keep, shrinking and sending it are in src/lib/picture-files.ts.
 //
 // See docs/REDESIGN-HOME-AND-GROUP-2.md, section 7.
 
@@ -15,6 +15,13 @@ export const COVER_BUCKET = 'group-covers';
 
 /** The widest a kept cover photo can be, in dots. A cover is never shown wider than a phone. */
 export const COVER_WIDTH = 1200;
+
+/**
+ * How much wider than tall the part of a photo kept as a cover is. It is close to the shape of
+ * the cover across the top of the group's page on a phone, the tallest a cover is ever shown. The
+ * card on Home and the preview in the cover picker are wider strips, and show its middle.
+ */
+export const COVER_SHAPE = 3 / 2;
 
 /** How strongly the photo is squeezed as a JPEG: first as it should look, then once more if that is still too big. */
 export const COVER_TRIES = [0.7, 0.5];
@@ -36,15 +43,6 @@ export const NO_COVER_PHOTOS = 'Cover photos cannot be saved yet. The database i
 
 /** Said when a photo could not be sent, for any other reason. The cover the group had is kept. */
 export const PHOTO_NOT_SAVED = "We couldn't save that photo. Try again.";
-
-/**
- * The size to make a photo so that it is no wider than `most`, keeping its shape. Null when it is
- * already narrow enough: a small photo is never made bigger.
- */
-export function fitWidth(width: number, height: number, most = COVER_WIDTH): { width: number; height: number } | null {
-  if (!(width > 0) || !(height > 0) || width <= most) return null;
-  return { width: most, height: Math.max(1, Math.round((height * most) / width)) };
-}
 
 // Versions are counted in seconds from this moment (14 November 2023), which keeps them short.
 const VERSIONS_FROM = 1_700_000_000;

@@ -4,12 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, View } from 'react-native';
 
 import { ActionIcon } from '@/components/action-icons';
+import { CommentEditor, EditCommentPill } from '@/components/comment-editor';
 import { AddReaction, afterHold, CLUSTER_HANGS, ReactionCluster, ReactionPeople, ReactionPicker } from '@/components/comment-reactions';
 import { PhotoCredit } from '@/components/cover-credit';
 import { Sheet } from '@/components/sheet';
 import { Avatar, Button, Card, ErrorNote, Field, Loading, Screen, T, TopBar } from '@/components/ui';
-import { DOUBLE_TAP_EMOJI, fetchCommentReactions, isDoubleTap, nextReaction, setCommentReaction, summarize, withReaction, type CommentReaction, type Tap } from '@/lib/comment-reactions';
-import { addComment, cleanComment, COMMENT_MAX, fetchComments, removeComment, timeAgo, type Comment } from '@/lib/comments';
+import { DOUBLE_TAP_EMOJI, fetchCommentReactions, isDoubleTap, nextReaction, setCommentReaction, summarize, tapOn, withReaction, type CommentReaction, type Tap } from '@/lib/comment-reactions';
+import { addComment, cleanComment, COMMENT_MAX, editComment, fetchComments, removeComment, timeAgo, wasEdited, type Comment } from '@/lib/comments';
 import { fetchGroup, markChanged, type Idea, type List, type Member } from '@/lib/data';
 import { openLink, siteName } from '@/lib/links';
 import { gather } from '@/lib/live';
@@ -48,6 +49,9 @@ const FINGER = Platform.OS !== 'web' || TOUCH_WEB;
  * A comment can be reacted to with an emoji: tap the small face that hangs off its bottom left
  * corner or, with a finger, press and hold it. Tapping it twice with a finger leaves a heart. Its
  * reactions are gathered at its bottom right corner, and tapping them shows who reacted.
+ *
+ * Your own comments have a small pencil beside that face. It opens the comment, to change its
+ * words or delete it. A comment whose words were changed says "edited" under them, for everyone.
  */
 export default function IdeaComments() {
   const { colors } = useTheme();
@@ -63,6 +67,8 @@ export default function IdeaComments() {
   // The comment the emoji are open for, and the comment whose reactions are being looked through.
   const [picking, setPicking] = useState<string | null>(null);
   const [looking, setLooking] = useState<string | null>(null);
+  // The comment of the person's own that is open to be changed or deleted.
+  const [editing, setEditing] = useState<string | null>(null);
   const notifyRef = useRef<() => void>(() => {});
   // The last tap on a comment, to tell when the next one makes it a double tap.
   const lastTap = useRef<Tap | null>(null);
@@ -137,14 +143,16 @@ export default function IdeaComments() {
     }
   };
 
+  // Both are for the comment that is open. When one fails, the sheet it is open in says why.
+  const saveWords = async (comment: Comment, words: string) => {
+    await editComment(comment.id, words);
+    setEditing(null);
+    await changed();
+  };
   const remove = async (comment: Comment) => {
-    setError(null);
-    try {
-      await removeComment(comment.id);
-      await changed();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not remove the comment.');
-    }
+    await removeComment(comment.id);
+    setEditing(null);
+    await changed();
   };
 
   // Leave a reaction on a comment, change it, or with null take it away. It shows at once and is saved behind that.
@@ -170,7 +178,7 @@ export default function IdeaComments() {
   };
   // Tapping a comment twice, quickly, leaves a heart on it. It never takes one away.
   const tapped = (commentId: string) => {
-    const tap = { commentId, at: Date.now() };
+    const tap = tapOn(commentId);
     const twice = isDoubleTap(lastTap.current, tap);
     lastTap.current = twice ? null : tap;
     if (!twice) return;
@@ -199,6 +207,7 @@ export default function IdeaComments() {
   // The sheets are only for a comment that is still here.
   const pickingFor = picking ? (comments.find((c) => c.id === picking) ?? null) : null;
   const lookingAt = looking && gathered[looking] && comments.some((c) => c.id === looking) ? looking : null;
+  const editingOne = editing ? (comments.find((c) => c.id === editing && c.user_id === userId) ?? null) : null;
   const sayer = (comment: Comment) => (comment.user_id === userId ? 'your' : `${who(comment.user_id)?.name ?? 'this'}${who(comment.user_id) ? "'s" : ''}`);
   const shown = cardPicture(idea);
   const picture = shown && broken !== shown ? shown : null;
@@ -277,12 +286,13 @@ export default function IdeaComments() {
         const author = who(comment.user_id);
         const mine = comment.user_id === userId;
         const summary = gathered[comment.id];
-        // The comment, and under its bottom edge the two pills that hang off it: the small face to
-        // react with on the left, and the reactions it has on the right. The room they hang into
-        // is part of the comment, so that all of each pill can be tapped on a phone.
+        // The comment, and under its bottom edge the pills that hang off it: on the left the small
+        // face to react with and, on the person's own, the pencil to change it, and on the right
+        // the reactions it has. The room they hang into is part of the comment, so that all of
+        // each pill can be tapped on a phone.
         const whole = (
           <>
-            <Card style={{ gap: 4, paddingBottom: mine ? 12 : 20, backgroundColor: mine ? colors.today : colors.card }}>
+            <Card style={{ gap: 4, paddingBottom: 20, backgroundColor: mine ? colors.today : colors.card }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                 <T size={14} weight="extra" lines={1} style={{ flexShrink: 1 }}>
                   {mine ? 'You' : (author?.name ?? 'Someone who left')}
@@ -294,10 +304,15 @@ export default function IdeaComments() {
               <T size={15} weight="medium">
                 {comment.body}
               </T>
-              {mine ? <Button label="Remove" kind="ghost" small onPress={() => remove(comment)} style={{ height: 32, paddingHorizontal: 0, alignSelf: 'flex-start' }} /> : null}
+              {wasEdited(comment) ? (
+                <T size={12} color={colors.textMuted}>
+                  edited
+                </T>
+              ) : null}
             </Card>
-            <View style={{ position: 'absolute', left: 12, bottom: 0 }}>
-              <AddReaction label={`React to ${sayer(comment)} comment`} onPress={() => setPicking(comment.id)} />
+            <View style={{ position: 'absolute', left: 12, bottom: 0, flexDirection: 'row', gap: 8 }}>
+              <AddReaction label={`React to ${sayer(comment)} comment`} onPress={() => setPicking(comment.id)} beside={mine} />
+              {mine ? <EditCommentPill label="Edit your comment" onPress={() => setEditing(comment.id)} /> : null}
             </View>
             {summary ? (
               <View style={{ position: 'absolute', right: 12, bottom: 0 }}>
@@ -339,6 +354,9 @@ export default function IdeaComments() {
             }}
           />
         </Sheet>
+      ) : null}
+      {editingOne ? (
+        <CommentEditor key={editingOne.id} body={editingOne.body} onSave={(words) => saveWords(editingOne, words)} onDelete={() => remove(editingOne)} onClose={() => setEditing(null)} />
       ) : null}
       {lookingAt ? (
         <Sheet title="Reactions" onClose={() => setLooking(null)}>

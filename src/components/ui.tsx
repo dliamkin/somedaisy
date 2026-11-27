@@ -411,12 +411,18 @@ export function Field({
   onSubmit,
   kind,
   after,
+  maxHeight,
 }: {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  /**
+   * The tallest a box of several lines grows to as it fills, after which what is in it scrolls.
+   * For a box on a sheet, which has to stay on the screen with the keyboard up.
+   */
+  maxHeight?: number;
   autoFocus?: boolean;
   maxLength?: number;
   onSubmit?: () => void;
@@ -477,6 +483,7 @@ export function Field({
           flex: 1,
           minWidth: 0,
           minHeight: multiline ? 88 : 52,
+          maxHeight: multiline ? maxHeight : undefined,
           borderRadius: 18,
           borderWidth: 2,
           borderColor: focused ? colors.button : colors.line,
