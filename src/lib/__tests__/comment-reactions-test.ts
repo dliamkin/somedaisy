@@ -10,6 +10,7 @@ import {
   SHOWN,
   summarize,
   summaryWords,
+  tapOn,
   withReaction,
   type CommentReaction,
 } from '../comment-reactions';
@@ -120,6 +121,14 @@ describe('tapping a comment twice', () => {
 
   it('is not a tap from before the last one, as when the clock is put back', () => {
     expect(isDoubleTap(first, { commentId: 'c-1', at: 900 })).toBe(false);
+  });
+
+  it('times a tap that has just happened by the clock', () => {
+    const before = Date.now();
+    const tap = tapOn('c-1');
+    expect(tap.commentId).toBe('c-1');
+    expect(tap.at).toBeGreaterThanOrEqual(before);
+    expect(tap.at).toBeLessThanOrEqual(Date.now());
   });
 
   it('leaves an emoji that is one of those offered', () => {

@@ -19,6 +19,7 @@ import { light, useTheme } from '@/lib/theme';
 
 import { useReducedMotion } from './celebrate';
 import { PhotoCredit } from './cover-credit';
+import { DeleteDoneLink } from './delete-done';
 import { BackIcon } from './daisy';
 import { T } from './ui';
 
@@ -864,7 +865,20 @@ export function LookSheet({
  * what lets it hang in a frame without a caption. `shown` is false when the picture could not be
  * loaded and the card shows the pressed flower instead.
  */
-export function CardSource({ idea, shown, busy, onAdd }: { idea: Pick<Finished, 'source' | 'credit'>; shown: boolean; busy: boolean; onAdd: () => void }) {
+export function CardSource({
+  idea,
+  shown,
+  busy,
+  onAdd,
+  onDelete,
+}: {
+  idea: Pick<Finished, 'source' | 'credit' | 'title'>;
+  shown: boolean;
+  busy: boolean;
+  onAdd: () => void;
+  /** Ask whether to delete this finished idea for everyone. */
+  onDelete: () => void;
+}) {
   const { colors } = useTheme();
   const label = idea.source === 'own' ? 'Change photo' : 'Add our photo';
   return (
@@ -887,6 +901,8 @@ export function CardSource({ idea, shown, busy, onAdd }: { idea: Pick<Finished, 
           {label}
         </T>
       </Pressable>
+      {/* For something the group would rather not keep on its wall. It asks to be sure first. */}
+      <DeleteDoneLink title={idea.title} color={colors.white} disabled={busy} onPress={onDelete} />
     </>
   );
 }

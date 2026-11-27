@@ -8,6 +8,7 @@ import {
   myAnswer,
   onShelf,
   POINTS,
+  remembered,
   stampsFor,
   TITLES,
   totalPoints,
@@ -155,6 +156,27 @@ describe('categoryEmoji', () => {
   it('falls back to the daisy', () => {
     expect(categoryEmoji('Whatever')).toBe('🌼');
     expect(categoryEmoji(null)).toBe('🌼');
+  });
+});
+
+describe('something the group has deleted', () => {
+  const picnic = done({ title: 'Picnic', points: 20, first_in_list: true });
+  const gone = done({ title: '', points: 30, first_in_list: true, waited_days: 200, forgotten: true });
+
+  it('still counts for points, since points never go down', () => {
+    expect(totalPoints([picnic, gone])).toBe(50);
+  });
+
+  it('has no stamp of any kind: not an ordinary one, not a first, not "Worth the wait"', () => {
+    const { ordinary, special } = stampsFor([picnic, gone]);
+    expect(ordinary.map((s) => s.title)).toEqual(['Picnic']);
+    expect(special.map((s) => s.caption)).toEqual(['Picnic']);
+    expect(stampsFor([gone])).toEqual({ ordinary: [], special: [] });
+  });
+
+  it('is left out of what the group still has, and a record from before the update is kept', () => {
+    expect(remembered([picnic, gone])).toEqual([picnic]);
+    expect(remembered([done({ forgotten: undefined }), done({ forgotten: false })])).toHaveLength(2);
   });
 });
 

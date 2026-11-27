@@ -1,10 +1,11 @@
-// Comments on an idea. Any member of the group can read and add them; people remove only their own.
-// Needs supabase/updates/003-comments.sql.
+// Comments on an idea. Any member of the group can read and add them; people change and remove only their own.
+// Needs supabase/updates/003-comments.sql, and 028-edit-comment.sql for changing one.
 
 import { COUNTED, everyRow } from './every-row';
 import { db } from './supabase';
 
-export type Comment = { id: string; idea_id: string; user_id: string; body: string; created_at: string };
+/** `edited_at` is when its words were last changed (update 028). Empty, or not there at all, for one that never was. */
+export type Comment = { id: string; idea_id: string; user_id: string; body: string; created_at: string; edited_at?: string | null };
 
 export const COMMENT_MAX = 500;
 
@@ -20,7 +21,8 @@ export async function fetchComments(ideaId: string): Promise<Comment[]> {
     (from, to) =>
       db()
         .from('comments')
-        .select('id, idea_id, user_id, body, created_at', COUNTED)
+        // Every column, so that this still reads the comments before update 028 has added one.
+        .select('*', COUNTED)
         .eq('idea_id', ideaId)
         .order('created_at', { ascending: true })
         .order('id')
@@ -43,6 +45,26 @@ export async function addComment(input: { groupId: string; ideaId: string; userI
 export async function removeComment(commentId: string): Promise<void> {
   const { error } = await db().from('comments').delete().eq('id', commentId);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Change the words of one of your own comments (update 028). True when they were changed, which
+ * marks the comment as edited. False when there was nothing to save: the words are the ones it
+ * already has, or there are none.
+ */
+export async function editComment(commentId: string, text: string): Promise<boolean> {
+  const body = cleanComment(text);
+  if (!body) return false;
+  const { data, error } = await db().rpc('edit_comment', { p_comment: commentId, p_body: body });
+  // The database has no such function until update 028 is run.
+  if (error?.code === 'PGRST202') throw new Error('Changing a comment is not set up yet. Try again later.');
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+/** Whether a comment's words have been changed since it was written. */
+export function wasEdited(comment: Pick<Comment, 'edited_at'>): boolean {
+  return Boolean(comment.edited_at);
 }
 
 /** How many comments each idea has, from the rows of a group's comments. */

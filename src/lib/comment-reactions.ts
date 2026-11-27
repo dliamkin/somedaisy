@@ -72,6 +72,11 @@ export const DOUBLE_TAP_MS = 300;
 /** A tap on a comment: which one, and when, in milliseconds. */
 export type Tap = { commentId: string; at: number };
 
+/** A tap on a comment that has just happened. */
+export function tapOn(commentId: string): Tap {
+  return { commentId, at: Date.now() };
+}
+
 /** Whether a tap, coming after the one before it, makes a double tap: the same comment, soon enough. */
 export function isDoubleTap(before: Tap | null, tap: Tap, within = DOUBLE_TAP_MS): boolean {
   if (!before || before.commentId !== tap.commentId) return false;

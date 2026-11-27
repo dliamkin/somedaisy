@@ -19,10 +19,15 @@ export function notSetUp(error: Failure | null): boolean {
   return Boolean(error && ['PGRST205', 'PGRST204', '42P01', '42703'].includes(error.code ?? ''));
 }
 
-/** Everything a group has done, newest first. Null when points are not set up in the database yet. */
+/**
+ * Everything a group has done, newest first, including the records of things it has since deleted
+ * (see `Completion.forgotten`): those still carry points. Null when points are not set up in the
+ * database yet.
+ */
 export async function fetchCompletions(groupId: string): Promise<Completion[] | null> {
   const { data, error } = await everyRow<Completion>(
-    (from, to) => db().from('completions').select(COMPLETION, COUNTED).eq('group_id', groupId).order('done_at', { ascending: false }).order('id').range(from, to),
+    // "*" takes whatever a completion has, so this works before and after update 027 (`forgotten`).
+    (from, to) => db().from('completions').select('*', COUNTED).eq('group_id', groupId).order('done_at', { ascending: false }).order('id').range(from, to),
     (completion) => completion.id,
   );
   if (notSetUp(error)) return null;
@@ -101,6 +106,31 @@ export async function fetchAgainPrompts(groupId: string, userId: string, now: Da
   return ((done.data ?? []) as AgainPrompt[])
     .filter((i) => !answered.has(i.id))
     .map((i) => ({ id: i.id, title: i.title, list_id: i.list_id, link: i.link ?? null, image_url: i.image_url, picture: i.picture, photo: i.photo, done_at: i.done_at }));
+}
+
+/**
+ * Delete something the group did, for everyone in it: it goes from "Things we did", the calendar
+ * and the garden's house, with its stamp, comments, votes and do-again answers. The group keeps
+ * the points it earned. False when the idea is not done, which changes nothing.
+ * Needs supabase/updates/027-delete-done.sql. The idea's own picture is a file, which the caller
+ * removes afterwards (`removePicture`).
+ */
+export async function deleteDone(ideaId: string): Promise<boolean> {
+  const { data, error } = await db().rpc('delete_done', { p_idea: ideaId });
+  if (error?.code === 'PGRST202') throw new Error('Deleting is not set up yet. Try again later.');
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+/**
+ * How many things a group did and has since deleted. They no longer show anywhere, but still
+ * count towards what the group's garden has earned, so deleting one takes nothing away from it.
+ * Each is counted once, however many times it was done. Zero when that cannot be read, which
+ * includes a database from before update 027.
+ */
+export async function countForgotten(groupId: string): Promise<number> {
+  const { count, error } = await db().from('completions').select('id', { count: 'exact', head: true }).eq('group_id', groupId).eq('forgotten', true).eq('repeat', false);
+  return error ? 0 : (count ?? 0);
 }
 
 /** How long after "We did it" the mark can still be undone, points and stamp included. */

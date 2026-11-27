@@ -12,8 +12,8 @@ Phase 2 so far: plans. Any idea can be given a day and a time of day, planned id
 And accounts: a guest can add an email, or continue with Google on the website, to keep their groups and sign in on other devices.
 And push notifications on phones, kept deliberately few: a reaction to or comment on an idea you
 added, and a reminder before a plan. Each person can switch any of them off.
-And comments: every idea has a conversation any member of the group can add to, and a comment can
-be reacted to with an emoji.
+And comments: every idea has a conversation any member of the group can add to, a comment can
+be reacted to with an emoji, and you can change or delete your own.
 
 ## First-time setup
 
@@ -349,11 +349,32 @@ the database empties `cover_style`, so every copy shows the colour that was just
 ### Cover photos
 
 A group can use one photo of its own as its cover. It is chosen on the Photo half of the cover
-picker, shown in the preview straight from the device, and only sent when "Save cover" is tapped
-(`chooseCoverPhoto` and `uploadCover` in `src/lib/picture-files.ts`). The rules are in
+picker, then the part of it to keep is chosen, and that part is shown in the preview straight from
+the device and only sent when "Save cover" is tapped
+(`pickPhoto`, `cropCover` and `uploadCover` in `src/lib/picture-files.ts`). The rules are in
 `src/lib/cover-photos.ts`.
 
-- **Small.** The photo is made no wider than 1200 dots and saved as a JPEG at about 70%. If that
+- **Cut to shape.** After choosing a photo the person chooses which part of it shows, on the same
+  screen a picture for an idea uses (`src/components/picture-crop.tsx`, see "A picture of your own on an idea"):
+  drag to move the photo, pinch or use the buttons to make it bigger or smaller. A cover shows in
+  more than one shape, so the frame is three wide to two tall (`COVER_SHAPE`), close to the cover
+  across the top of the group's page, the tallest a cover is shown. Two lines across the frame
+  mark the strip in the middle that the group's card on Home shows (`middleBand` in
+  `src/lib/picture-crop.ts`). Until the cover is saved, "Adjust this photo" goes back to the same
+  photo for a different part.
+- **To the very top or bottom.** The photo slides until its top or bottom edge reaches a line,
+  not only the frame's edge, so the strip Home shows can be the very top or bottom of the photo.
+  Past the frame's edge the frame is left partly empty: only what there is of the photo is kept,
+  so the kept part is less tall, and the group's page fills its cover with it by leaving off a
+  little at the sides. The strip is then no longer the middle of the kept part, so the cover
+  remembers where it is: `down` on the photo in `cover_style`, from 0 (the top) to 1 (the
+  bottom), left out for the middle (`bandPlace`, and `photoDown` in `src/lib/covers.ts`). The
+  cover is drawn with the photo placed by it (`contentPosition` in `src/components/cover.tsx`).
+  The database needed no update: its check on `cover_style` lets the extra detail through. A copy
+  of the app from before 27 November 2026 does not know `down` and shows the middle of the kept
+  part. A photo that was saved earlier cannot be adjusted, since only the
+  part that was kept still exists: upload it again. A photo found by search is never cut.
+- **Small.** The part kept is made no wider than 1200 dots and saved as a JPEG at about 70%. If that
   is over 400 KB it is squeezed once more. Saving it afresh also leaves out where and with what it
   was taken. The place it is kept refuses anything over 512 KB.
 - **One per group.** It is always the file `<group id>/cover.jpg` in the storage place
@@ -561,6 +582,28 @@ Things we did, by anyone in the group. The idea returns to its list and the poin
 has just earned are removed. This is the one case where points go down, and it needs
 `supabase/updates/013-undo-done.sql`; without it the app says undo is not set up yet.
 
+Something the group did can be deleted, for example one it would rather not be reminded of.
+"Delete" is under it in three places: on its card in Things we did, on its card under the day it
+was done in the calendar, and on its card in the garden's house, which comes up when its frame on
+the wall is tapped. Anyone in the group can, as anyone can remove an idea that is still on a
+list. The app asks to be sure first and says it cannot be undone (`src/components/delete-done.tsx`).
+
+- It goes for everyone, from all three places, with its comments, votes, do-again answers and
+  its own picture.
+- Its stamp goes too, and so does any "first from a list" or "Worth the wait" stamp it had. The
+  number of things done together on the stamps page goes down by one.
+- The group keeps the points it earned, so its rank, its daisy's petals and its house in the
+  garden stay as they are. What the garden's yard has earned (the bench, the pond and the rest)
+  stays too: something deleted still counts towards those (`countForgotten` in
+  `src/lib/together.ts`).
+- In the database the record of it is kept for its points, marked as forgotten and with its name
+  wiped. If it was the first thing done from its list, the next one from that list is not a
+  "first" again: those 5 points were given once and are still there.
+
+This needs `supabase/updates/027-delete-done.sql`, which needs updates 003 and 008. Without it
+the app says deleting is not set up yet, and everything else works as before. An older copy of
+the app, from before 26 November 2026, shows a stamp with no name for something deleted.
+
 All of this needs update 008. Without it the app works as before: no bar, no stamps, and done
 ideas keep their plain "Put it back on the list".
 
@@ -732,6 +775,38 @@ Android phone does not pass on a tap that lands outside the box a button is in.
 
 A guest who moves to an account keeps their comments but not their reactions to other people's
 comments.
+
+### Changing or deleting your own comment
+
+On an idea's page, each of your own comments has a small pencil beside the face for reacting
+(`EditCommentPill` in `src/components/comment-editor.tsx`). Other people's comments have none.
+
+- **The pencil opens the comment** on a sheet (`CommentEditor`): its words in a box, "Save", and
+  "Delete comment". The keyboard does not come up until the box is tapped.
+- **"Save"** is there to press once the words are different and not empty. The words are trimmed,
+  and 500 characters is still the most.
+- **A comment whose words were changed says "edited" under them**, small and grey, for everyone
+  who reads it. It says so from the first change on, and saving the same words changes nothing.
+- **"Delete comment" asks once more**, on the same sheet, before it does: the comment goes for
+  everyone, with the reactions to it. This took the place of the "Remove" that used to sit on
+  the comment and deleted it at one tap.
+- The comment keeps its reactions, its place in the conversation and the time it was written.
+- Nobody is sent a notification about a changed comment. People with the comments open see the
+  new words as they are saved (see "Live updates").
+- The newest comment shown on an idea's card on the group's page has the new words, without the
+  word "edited".
+
+Changing needs `supabase/updates/028-edit-comment.sql`, which needs update 003 (comments).
+Without it the comments open as before, and "Save" says that changing a comment is not set up
+yet. Deleting needs nothing new. In the database a comment can only be changed through the
+function `edit_comment`, by whoever wrote it while they are still in the group, and only its
+words: there is still no rule that lets anyone update the comments table. The helper is
+`editComment` in `src/lib/comments.ts`. An older copy of the app, from before 26 November 2026,
+shows the new words without "edited" and still has "Remove".
+
+A sheet (`src/components/sheet.tsx`) now rides above the keyboard, because this one has a box to
+type in. That also holds for every other sheet opened while the keyboard is up, such as the emoji
+for a comment.
 
 ### Reaction emoji
 

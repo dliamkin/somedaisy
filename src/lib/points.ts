@@ -23,6 +23,11 @@ export type Completion = {
   /** Waited more than 90 days. */
   long_wait: boolean;
   points: number;
+  /**
+   * Its idea has since been deleted (update 027). The points still count, since points never go
+   * down, but its name has been wiped and it has no stamp. Absent before that update is run.
+   */
+  forgotten?: boolean;
 };
 
 /** What each part of a completion is worth. The database holds the same numbers and has the final say. */
@@ -52,6 +57,11 @@ export type Level = {
   /** How far along the bar is between this title and the next, from 0 to 1. Full at the top. */
   progress: number;
 };
+
+/** The completions the group still has something to show for: every one whose idea has not been deleted. */
+export function remembered<T extends Pick<Completion, 'forgotten'>>(completions: T[]): T[] {
+  return completions.filter((c) => !c.forgotten);
+}
 
 export function totalPoints(completions: Pick<Completion, 'points'>[]): number {
   return completions.reduce((sum, c) => sum + (Number.isFinite(c.points) ? c.points : 0), 0);
@@ -148,10 +158,11 @@ export type Stamp = {
  * A group's passport page. Every completion earns a stamp for its list. On top of those come the
  * special stamps: the first thing done from each list, and the first thing that waited over
  * 100 days. Newest first, within each kind. `lists` are the group's lists in their usual order:
- * each stamp takes the icon and colour its list has today.
+ * each stamp takes the icon and colour its list has today. Something the group has deleted has
+ * no stamp of either kind.
  */
 export function stampsFor(completions: Completion[], lists: StampList[] = []): { special: Stamp[]; ordinary: Stamp[] } {
-  const newestFirst = [...completions].sort((a, b) => new Date(b.done_at).getTime() - new Date(a.done_at).getTime());
+  const newestFirst = remembered(completions).sort((a, b) => new Date(b.done_at).getTime() - new Date(a.done_at).getTime());
   const ordinary = newestFirst.map((c) => ({
     key: c.id,
     emoji: categoryEmoji(c.list_name),

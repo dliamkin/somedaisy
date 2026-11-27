@@ -64,12 +64,14 @@ export default function Stamps() {
 
   const points = totalPoints(completions);
   const level = levelFor(points);
+  // The points count everything the group ever did. The stamps, and the numbers about them, leave out
+  // what it has since deleted: there is one ordinary stamp for each thing it still has.
   const { special, ordinary } = stampsFor(completions, lists);
   const listsTried = new Set(ordinary.map((s) => s.list)).size;
 
   return (
     <Screen>
-      <TopBar title="Stamps" subtitle={completions.length === 1 ? '1 thing done together' : `${completions.length} things done together`} backTo={`/group/${id}`} />
+      <TopBar title="Stamps" subtitle={ordinary.length === 1 ? '1 thing done together' : `${ordinary.length} things done together`} backTo={`/group/${id}`} />
 
       <Card style={{ padding: 18, gap: 14 }}>
         <View>
@@ -143,7 +145,7 @@ export default function Stamps() {
         </T>
       </Card>
 
-      {completions.length > 0 ? (
+      {ordinary.length > 0 ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Tally count={ordinary.length} label={ordinary.length === 1 ? 'stamp' : 'stamps'} />
           <Tally count={special.length} label={special.length === 1 ? 'special stamp' : 'special stamps'} />
@@ -151,7 +153,7 @@ export default function Stamps() {
         </View>
       ) : null}
 
-      {completions.length === 0 ? (
+      {ordinary.length === 0 ? (
         <View style={{ alignItems: 'center', gap: 10, paddingVertical: 24 }}>
           <StampMark icon="daisy" color={TILE_COLORS[0]} size={72} tilt={-6} />
           <T size={20} weight="black" center>

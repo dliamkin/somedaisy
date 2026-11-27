@@ -10,10 +10,29 @@
 
 import { covers as CLASSIC_COLORS, light } from './theme';
 
-/** A photo on a cover: one the group uploaded (kept in storage), or one found by search (only its address is kept). */
+/**
+ * A photo on a cover: one the group uploaded (kept in storage), or one found by search (only its address is kept).
+ *
+ * `down` is for where a cover is a strip less tall than the photo, as on Home: how far down the
+ * photo the strip is taken from. 0 is the top of the photo, 1 the bottom, and left out it is the
+ * middle. Whoever uploaded the photo chose it (`bandPlace` in src/lib/picture-crop.ts).
+ */
 export type CoverPhoto =
-  | { source: 'upload'; path: string; version: number }
+  | { source: 'upload'; path: string; version: number; down?: number }
   | { source: 'search'; url: string; credit: string; creditUrl: string };
+
+/** How far down a cover's photo a strip of it is taken from: 0 the top, 0.5 the middle, 1 the bottom. */
+export function photoDown(cover: Cover): number {
+  const down = cover.kind === 'photo' && cover.photo.source === 'upload' ? cover.photo.down : undefined;
+  return down === undefined ? 0.5 : down;
+}
+
+// `down` as it is kept: left out when it is the middle, or not a number from 0 to 1.
+function keptDown(down: unknown): { down?: number } {
+  if (typeof down !== 'number' || !(down >= 0 && down <= 1)) return {};
+  const rounded = Math.round(down * 1000) / 1000;
+  return rounded === 0.5 ? {} : { down: rounded };
+}
 
 /**
  * A cover. Every kind keeps a `background` and whether the flower pattern is on: a photo cover
@@ -171,14 +190,14 @@ export function nameSize(name: string, base: number): number {
 // ---------- Reading a cover from a group's row, and writing one ----------
 
 function photoFrom(value: unknown, groupId: string | undefined): CoverPhoto | null {
-  const photo = value as { source?: unknown; path?: unknown; version?: unknown; url?: unknown; credit?: unknown; creditUrl?: unknown } | null;
+  const photo = value as { source?: unknown; path?: unknown; version?: unknown; down?: unknown; url?: unknown; credit?: unknown; creditUrl?: unknown } | null;
   if (!photo || typeof photo !== 'object') return null;
   if (photo.source === 'upload') {
     const version = photo.version;
     if (typeof photo.path !== 'string' || typeof version !== 'number' || !Number.isInteger(version) || version < 1) return null;
     // An uploaded photo is always the one file in its own group's folder.
     if (groupId !== undefined && photo.path !== coverPath(groupId)) return null;
-    return { source: 'upload', path: photo.path, version };
+    return { source: 'upload', path: photo.path, version, ...keptDown(photo.down) };
   }
   if (photo.source === 'search') {
     // Only a photo that is on the photo service's own servers, with a credit that leads back to it.
@@ -266,7 +285,7 @@ function tidyCover(cover: Cover): Cover {
   if (cover.kind === 'photo') {
     const photo: CoverPhoto =
       cover.photo.source === 'upload'
-        ? { source: 'upload', path: cover.photo.path, version: cover.photo.version }
+        ? { source: 'upload', path: cover.photo.path, version: cover.photo.version, ...keptDown(cover.photo.down) }
         : { source: 'search', url: cover.photo.url, credit: cover.photo.credit, creditUrl: cover.photo.creditUrl };
     return { kind: 'photo', background, pattern: cover.pattern, photo };
   }
